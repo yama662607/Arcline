@@ -11,7 +11,8 @@
     "bookmarks",
     "alarms",
     "commands",
-    "favicon"
+    "favicon",
+    "contextMenus"
   ],
   "side_panel": {
     "default_path": "sidebar.html"

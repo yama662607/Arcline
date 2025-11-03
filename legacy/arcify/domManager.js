@@ -1,13 +1,14 @@
 import { Utils } from './utils.js';
 import { RESTORE_ICON } from './icons.js';
 
-// DOM Elements
+// --- サイドバーで頻繁に参照する DOM 要素を先にキャッシュ ---
 const spacesList = document.getElementById('spacesList');
 const spaceSwitcher = document.getElementById('spaceSwitcher');
 const addSpaceBtn = document.getElementById('addSpaceBtn');
 const newTabBtn = document.getElementById('newTabBtn');
 const spaceTemplate = document.getElementById('spaceTemplate');
 
+// サイドバー初期化時に各種イベントリスナーを配線し、UI の初期状態を整える
 export function setupDOMElements(createNewSpace, createNewTab) {
     spaceSwitcher.addEventListener('wheel', (event) => {
         event.preventDefault();
@@ -17,17 +18,17 @@ export function setupDOMElements(createNewSpace, createNewTab) {
         spaceSwitcher.scrollLeft += scrollAmount;
     }, { passive: false });
 
-    // Add event listeners for buttons
+    // 各種ボタンのクリック処理をまとめて登録する
     addSpaceBtn.addEventListener('click', () => {
         const inputContainer = document.getElementById('addSpaceInputContainer');
         const spaceNameInput = document.getElementById('newSpaceName');
         const isInputVisible = inputContainer.classList.contains('visible');
 
-        // Toggle visibility classes
+        // 入力欄をスライド表示／非表示させる
         inputContainer.classList.toggle('visible');
         addSpaceBtn.classList.toggle('active');
 
-        // Toggle space switcher visibility
+        // スペーススイッチャーを一時的に隠し、入力にフォーカスさせる
         if (isInputVisible) {
             spaceSwitcher.style.opacity = '1';
             spaceSwitcher.style.visibility = 'visible';
@@ -48,22 +49,22 @@ export function setupDOMElements(createNewSpace, createNewTab) {
             const select = document.getElementById('spaceColor');
             const color = e.target.dataset.color;
 
-            // Update selected swatch
+            // カラーパレットの選択状態を更新
             colorPicker.querySelectorAll('.color-swatch').forEach(swatch => {
                 swatch.classList.remove('selected');
             });
             e.target.classList.add('selected');
 
-            // Update hidden select value
+            // 実際の select 要素にも値を反映する
             select.value = color;
 
-            // Trigger change event on select
+            // 呼び出し元のロジックのために change イベントを発火
             const event = new Event('change');
             select.dispatchEvent(event);
         }
     });
 
-    // Initialize selected swatches
+    // 初期表示時に選択済みカラーを反映
     document.querySelectorAll('.space-color-select').forEach(select => {
         const colorPicker = select.nextElementSibling;
         const currentColor = select.value;
@@ -73,13 +74,14 @@ export function setupDOMElements(createNewSpace, createNewTab) {
         }
     });
 
-    // Add input validation for new space name
+    // スペース名が空のままでは作成できないよう簡易バリデーション
     document.getElementById('newSpaceName').addEventListener('input', (e) => {
         const createSpaceBtn = document.getElementById('createSpaceBtn');
         createSpaceBtn.disabled = !e.target.value.trim();
     });
 }
 
+// 新規スペース名が既存とかぶった際にエラーポップアップを表示
 export function showSpaceNameInput() {
     const addSpaceBtn = document.getElementById('addSpaceBtn');
     const addSpaceInputContainer = document.getElementById('addSpaceInputContainer');
@@ -92,48 +94,51 @@ export function showSpaceNameInput() {
     const inputContainer = document.getElementById('addSpaceInputContainer');
     inputContainer.appendChild(errorPopup);
 
-    // Remove the error message after 3 seconds
+    // 3 秒後にエラー通知を自動で消して UI を元に戻す
     setTimeout(() => {
         errorPopup.remove();
     }, 3000);
     return;
 }
 
+// 指定タブ ID を UI 上でアクティブ表示にする
 export function activateTabInDOM(tabId) {
-    // Remove active class from all tabs and pinned favicons
+    // すべてのタブとピン留めアイコンからアクティブ状態を除去
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.pinned-favicon').forEach(f => f.classList.remove('active'));
 
-    // If there's a tab element with this ID, mark it active
+    // 対象のタブ要素が存在する場合のみアクティブ表示へ切り替える
     const targetTab = document.querySelector(`[data-tab-id="${tabId}"]`);
     if (targetTab) {
         targetTab.classList.add('active');
     }
 }
 
+// UI 上でアクティブなスペースを切り替え、テーマカラーとスイッチャーを更新
 export function activateSpaceInDOM(spaceId, spaces, updateSpaceSwitcher) {
-    // Show/hide space containers
+    // 渡された spaceId に一致するスペースだけを可視化し、それ以外は非表示にする
     document.querySelectorAll('.space').forEach(s => {
         const isActive = s.dataset.spaceId === String(spaceId);
         s.classList.toggle('active', isActive);
         s.style.display = isActive ? 'block' : 'none';
     });
 
-    // Get space color and update sidebar container background
+    // スペースのテーマカラーを取得し、サイドバー背景に反映
     const space = spaces.find(s => s.id === spaceId);
     if (space) {
-        // Update background color
+        // CSS カスタムプロパティを介してライト／ダーク両方の背景色を設定
         const sidebarContainer = document.getElementById('sidebar-container');
         sidebarContainer.style.setProperty('--space-bg-color', `var(--chrome-${space.color}-color, rgba(255, 255, 255, 0.1))`);
         sidebarContainer.style.setProperty('--space-bg-color-dark', `var(--chrome-${space.color}-color-dark, rgba(255, 255, 255, 0.1))`);
     }
 
-    // Update space switcher
+    // スペース切り替え UI も最新状態へ更新
     updateSpaceSwitcher();
 }
 
+// サイドバー上のタブ行に応じたコンテキストメニューを動的生成し表示する
 export function showTabContextMenu(x, y, tab, isPinned, isBookmarkOnly, tabElement, closeTab, spaces, moveTabToSpace, setActiveSpace, allBookmarkSpaceFolders, createSpaceFromInactive) {
-    // Remove any existing context menus
+    // 表示中のメニューがあれば一旦破棄し、複数重ならないようにする
     const existingMenu = document.getElementById('tab-context-menu');
     if (existingMenu) {
         existingMenu.remove();
@@ -141,14 +146,14 @@ export function showTabContextMenu(x, y, tab, isPinned, isBookmarkOnly, tabEleme
 
     const contextMenu = document.createElement('div');
     contextMenu.id = 'tab-context-menu';
-    contextMenu.className = 'context-menu'; // Reuse general context menu styling
+    contextMenu.className = 'context-menu'; // 共通スタイルを流用
     contextMenu.style.position = 'fixed';
     contextMenu.style.left = `${x}px`;
     contextMenu.style.top = `${y}px`;
 
-    // --- Menu Items ---
+    // --- メニュー項目群の構築 ---
 
-    // Only show these options for actual tabs that are part of a space
+    // 実タブ（ブックマーク専用行でないもの）のみに表示する項目
     if (!isBookmarkOnly) {
         const addToFavoritesOption = document.createElement('div');
         addToFavoritesOption.className = 'context-menu-item';
@@ -168,12 +173,12 @@ export function showTabContextMenu(x, y, tab, isPinned, isBookmarkOnly, tabEleme
         });
         contextMenu.appendChild(pinInSpaceOption);
 
-        // Add a separator
+        // ピン操作と移動操作を区切る罫線
         const separator = document.createElement('div');
         separator.className = 'context-menu-separator';
         contextMenu.appendChild(separator);
 
-        // 2. Move to Space
+        // 別スペースへ移動するサブメニュー
         const moveToSpaceItem = document.createElement('div');
         moveToSpaceItem.className = 'context-menu-item with-submenu';
         moveToSpaceItem.textContent = 'Move to Space';
@@ -181,7 +186,7 @@ export function showTabContextMenu(x, y, tab, isPinned, isBookmarkOnly, tabEleme
         const submenu = document.createElement('div');
         submenu.className = 'context-menu submenu';
 
-        // Add active spaces
+        // 現在存在するスペース一覧をサブメニューに展開
         const currentSpace = spaces.find(s => s.temporaryTabs.includes(tab.id) || s.spaceBookmarks.includes(tab.id));
         const otherActiveSpaces = spaces.filter(s => s.id !== currentSpace?.id);
         otherActiveSpaces.forEach(space => {
@@ -190,18 +195,18 @@ export function showTabContextMenu(x, y, tab, isPinned, isBookmarkOnly, tabEleme
             submenuItem.textContent = space.name;
             submenuItem.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                contextMenu.remove(); // Close menu immediately for better UX
-                
+                contextMenu.remove(); // 操作後すぐにメニューを閉じて操作感を高める
+
                 await moveTabToSpace(tab.id, space.id, false);
-                // Set the space as active, but prevent it from auto-activating a different tab
+                // 新しいスペースをアクティブにしつつ、別タブを勝手に選ばせない
                 await setActiveSpace(space.id, false); 
-                // Explicitly activate the tab that was just moved
+                // 移動直後のタブを明示的にアクティブ化
                 await chrome.tabs.update(tab.id, { active: true });
             });
             submenu.appendChild(submenuItem);
         });
 
-        // Add inactive spaces
+        // ブックマーク上の「休眠スペース」を候補に表示
         const activeSpaceNames = new Set(spaces.map(s => s.name));
         const inactiveSpaceFolders = allBookmarkSpaceFolders.filter(f => !f.url && !activeSpaceNames.has(f.title));
         
@@ -223,26 +228,26 @@ export function showTabContextMenu(x, y, tab, isPinned, isBookmarkOnly, tabEleme
             submenu.appendChild(submenuItem);
         });
 
-        // Only add the "Move to" menu if there's somewhere to move to
+        // 候補がない場合は「Move to Space」メニュー自体を表示しない
         if (submenu.hasChildNodes()) {
             moveToSpaceItem.appendChild(submenu);
             contextMenu.appendChild(moveToSpaceItem);
         }
     }
 
-    // Archive Tab (Only for active tabs)
+    // アクティブなタブのみアーカイブ操作を許可（ブックマークは除外）
     if (!isBookmarkOnly) {
         const archiveOption = document.createElement('div');
         archiveOption.className = 'context-menu-item';
         archiveOption.textContent = 'Archive Tab';
         archiveOption.addEventListener('click', async () => {
-            await Utils.archiveTab(tab.id); // Use the utility function
+            await Utils.archiveTab(tab.id); // 共通ユーティリティを介してアーカイブ
             contextMenu.remove();
         });
         contextMenu.appendChild(archiveOption);
     }
 
-    // Close Tab / Remove Bookmark
+    // タブを閉じる／ブックマーク行を削除する共通項目
     const closeOption = document.createElement('div');
     closeOption.className = 'context-menu-item';
     closeOption.textContent = isBookmarkOnly ? 'Remove Bookmark' : 'Close Tab';
@@ -252,20 +257,21 @@ export function showTabContextMenu(x, y, tab, isPinned, isBookmarkOnly, tabEleme
     });
     contextMenu.appendChild(closeOption);
 
-    // --- Add to DOM and setup closing ---
+    // --- DOM に追加し、閉じる条件を紐付ける ---
     document.body.appendChild(contextMenu);
 
-    // Close context menu when clicking outside
+    // メニュー外をクリックしたら閉じる（キャプチャで最優先に処理）
     const closeContextMenu = (e) => {
         if (!contextMenu.contains(e.target)) {
             contextMenu.remove();
-            document.removeEventListener('click', closeContextMenu, { capture: true }); // Use capture phase
+            document.removeEventListener('click', closeContextMenu, { capture: true }); // キャプチャフェーズで登録したものを解除
         }
     };
-    // Use capture phase to catch clicks before they bubble up
+    // バブリング前にハンドリングするため capture: true を指定
     document.addEventListener('click', closeContextMenu, { capture: true });
 }
 
+// アクティブスペースのアーカイブ一覧ポップアップを描画し、設定トグルも差し込む
 export async function showArchivedTabsPopup(activeSpaceId) {
     const spaceElement = document.querySelector(`[data-space-id="${activeSpaceId}"]`);
     const popup = spaceElement.querySelector('.archived-tabs-popup');
@@ -273,7 +279,7 @@ export async function showArchivedTabsPopup(activeSpaceId) {
     const message = popup.querySelector('.no-archived-tabs-message');
     list.innerHTML = '';
 
-    // --- Archiving Controls ---
+    // --- オートアーカイブ設定 UI の構築 ---
     let controls = popup.querySelector('.archiving-controls');
     if (!controls) {
         controls = document.createElement('div');
@@ -283,12 +289,12 @@ export async function showArchivedTabsPopup(activeSpaceId) {
         controls.innerHTML = '';
     }
 
-    // Fetch current settings
+    // 現在の設定値をストレージから取得
     const settings = await Utils.getSettings();
     const archivingEnabled = settings.autoArchiveEnabled;
     const archiveTime = settings.autoArchiveIdleMinutes;
 
-    // Toggle (styled)
+    // ON/OFF トグル（見た目はスイッチ風）
     const toggleLabel = document.createElement('label');
     toggleLabel.className = 'archiving-toggle-label';
     const toggleWrapper = document.createElement('span');
@@ -304,7 +310,7 @@ export async function showArchivedTabsPopup(activeSpaceId) {
     toggleLabel.appendChild(document.createTextNode('Enable Archiving'));
     controls.appendChild(toggleLabel);
 
-    // Archive time input (styled)
+    // アーカイブまでの待機時間を入力するボックス
     const timeContainer = document.createElement('div');
     timeContainer.className = 'archiving-time-container';
     const timeInput = document.createElement('input');
@@ -319,7 +325,7 @@ export async function showArchivedTabsPopup(activeSpaceId) {
     timeContainer.appendChild(minLabel);
     controls.appendChild(timeContainer);
 
-    // Event listeners
+    // 入力に応じて設定を即時保存
     toggle.addEventListener('change', async (e) => {
         const enabled = toggle.checked;
         timeInput.disabled = !enabled;
@@ -332,7 +338,7 @@ export async function showArchivedTabsPopup(activeSpaceId) {
         await Utils.setArchiveTime(val);
     });
 
-    // --- End Archiving Controls ---
+    // --- 設定 UI 構築ここまで ---
 
     if (!archivingEnabled) {
         message.textContent = 'Tab Archiving is disabled. Use the toggle above to enable.';
@@ -392,21 +398,24 @@ export async function showArchivedTabsPopup(activeSpaceId) {
     }
 }
 
+// Quick Pin ショートカット／メニュー操作を受け取り、該当タブをピン／解除するリスナーを登録
 export function setupQuickPinListener(moveTabToSpace, moveTabToPinned, moveTabToTemp) {
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.command === "quickPinToggle" || request.command === "toggleSpacePin") {
             console.log(`[QuickPin] Received command: ${request.command}`, { request });
             chrome.storage.local.get('spaces', function(result) {
+                // 現在のスペース状態をローカルストレージから読み出す
                 const spaces = result.spaces || [];
                 console.log("[QuickPin] Loaded spaces from storage:", spaces);
 
+                // 対象タブがテンポラリ配列かブックマーク配列にいるかでピン状態を反転させるヘルパー
                 const getTabAndToggle = (tabToToggle) => {
                     if (!tabToToggle) {
                         console.error("[QuickPin] No tab found to toggle.");
                         return;
                     }
                     console.log("[QuickPin] Toggling pin state for tab:", tabToToggle);
-                    
+
                     const spaceWithTempTab = spaces.find(space =>
                         space.temporaryTabs.includes(tabToToggle.id)
                     );
@@ -430,6 +439,7 @@ export function setupQuickPinListener(moveTabToSpace, moveTabToPinned, moveTabTo
                     }
                 };
 
+                // アクティブタブ全体に対するショートカットと、個別タブ指定のコマンドを振り分け
                 if (request.command === "quickPinToggle") {
                     console.log("[QuickPin] Handling quickPinToggle for active tab.");
                     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
@@ -444,4 +454,4 @@ export function setupQuickPinListener(moveTabToSpace, moveTabToPinned, moveTabTo
             });
         }
     });
-} 
+}
