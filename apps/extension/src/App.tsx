@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { UiMode } from './lib/ui-mode';
 import { requestUiMode } from './lib/ui-mode';
+import { SpaceList } from './ui/components/SpaceList';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
@@ -44,6 +45,14 @@ export default function App() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="grid gap-4 rounded-2xl border border-white/5 bg-black/30 p-6">
+          <h2 className="text-lg font-medium text-white">Spaces Preview</h2>
+          <SpaceList />
+          <p className="text-xs text-slate-500">
+            実際のタブ情報は Service Worker 経由で Chrome API から読み込みます。現段階ではモック表示です。
+          </p>
         </section>
 
         <section className="grid gap-3 rounded-2xl border border-white/5 bg-black/20 p-6">
