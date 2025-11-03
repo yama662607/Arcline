@@ -14,7 +14,7 @@
 - [x] 3.1 Zustand ストア (settings / spaces / tabs) を実装し、chrome.storage と同期
 - [ ] 3.2 Tailwind + Headless UI を用いて垂直タブ UI, Pinned セクション, スペーススイッチャーを構築し、shadcn/ui を必要なコンポーネントから順次導入
   - [x] 3.2.1 Pinned / Temporary のタブリストを `@tanstack/react-virtual` で描画
-  - [ ] 3.2.2 タブごとのコンテキストメニュー（ピン切替・スペース移動・クローズなど）を実装
+  - [x] 3.2.2 タブごとのコンテキストメニュー（ピン切替・スペース移動・クローズなど）を実装
   - [ ] 3.2.3 スペース切替／作成／削除の UI を React 側から呼び出す
 - [ ] 3.3 React Hook Form + Zod Resolver で設定/ショートカット編集フォームを構築
 - [ ] 3.4 DnD（`@dnd-kit/core` 等）・仮想リスト（`react-virtual` 等）・アニメーション（Framer Motion & Motion One）を導入し、Arcify 同等の UX を再現
