@@ -6,7 +6,7 @@
 
 ## 2. Service Worker & Infrastructure
 - [x] 2.1 `manifest.config.ts` を作成し、ブラウザフラグ (sidePanel, command shortcuts, content script) を注入できるようにする
-- [ ] 2.2 Service Worker を TypeScript で再実装し、tabs / tabGroups / bookmarks / storage / windows API ラッパーを作成
+- [x] 2.2 Service Worker を TypeScript で再実装し、tabs / tabGroups / bookmarks / storage / windows API ラッパーを作成
 - [x] 2.3 UI モード判定 (sidePanel / popup / window / floating) とメッセージングユーティリティを実装
 - [ ] 2.4 `tanstack/query` 導入のための基盤 (QueryClient 初期化、Service Worker ブリッジ) を準備するが、使用は後続フェーズで段階的に行う
 

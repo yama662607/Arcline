@@ -1,12 +1,10 @@
 /// <reference types="chrome" />
 
+import { hasChromeRuntime } from './utils';
+
 export type UiMode = 'side-panel' | 'popup';
 
 const DEFAULT_MODE: UiMode = 'side-panel';
-
-function hasChromeRuntime(): boolean {
-  return typeof chrome !== 'undefined' && typeof chrome.runtime?.sendMessage === 'function';
-}
 
 export async function requestUiMode(timeoutMs = 500): Promise<UiMode> {
   if (!hasChromeRuntime()) {

@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { UiMode } from './lib/ui-mode';
 import { requestUiMode } from './lib/ui-mode';
+import { requestSpacesSnapshot } from './lib/spaces';
 import { SpaceList } from './ui/components/SpaceList';
+import { useSpacesStore } from './store/spacesSlice';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
+  const setSpaces = useSpacesStore((state) => state.setSpaces);
 
   const shortcuts = useMemo(
     () => [
@@ -19,6 +22,14 @@ export default function App() {
   useEffect(() => {
     requestUiMode().then(setUiMode).catch(() => setUiMode('side-panel'));
   }, []);
+
+  useEffect(() => {
+    requestSpacesSnapshot()
+      .then((spaces) => setSpaces(spaces))
+      .catch((error) => {
+        console.warn('Failed to load spaces snapshot', error);
+      });
+  }, [setSpaces]);
 
   return (
     <div className="min-h-screen bg-surface text-slate-100">

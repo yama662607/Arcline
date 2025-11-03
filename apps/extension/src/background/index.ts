@@ -1,4 +1,6 @@
 /// <reference types="chrome" />
+import { getSpacesSnapshot } from './services/browser';
+
 const UI_MODE_KEY = 'arclineUiMode';
 type UiMode = 'side-panel' | 'popup';
 
@@ -32,15 +34,37 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
-  if (message?.command === 'requestUiMode') {
-    chrome.storage.local
-      .get(UI_MODE_KEY)
-      .then((result) => {
-        chrome.runtime.sendMessage({ command: 'currentUiMode', mode: result[UI_MODE_KEY] as UiMode });
-      })
-      .catch((error) => {
-        console.error('Failed to respond with UI mode', error);
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (typeof message !== 'object' || message === null) {
+    return false;
+  }
+
+  const { command } = message as { command?: string };
+
+  switch (command) {
+    case 'requestUiMode': {
+      (async () => {
+        try {
+          const result = await chrome.storage.local.get(UI_MODE_KEY);
+          sendResponse({ command: 'currentUiMode', mode: (result[UI_MODE_KEY] as UiMode) ?? 'side-panel' });
+        } catch (error) {
+          console.error('Failed to respond with UI mode', error);
+          sendResponse({ command: 'currentUiMode', mode: 'side-panel' as UiMode });
+        }
+      })();
+      return true;
+    }
+    case 'requestSpacesSnapshot': {
+      (async () => {
+        const spaces = await getSpacesSnapshot();
+        sendResponse({ command: 'spacesSnapshot', spaces });
+      })().catch((error) => {
+        console.error('Failed to respond with spaces snapshot', error);
+        sendResponse({ command: 'spacesSnapshot', spaces: [] });
       });
+      return true;
+    }
+    default:
+      return false;
   }
 });

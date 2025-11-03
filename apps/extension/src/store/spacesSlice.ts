@@ -1,33 +1,33 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
-export interface TabEntry {
-  id: number;
-  title: string;
-  url?: string;
-  pinned?: boolean;
-}
-
-export interface Space {
-  id: number;
-  name: string;
-  color: string;
-  pinnedTabs: TabEntry[];
-  temporaryTabs: TabEntry[];
-}
+import type { SpaceSnapshot } from '@/shared/spaces';
 
 interface SpacesState {
-  spaces: Space[];
+  spaces: SpaceSnapshot[];
   activeSpaceId: number | null;
-  setSpaces: (spaces: Space[]) => void;
+  setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
 }
 
 export const useSpacesStore = create<SpacesState>()(
-  devtools((set) => ({
+  devtools((set, get) => ({
     spaces: [],
     activeSpaceId: null,
-    setSpaces: (spaces) => set({ spaces }),
+    setSpaces: (spaces) =>
+      set((state) => {
+        const hasActive = spaces.some((space) => space.id === state.activeSpaceId);
+        const nextActive = hasActive
+          ? state.activeSpaceId
+          : spaces.length > 0
+            ? spaces[0].id
+            : null;
+
+        return {
+          spaces,
+          activeSpaceId: nextActive
+        };
+      }),
     setActiveSpace: (spaceId) => set({ activeSpaceId: spaceId })
   }))
 );
