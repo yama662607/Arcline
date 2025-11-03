@@ -1,0 +1,42 @@
+{
+  "name": "arcline-extension",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@headlessui/react": "^2.1.6",
+    "@hookform/resolvers": "^3.3.4",
+    "@heroicons/react": "^2.1.5",
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.12",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.2.10",
+    "motion": "^11.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.52.1",
+    "tailwind-merge": "^2.3.0",
+    "zustand": "^4.5.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react-swc": "^3.7.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.9",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vitest": "^2.0.5"
+  }
+}
