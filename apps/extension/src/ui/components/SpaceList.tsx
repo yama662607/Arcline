@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useSpacesStore } from '@/store/spacesSlice';
+import { useSpacesStore } from '@/store';
 
 export function SpaceList() {
   const spaces = useSpacesStore((state) => state.spaces);

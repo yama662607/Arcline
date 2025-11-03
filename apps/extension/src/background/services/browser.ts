@@ -160,3 +160,11 @@ export async function broadcastSpacesSnapshot(): Promise<void> {
     console.warn('Failed to broadcast spaces snapshot', error);
   }
 }
+
+export async function closeTab(tabId: number): Promise<void> {
+  await chrome.tabs.remove(tabId);
+}
+
+export async function activateTab(tabId: number): Promise<void> {
+  await chrome.tabs.update(tabId, { active: true });
+}

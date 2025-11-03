@@ -5,7 +5,9 @@ import {
   toggleTabPinned,
   moveTabToSpace,
   createSpace,
-  removeSpace
+  removeSpace,
+  closeTab,
+  activateTab
 } from './services/browser';
 
 const UI_MODE_KEY = 'arclineUiMode';
@@ -142,6 +144,43 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({ ok: true });
         } catch (error) {
           console.error('Failed to remove space', error);
+          sendResponse({ ok: false, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'closeTab': {
+      const { tabId } = message as { tabId?: number };
+      if (typeof tabId !== 'number') {
+        sendResponse({ ok: false, error: 'tabId is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          await closeTab(tabId);
+          await broadcastSpacesSnapshot();
+          sendResponse({ ok: true });
+        } catch (error) {
+          console.error('Failed to close tab', error);
+          sendResponse({ ok: false, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'activateTab': {
+      const { tabId } = message as { tabId?: number };
+      if (typeof tabId !== 'number') {
+        sendResponse({ ok: false, error: 'tabId is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          await activateTab(tabId);
+          sendResponse({ ok: true });
+        } catch (error) {
+          console.error('Failed to activate tab', error);
           sendResponse({ ok: false, error: (error as Error).message });
         }
       })();

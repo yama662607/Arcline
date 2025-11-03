@@ -5,12 +5,19 @@ import { requestUiMode } from './lib/ui-mode';
 import { requestSpacesSnapshot } from './lib/spaces';
 import { hasChromeRuntime } from './lib/utils';
 import { SpaceList } from './ui/components/SpaceList';
+import { TabList } from './ui/components/TabList';
 import { useSpacesStore } from './store';
 import type { SpaceSnapshot } from './shared/spaces';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
   const setSpaces = useSpacesStore((state) => state.setSpaces);
+  const spaces = useSpacesStore((state) => state.spaces);
+  const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
+  const activeSpace = useMemo(
+    () => spaces.find((space) => space.id === activeSpaceId) ?? null,
+    [spaces, activeSpaceId]
+  );
 
   const shortcuts = useMemo(
     () => [
@@ -79,11 +86,27 @@ export default function App() {
         </section>
 
         <section className="grid gap-4 rounded-2xl border border-white/5 bg-black/30 p-6">
-          <h2 className="text-lg font-medium text-white">Spaces Preview</h2>
+          <h2 className="text-lg font-medium text-white">Spaces</h2>
           <SpaceList />
-          <p className="text-xs text-slate-500">
-            実際のタブ情報は Service Worker 経由で Chrome API から読み込みます。現段階ではモック表示です。
-          </p>
+          {activeSpace ? (
+            <div className="grid gap-4">
+              <TabList
+                title="Pinned"
+                tabs={activeSpace.pinnedTabs}
+                spaces={spaces}
+                activeSpaceId={activeSpaceId}
+                pinned
+              />
+              <TabList
+                title="Temporary"
+                tabs={activeSpace.temporaryTabs}
+                spaces={spaces}
+                activeSpaceId={activeSpaceId}
+              />
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">スペースが見つかりませんでした。</p>
+          )}
         </section>
 
         <section className="grid gap-3 rounded-2xl border border-white/5 bg-black/20 p-6">
