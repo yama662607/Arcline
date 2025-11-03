@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 
 import type { SpaceSnapshot } from '@/shared/spaces';
+import { createChromeStorage } from './persist';
 
 interface SpacesState {
   spaces: SpaceSnapshot[];
@@ -11,23 +12,34 @@ interface SpacesState {
 }
 
 export const useSpacesStore = create<SpacesState>()(
-  devtools((set, get) => ({
-    spaces: [],
-    activeSpaceId: null,
-    setSpaces: (spaces) =>
-      set((state) => {
-        const hasActive = spaces.some((space) => space.id === state.activeSpaceId);
-        const nextActive = hasActive
-          ? state.activeSpaceId
-          : spaces.length > 0
-            ? spaces[0].id
-            : null;
+  devtools(
+    persist(
+      (set, get) => ({
+        spaces: [],
+        activeSpaceId: null,
+        setSpaces: (spaces) =>
+          set((state) => {
+            const hasActive = spaces.some((space) => space.id === state.activeSpaceId);
+            const nextActive = hasActive
+              ? state.activeSpaceId
+              : spaces.length > 0
+                ? spaces[0].id
+                : null;
 
-        return {
-          spaces,
-          activeSpaceId: nextActive
-        };
+            return {
+              spaces,
+              activeSpaceId: nextActive
+            };
+          }),
+        setActiveSpace: (spaceId) => set({ activeSpaceId: spaceId })
       }),
-    setActiveSpace: (spaceId) => set({ activeSpaceId: spaceId })
-  }))
+      {
+        name: 'arcline-spaces',
+        storage: createChromeStorage<SpacesState>('spaces'),
+        partialize: (state) => ({
+          activeSpaceId: state.activeSpaceId
+        })
+      }
+    )
+  )
 );

@@ -5,7 +5,7 @@ import { requestUiMode } from './lib/ui-mode';
 import { requestSpacesSnapshot } from './lib/spaces';
 import { hasChromeRuntime } from './lib/utils';
 import { SpaceList } from './ui/components/SpaceList';
-import { useSpacesStore } from './store/spacesSlice';
+import { useSpacesStore } from './store';
 import type { SpaceSnapshot } from './shared/spaces';
 
 export default function App() {

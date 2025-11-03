@@ -11,7 +11,7 @@
 - [ ] 2.4 `tanstack/query` 導入のための基盤 (QueryClient 初期化、Service Worker ブリッジ) を準備するが、使用は後続フェーズで段階的に行う
 
 ## 3. React UI Migration
-- [ ] 3.1 Zustand ストア (settings / spaces / tabs) を実装し、chrome.storage と同期
+- [x] 3.1 Zustand ストア (settings / spaces / tabs) を実装し、chrome.storage と同期
 - [ ] 3.2 Tailwind + Headless UI を用いて垂直タブ UI, Pinned セクション, スペーススイッチャーを構築し、shadcn/ui を必要なコンポーネントから順次導入
 - [ ] 3.3 React Hook Form + Zod Resolver で設定/ショートカット編集フォームを構築
 - [ ] 3.4 DnD（`@dnd-kit/core` 等）・仮想リスト（`react-virtual` 等）・アニメーション（Framer Motion & Motion One）を導入し、Arcify 同等の UX を再現
