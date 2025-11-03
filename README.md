@@ -40,6 +40,14 @@ pnpm --filter arcline-extension dev
 
 Vite の Dev サーバーが起動し、React + Tailwind ベースのプレースホルダー UI が表示されます。拡張としての sidePanel やポップアップ UI は順次実装していきます。
 
+### 拡張パッケージのビルド
+
+```bash
+pnpm --filter arcline-extension build
+```
+
+`apps/extension/dist/` に Manifest V3 形式の成果物が出力されます。Chrome の「パッケージ化されていない拡張機能を読み込む」で `dist/` を選択すると検証できます。
+
 ### Lint / Format / Test
 
 ```bash

@@ -1,0 +1,52 @@
+import { defineManifest } from '@crxjs/vite-plugin';
+
+const manifest = defineManifest(({ mode }) => {
+  const isDev = mode === 'development';
+
+  return {
+    manifest_version: 3,
+    name: isDev ? 'Arcline (Dev)' : 'Arcline',
+    description: 'Arc ブラウザ風の垂直タブ体験を Atlas / Arc / Chrome で提供する拡張機能',
+    version: '0.0.1',
+    default_locale: 'en',
+    action: {
+      default_title: 'Arcline'
+    },
+    icons: {
+      '128': 'assets/icon-128.png'
+    },
+    background: {
+      service_worker: 'src/background/index.ts',
+      type: 'module'
+    },
+    side_panel: {
+      default_path: 'index.html'
+    },
+    permissions: ['tabs', 'tabGroups', 'bookmarks', 'storage', 'sidePanel', 'commands'],
+    host_permissions: ['<all_urls>'],
+    commands: {
+      _execute_action: {
+        suggested_key: {
+          default: 'Ctrl+E',
+          mac: 'Command+E'
+        },
+        description: 'Open Arcline side panel'
+      },
+      quickPinToggle: {
+        suggested_key: {
+          default: 'Ctrl+D',
+          mac: 'Command+D'
+        },
+        description: 'Quick pin or unpin the active tab'
+      }
+    },
+    web_accessible_resources: [
+      {
+        resources: ['index.html', 'assets/*'],
+        matches: ['<all_urls>']
+      }
+    ]
+  };
+});
+
+export default manifest;
