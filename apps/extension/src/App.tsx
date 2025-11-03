@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { UiMode } from './lib/ui-mode';
 import { requestUiMode } from './lib/ui-mode';
 import { requestSpacesSnapshot } from './lib/spaces';
+import { hasChromeRuntime } from './lib/utils';
 import { SpaceList } from './ui/components/SpaceList';
 import { useSpacesStore } from './store/spacesSlice';
+import type { SpaceSnapshot } from './shared/spaces';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
@@ -29,6 +31,24 @@ export default function App() {
       .catch((error) => {
         console.warn('Failed to load spaces snapshot', error);
       });
+  }, [setSpaces]);
+
+  useEffect(() => {
+    if (!hasChromeRuntime()) return undefined;
+
+    const listener = (message: unknown) => {
+      if (typeof message !== 'object' || message === null) return;
+
+      const payload = message as { command?: string; spaces?: SpaceSnapshot[] };
+      if (payload.command === 'spacesSnapshot' && Array.isArray(payload.spaces)) {
+        setSpaces(payload.spaces);
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(listener);
+    return () => {
+      chrome.runtime.onMessage.removeListener(listener);
+    };
   }, [setSpaces]);
 
   return (

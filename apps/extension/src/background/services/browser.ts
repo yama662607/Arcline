@@ -12,6 +12,9 @@ const DEFAULT_COLORS: Record<string, string> = {
   cyan: '#06b6d4'
 };
 
+const TAB_GROUPS_SUPPORTED = typeof chrome.tabGroups !== 'undefined';
+const TAB_GROUP_ID_NONE = TAB_GROUPS_SUPPORTED ? chrome.tabGroups!.TAB_GROUP_ID_NONE : -1;
+
 function mapTab(tab: chrome.tabs.Tab): TabEntry | null {
   if (typeof tab.id !== 'number') return null;
 
@@ -30,11 +33,8 @@ function colorFromGroup(group: chrome.tabGroups.TabGroup): string {
 
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
   try {
-    const tabGroupsSupported = typeof chrome.tabGroups?.query === 'function';
-    const TAB_GROUP_ID_NONE = chrome.tabGroups?.TAB_GROUP_ID_NONE ?? -1;
-
     const [tabGroups, allTabs] = await Promise.all([
-      tabGroupsSupported ? chrome.tabGroups!.query({}) : Promise.resolve<chrome.tabGroups.TabGroup[]>([]),
+      TAB_GROUPS_SUPPORTED ? chrome.tabGroups!.query({}) : Promise.resolve<chrome.tabGroups.TabGroup[]>([]),
       chrome.tabs.query({})
     ]);
 
@@ -71,7 +71,7 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
         targetSpace.temporaryTabs.push(entry);
       }
 
-      if (!groupMap.has(targetGroupId) && targetGroupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+      if (!groupMap.has(targetGroupId) && targetGroupId !== TAB_GROUP_ID_NONE) {
         // Group may have been removed between queries. Add placeholder entry.
         groupMap.set(targetGroupId, targetSpace);
       }
@@ -91,5 +91,72 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
   } catch (error) {
     console.warn('Failed to load spaces snapshot', error);
     return [];
+  }
+}
+
+export async function toggleTabPinned(tabId: number, nextPinned?: boolean): Promise<boolean> {
+  const tab = await chrome.tabs.get(tabId);
+  const pinned = nextPinned ?? !tab.pinned;
+  await chrome.tabs.update(tabId, { pinned });
+  return pinned;
+}
+
+export async function moveTabToSpace(tabId: number, spaceId: number): Promise<number | null> {
+  if (!TAB_GROUPS_SUPPORTED) {
+    await chrome.tabs.ungroup(tabId);
+    return null;
+  }
+
+  if (spaceId === TAB_GROUP_ID_NONE) {
+    await chrome.tabs.ungroup(tabId);
+    return null;
+  }
+
+  const groupId = await chrome.tabs.group({ groupId: spaceId, tabIds: tabId });
+  return groupId;
+}
+
+export async function createSpace(name: string, color?: chrome.tabGroups.ColorEnum): Promise<number> {
+  if (!TAB_GROUPS_SUPPORTED) {
+    throw new Error('Tab groups are not supported in this browser');
+  }
+
+  let tabId: number | undefined;
+
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (activeTab?.id) {
+    tabId = activeTab.id;
+  } else {
+    const newTab = await chrome.tabs.create({ active: true });
+    tabId = newTab.id;
+  }
+
+  if (typeof tabId !== 'number') {
+    throw new Error('Failed to locate a tab for grouping');
+  }
+
+  const groupId = await chrome.tabs.group({ tabIds: tabId });
+  await chrome.tabGroups.update(groupId, {
+    title: name,
+    color: color ?? 'blue'
+  });
+  return groupId;
+}
+
+export async function removeSpace(spaceId: number): Promise<void> {
+  if (!TAB_GROUPS_SUPPORTED) return;
+
+  const tabs = await chrome.tabs.query({ groupId: spaceId });
+  if (!tabs.length) return;
+
+  await chrome.tabs.ungroup(tabs.map((tab) => tab.id!).filter((id): id is number => typeof id === 'number'));
+}
+
+export async function broadcastSpacesSnapshot(): Promise<void> {
+  const spaces = await getSpacesSnapshot();
+  try {
+    await chrome.runtime.sendMessage({ command: 'spacesSnapshot', spaces });
+  } catch (error) {
+    console.warn('Failed to broadcast spaces snapshot', error);
   }
 }

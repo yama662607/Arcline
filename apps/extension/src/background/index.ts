@@ -1,5 +1,12 @@
 /// <reference types="chrome" />
-import { getSpacesSnapshot } from './services/browser';
+import {
+  getSpacesSnapshot,
+  broadcastSpacesSnapshot,
+  toggleTabPinned,
+  moveTabToSpace,
+  createSpace,
+  removeSpace
+} from './services/browser';
 
 const UI_MODE_KEY = 'arclineUiMode';
 type UiMode = 'side-panel' | 'popup';
@@ -64,7 +71,110 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       });
       return true;
     }
+    case 'toggleTabPinned': {
+      const { tabId, pinned } = message as { tabId?: number; pinned?: boolean };
+      if (typeof tabId !== 'number') {
+        sendResponse({ ok: false, error: 'tabId is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          const nextPinned = await toggleTabPinned(tabId, pinned);
+          await broadcastSpacesSnapshot();
+          sendResponse({ ok: true, pinned: nextPinned });
+        } catch (error) {
+          console.error('Failed to toggle pin state', error);
+          sendResponse({ ok: false, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'moveTabToSpace': {
+      const { tabId, spaceId } = message as { tabId?: number; spaceId?: number };
+      if (typeof tabId !== 'number' || typeof spaceId !== 'number') {
+        sendResponse({ ok: false, error: 'tabId and spaceId are required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          const groupId = await moveTabToSpace(tabId, spaceId);
+          await broadcastSpacesSnapshot();
+          sendResponse({ ok: true, groupId });
+        } catch (error) {
+          console.error('Failed to move tab to space', error);
+          sendResponse({ ok: false, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'createSpace': {
+      const { name, color } = message as { name?: string; color?: chrome.tabGroups.ColorEnum };
+      if (!name) {
+        sendResponse({ ok: false, error: 'name is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          const groupId = await createSpace(name, color);
+          await broadcastSpacesSnapshot();
+          sendResponse({ ok: true, groupId });
+        } catch (error) {
+          console.error('Failed to create space', error);
+          sendResponse({ ok: false, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'removeSpace': {
+      const { spaceId } = message as { spaceId?: number };
+      if (typeof spaceId !== 'number') {
+        sendResponse({ ok: false, error: 'spaceId is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          await removeSpace(spaceId);
+          await broadcastSpacesSnapshot();
+          sendResponse({ ok: true });
+        } catch (error) {
+          console.error('Failed to remove space', error);
+          sendResponse({ ok: false, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
     default:
       return false;
   }
 });
+
+const tabEventHandlers: Array<[chrome.events.Event<(...args: any[]) => void> | undefined, () => void]> = [
+  [chrome.tabs.onCreated, () => void broadcastSpacesSnapshot()],
+  [chrome.tabs.onUpdated, () => void broadcastSpacesSnapshot()],
+  [chrome.tabs.onMoved, () => void broadcastSpacesSnapshot()],
+  [chrome.tabs.onDetached, () => void broadcastSpacesSnapshot()],
+  [chrome.tabs.onAttached, () => void broadcastSpacesSnapshot()],
+  [chrome.tabs.onRemoved, () => void broadcastSpacesSnapshot()],
+  [chrome.tabs.onActivated, () => void broadcastSpacesSnapshot()],
+  [chrome.windows.onFocusChanged, () => void broadcastSpacesSnapshot()]
+];
+
+tabEventHandlers.forEach(([event, handler]) => {
+  event?.addListener(handler);
+});
+
+if (typeof chrome.tabGroups !== 'undefined') {
+  chrome.tabGroups.onCreated?.addListener(() => {
+    void broadcastSpacesSnapshot();
+  });
+  chrome.tabGroups.onUpdated?.addListener(() => {
+    void broadcastSpacesSnapshot();
+  });
+  chrome.tabGroups.onRemoved?.addListener(() => {
+    void broadcastSpacesSnapshot();
+  });
+}
