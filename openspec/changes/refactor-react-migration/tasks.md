@@ -13,6 +13,9 @@
 ## 3. React UI Migration
 - [x] 3.1 Zustand ストア (settings / spaces / tabs) を実装し、chrome.storage と同期
 - [ ] 3.2 Tailwind + Headless UI を用いて垂直タブ UI, Pinned セクション, スペーススイッチャーを構築し、shadcn/ui を必要なコンポーネントから順次導入
+  - [x] 3.2.1 Pinned / Temporary のタブリストを `@tanstack/react-virtual` で描画
+  - [ ] 3.2.2 タブごとのコンテキストメニュー（ピン切替・スペース移動・クローズなど）を実装
+  - [ ] 3.2.3 スペース切替／作成／削除の UI を React 側から呼び出す
 - [ ] 3.3 React Hook Form + Zod Resolver で設定/ショートカット編集フォームを構築
 - [ ] 3.4 DnD（`@dnd-kit/core` 等）・仮想リスト（`react-virtual` 等）・アニメーション（Framer Motion & Motion One）を導入し、Arcify 同等の UX を再現
 
@@ -26,3 +29,13 @@
 - [x] 5.1 README と docs/plan を React/TS ベースに更新
 - [ ] 5.2 GPL 表記やライセンス周りの UI 文言を整備
 - [ ] 5.3 ベータ版リリース手順書と既知の制限事項リストを作成
+
+## 6. Bookmark & Archive Integration
+- [ ] 6.1 Arcify フォルダ管理とブックマーク同期（ピン時のブックマーク生成、フォルダマージ）を実装
+- [ ] 6.2 自動アーカイブロジックを TypeScript 化し、設定ストアと連携
+- [ ] 6.3 アーカイブ UI（一覧・復元・設定トグル）を React へ移植
+
+## 7. Commands & Context Menu
+- [ ] 7.1 Chrome contextMenus を再登録し、右クリックからサイドパネルを開く
+- [ ] 7.2 タブコンテキストメニューのショートカット（Quick Pin、スペース移動など）を UI と連携
+- [ ] 7.3 `commands` API (Ctrl/Cmd+D など) と前段のタブ操作 API を接続

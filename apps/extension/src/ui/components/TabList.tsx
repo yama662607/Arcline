@@ -10,9 +10,10 @@ interface TabListProps {
   activeSpaceId: number | null;
   pinned?: boolean;
   title: string;
+  onContextMenu?: (tab: TabEntry, event: React.MouseEvent) => void;
 }
 
-export function TabList({ tabs, spaces, activeSpaceId, pinned = false, title }: TabListProps) {
+export function TabList({ tabs, spaces, activeSpaceId, pinned = false, title, onContextMenu }: TabListProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
 
   const items = useMemo(() => tabs, [tabs]);
@@ -44,7 +45,13 @@ export function TabList({ tabs, spaces, activeSpaceId, pinned = false, title }: 
                 className="absolute left-0 right-0 px-1"
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
-                <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-100 shadow-sm">
+                <div
+                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-100 shadow-sm"
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    onContextMenu?.(tab, event);
+                  }}
+                >
                   <button
                     type="button"
                     className="flex-1 text-left"

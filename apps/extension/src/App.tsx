@@ -6,8 +6,10 @@ import { requestSpacesSnapshot } from './lib/spaces';
 import { hasChromeRuntime } from './lib/utils';
 import { SpaceList } from './ui/components/SpaceList';
 import { TabList } from './ui/components/TabList';
+import { TabContextMenu } from './ui/components/TabContextMenu';
 import { useSpacesStore } from './store';
 import type { SpaceSnapshot } from './shared/spaces';
+import type { TabEntry } from './shared/spaces';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
@@ -18,6 +20,11 @@ export default function App() {
     () => spaces.find((space) => space.id === activeSpaceId) ?? null,
     [spaces, activeSpaceId]
   );
+  const [contextMenu, setContextMenu] = useState<{
+    tab: TabEntry;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const shortcuts = useMemo(
     () => [
@@ -96,12 +103,22 @@ export default function App() {
                 spaces={spaces}
                 activeSpaceId={activeSpaceId}
                 pinned
+                onContextMenu={(tab, event) => {
+                  const x = Math.min(event.clientX, window.innerWidth - 220);
+                  const y = Math.min(event.clientY, window.innerHeight - 160);
+                  setContextMenu({ tab, x, y });
+                }}
               />
               <TabList
                 title="Temporary"
                 tabs={activeSpace.temporaryTabs}
                 spaces={spaces}
                 activeSpaceId={activeSpaceId}
+                onContextMenu={(tab, event) => {
+                  const x = Math.min(event.clientX, window.innerWidth - 220);
+                  const y = Math.min(event.clientY, window.innerHeight - 160);
+                  setContextMenu({ tab, x, y });
+                }}
               />
             </div>
           ) : (
@@ -134,6 +151,16 @@ export default function App() {
           as migration progresses.
         </footer>
       </div>
+      {contextMenu && activeSpace && (
+        <TabContextMenu
+          tab={contextMenu.tab}
+          spaces={spaces}
+          activeSpaceId={activeSpaceId}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onRequestClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }
