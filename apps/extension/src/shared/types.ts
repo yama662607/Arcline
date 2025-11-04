@@ -16,6 +16,7 @@ export interface SpaceSnapshot {
   id: number;
   name: string;
   color: chrome.tabGroups.ColorEnum;
+  tabs: TabEntry[];
   pinnedTabs: TabEntry[];
   temporaryTabs: TabEntry[];
   windowId: number;

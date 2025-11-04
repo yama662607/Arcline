@@ -1,19 +1,8 @@
 /// <reference types="chrome" />
 import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 
-const _DEFAULT_COLORS: Record<string, string> = {
-  grey: '#64748b',
-  blue: '#3b82f6',
-  red: '#ef4444',
-  yellow: '#facc15',
-  green: '#22c55e',
-  pink: '#ec4899',
-  purple: '#a855f7',
-  cyan: '#06b6d4',
-};
-
+const TAB_GROUP_ID_NONE = -1;
 const TAB_GROUPS_SUPPORTED = typeof chrome.tabGroups !== 'undefined';
-const TAB_GROUP_ID_NONE = TAB_GROUPS_SUPPORTED ? chrome.tabGroups?.TAB_GROUP_ID_NONE : -1;
 
 function mapTab(tab: chrome.tabs.Tab): TabEntry | null {
   if (typeof tab.id !== 'number') return null;
@@ -31,10 +20,6 @@ function mapTab(tab: chrome.tabs.Tab): TabEntry | null {
   };
 }
 
-function colorFromGroup(group: chrome.tabGroups.TabGroup): chrome.tabGroups.ColorEnum {
-  return group.color ?? 'grey';
-}
-
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
   try {
     const [tabGroups, allTabs] = await Promise.all([
@@ -49,7 +34,7 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
     for (const group of tabGroups) {
       groupMap.set(group.id, {
         id: group.id,
-        name: group.title,
+        name: group.title || 'Untitled',
         color: group.color || 'grey',
         tabs: [],
         pinnedTabs: [],
@@ -73,6 +58,7 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
 
     for (const tab of allTabs) {
       const entry = mapTab(tab);
+      if (!entry) continue;
       
       if (typeof tab.groupId === 'number' && tab.groupId >= 0) {
         const space = groupMap.get(tab.groupId);
@@ -297,7 +283,7 @@ export async function restoreArchivedTab(archivedTab: ArchivedTab): Promise<void
     // Group the new tab into the correct space
     const spaces = await getSpacesSnapshot();
     const targetSpace = spaces.find((s) => s.id === archivedTab.spaceId);
-    if (targetSpace) {
+    if (targetSpace && newTab.id) {
       await chrome.tabs.group({
         tabIds: [newTab.id],
         groupId: targetSpace.id,
@@ -392,11 +378,11 @@ export async function processBookmarkFolder(
     if (item.url) {
       // This is a bookmark
       const tab = tabs.find((t) => t.url === item.url);
-      if (tab) {
+      if (tab && tab.id) {
         bookmarks.push(tab.id);
         // Set tab name override with the bookmark's title
         if (item.title && item.title !== tab.title) {
-          await setTabNameOverride(tab.id, tab.url, item.title);
+          await setTabNameOverride(tab.id, tab.url || '', item.title || '');
         }
       }
     } else {
