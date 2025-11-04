@@ -14,7 +14,7 @@ Arcline 拡張機能の Chrome Side Panel API の各ブラウザでの動作状�
 | ブラウザ      | Side Panel API    | 動作状況     | 推奨モード |
 | ------------- | ----------------- | ------------ | ---------- |
 | Google Chrome | ✅ 完全サポート   | 正常動作     | Side Panel |
-| Atlas Browser | ⚠️ 部分的サポート | **動作不可** | Popup      |
+| Atlas Browser | ⚠️ 部分的サポート | **動作不可** | Floating UI（ホットゾーン） + Popup フォールバック |
 
 ---
 
@@ -195,6 +195,20 @@ Atlas は独自のサイドバー実装（AI 検索、ブックマーク、履�
 3. **Atlas 独自の設計思想**
    - 「サイドバーはブラウザが管理する領域」という方針
    - 拡張機能には開放しない設計
+
+### Floating UI 対応
+
+| シナリオ | 対応内容 |
+| --- | --- |
+| Atlas UA で `chrome.sidePanel` が利用不可 | Service Worker が `detectUiMode()` で `floating` を選択し、`chrome.storage.local` に保存。 |
+| 通常ページ | コンテンツスクリプトがホットゾーン + Shadow DOM を生成し、React UI を遅延ロード。16 ms 未満の Framer Motion アニメーションでパネルをスライド表示。 |
+| `chrome://` / PDF などコンテンツスクリプト禁止ページ | ホットゾーンは注入されない。ツールバーアイコンは自動的に popup (`index.html`) に切り替わり、`App.tsx` の UI モード表示にフォールバック手順を記載。 |
+
+**手動確認の要点**
+
+1. Atlas で任意のウェブページ（`https://example.com` など）を開き、画面左端 6px ホットゾーンにカーソルを置くとフローティング UI が 150 ms 以内に表示されること。
+2. Pin ボタンで固定した後でも、`chrome.action.onClicked` を押すと popup が開くこと。
+3. `chrome://extensions/` など保護ページではホットゾーンが存在しない代わりに、popup 上部へ「保護ページではポップアップを利用」ガイダンスが表示されること。
 
 ### Service Worker で確認できた API
 

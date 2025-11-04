@@ -2,18 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { UiMode } from './lib/ui-mode';
 import { requestUiMode } from './lib/ui-mode';
-import { requestSpacesSnapshot } from './lib/spaces';
-import { hasChromeRuntime } from './lib/utils';
+import { useSpacesSync } from './lib/useSpacesSync';
 import { SpaceList } from './ui/components/SpaceList';
 import { TabList } from './ui/components/TabList';
 import { TabContextMenu } from './ui/components/TabContextMenu';
 import { useSpacesStore } from './store';
-import type { SpaceSnapshot } from './shared/spaces';
 import type { TabEntry } from './shared/spaces';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
-  const setSpaces = useSpacesStore((state) => state.setSpaces);
   const spaces = useSpacesStore((state) => state.spaces);
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
   const activeSpace = useMemo(
@@ -39,31 +36,7 @@ export default function App() {
     requestUiMode().then(setUiMode).catch(() => setUiMode('side-panel'));
   }, []);
 
-  useEffect(() => {
-    requestSpacesSnapshot()
-      .then((spaces) => setSpaces(spaces))
-      .catch((error) => {
-        console.warn('Failed to load spaces snapshot', error);
-      });
-  }, [setSpaces]);
-
-  useEffect(() => {
-    if (!hasChromeRuntime()) return undefined;
-
-    const listener = (message: unknown) => {
-      if (typeof message !== 'object' || message === null) return;
-
-      const payload = message as { command?: string; spaces?: SpaceSnapshot[] };
-      if (payload.command === 'spacesSnapshot' && Array.isArray(payload.spaces)) {
-        setSpaces(payload.spaces);
-      }
-    };
-
-    chrome.runtime.onMessage.addListener(listener);
-    return () => {
-      chrome.runtime.onMessage.removeListener(listener);
-    };
-  }, [setSpaces]);
+  useSpacesSync();
 
   return (
     <div className="min-h-screen bg-surface text-slate-100">
@@ -138,6 +111,14 @@ export default function App() {
           {uiMode === 'popup' ? (
             <p className="text-xs text-slate-400">
               ツールバーアイコンをクリックするか <kbd className="rounded bg-black/30 px-1">Ctrl/Cmd+E</kbd> を押すとポップアップが表示されます。
+            </p>
+          ) : uiMode === 'floating' ? (
+            <p className="text-xs text-slate-400">
+              Atlas モードでは画面左端のホットゾーンを hover するとフローティング UI が表示されます。
+              <span className="ml-1 inline-block rounded bg-surface-light px-2 py-1 font-mono text-[10px] uppercase text-slate-100">
+                chrome://
+              </span>
+              や PDF ビューアなどの保護ページではポップアップを利用してください。
             </p>
           ) : (
             <p className="text-xs text-slate-400">

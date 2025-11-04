@@ -9,5 +9,8 @@
     "lint": "pnpm -C apps/extension lint",
     "format": "pnpm -C apps/extension format",
     "test": "pnpm -C apps/extension test"
+  },
+  "devDependencies": {
+    "@arcline/openspec-cli": "workspace:*"
   }
 }

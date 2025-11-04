@@ -4,6 +4,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import type { SpaceSnapshot, TabEntry } from '@/shared/spaces';
 import { activateTab, closeTab, moveTabToSpace, toggleTabPinned } from '@/lib/tabs';
 
+type TabListVariant = 'standalone' | 'floating';
+
 interface TabListProps {
   tabs: TabEntry[];
   spaces: SpaceSnapshot[];
@@ -11,9 +13,18 @@ interface TabListProps {
   pinned?: boolean;
   title: string;
   onContextMenu?: (tab: TabEntry, event: React.MouseEvent) => void;
+  variant?: TabListVariant;
 }
 
-export function TabList({ tabs, spaces, activeSpaceId, pinned = false, title, onContextMenu }: TabListProps) {
+export function TabList({
+  tabs,
+  spaces,
+  activeSpaceId,
+  pinned = false,
+  title,
+  onContextMenu,
+  variant = 'standalone'
+}: TabListProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
 
   const items = useMemo(() => tabs, [tabs]);
@@ -27,13 +38,18 @@ export function TabList({ tabs, spaces, activeSpaceId, pinned = false, title, on
 
   const spaceOptions = useMemo(() => spaces.filter((space) => space.id !== activeSpaceId), [spaces, activeSpaceId]);
 
+  const containerClassName =
+    variant === 'floating' ? 'flex h-full flex-col space-y-2' : 'space-y-2';
+  const scrollerClassName =
+    variant === 'floating' ? 'min-h-0 flex-1 overflow-y-auto pr-1' : 'max-h-72 overflow-y-auto';
+
   return (
-    <div className="space-y-2">
+    <div className={containerClassName}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-slate-200">{title}</h3>
         <span className="text-xs text-slate-400">{tabs.length}</span>
       </div>
-      <div ref={parentRef} className="max-h-72 overflow-y-auto">
+      <div ref={parentRef} className={scrollerClassName}>
         <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const tab = items[virtualRow.index];
@@ -46,7 +62,9 @@ export function TabList({ tabs, spaces, activeSpaceId, pinned = false, title, on
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
                 <div
-                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-100 shadow-sm"
+                  className={`flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-100 shadow-sm ${
+                    variant === 'floating' ? 'bg-slate-900/70 hover:bg-slate-800/70' : 'bg-black/20'
+                  }`}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     onContextMenu?.(tab, event);

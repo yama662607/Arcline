@@ -2,7 +2,7 @@
 
 import { hasChromeRuntime } from './utils';
 
-export type UiMode = 'side-panel' | 'popup';
+export type UiMode = 'side-panel' | 'popup' | 'floating';
 
 const DEFAULT_MODE: UiMode = 'side-panel';
 
