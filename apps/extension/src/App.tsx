@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import type { UiMode } from './lib/ui-mode';
 import { requestUiMode } from './lib/ui-mode';
 import { useSpacesSync } from './lib/useSpacesSync';
-import { SpaceList } from './ui/components/SpaceList';
-import { TabList } from './ui/components/TabList';
+import { SpaceManager } from './ui/components/SpaceManager';
+import { EnhancedTabList } from './ui/components/EnhancedTabList';
+import { ArchiveManager } from './ui/components/ArchiveManager';
+import { SettingsPanel } from './ui/components/SettingsPanel';
 import { TabContextMenu } from './ui/components/TabContextMenu';
 import { useSpacesStore } from './store';
-import type { TabEntry } from './shared/spaces';
+import type { TabEntry } from './shared/types';
+import { queryClient } from './lib/query-client';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
+  const [activeTab, setActiveTab] = useState<'spaces' | 'archive' | 'settings'>('spaces');
   const spaces = useSpacesStore((state) => state.spaces);
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
   const activeSpace = useMemo(
@@ -39,109 +44,118 @@ export default function App() {
   useSpacesSync();
 
   return (
-    <div className="min-h-screen bg-surface text-slate-100">
-      <div className="mx-auto max-w-3xl space-y-8 px-8 py-16">
-        <header className="space-y-2">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Arcline</p>
-          <h1 className="text-4xl font-semibold text-white">Atlas-ready Arc experience</h1>
-          <p className="text-slate-300">
-            This sandbox renders the upcoming React + TypeScript UI shell. The legacy Arcify codebase
-            is stored under <code className="rounded bg-surface-light px-2 py-1 font-mono text-xs">legacy/arcify</code>
-            for reference.
-          </p>
-        </header>
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-surface text-slate-100">
+        <div className="mx-auto max-w-3xl space-y-8 px-8 py-16">
+          <header className="space-y-2">
+            <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Arcline</p>
+            <h1 className="text-4xl font-semibold text-white">Atlas-ready Arc experience</h1>
+            <p className="text-slate-300">
+              This sandbox renders the upcoming React + TypeScript UI shell. The legacy Arcify codebase
+              is stored under <code className="rounded bg-surface-light px-2 py-1 font-mono text-xs">legacy/arcify</code>
+              for reference.
+            </p>
+          </header>
 
-        <section className="grid gap-3 rounded-2xl border border-white/5 bg-surface-light/80 p-6 backdrop-blur">
-          <h2 className="text-lg font-medium text-white">Keybindings (default)</h2>
-          <ul className="grid gap-2 text-sm text-slate-200">
-            {shortcuts.map((item) => (
-              <li key={item.key} className="flex items-center justify-between rounded-lg bg-black/30 px-3 py-2">
-                <span>{item.description}</span>
-                <kbd className="rounded border border-white/10 bg-black/40 px-2 py-1 font-mono text-xs uppercase text-slate-100">
-                  {item.key}
-                </kbd>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="grid gap-4 rounded-2xl border border-white/5 bg-black/30 p-6">
-          <h2 className="text-lg font-medium text-white">Spaces</h2>
-          <SpaceList />
-          {activeSpace ? (
-            <div className="grid gap-4">
-              <TabList
-                title="Pinned"
-                tabs={activeSpace.pinnedTabs}
-                spaces={spaces}
-                activeSpaceId={activeSpaceId}
-                pinned
-                onContextMenu={(tab, event) => {
-                  const x = Math.min(event.clientX, window.innerWidth - 220);
-                  const y = Math.min(event.clientY, window.innerHeight - 160);
-                  setContextMenu({ tab, x, y });
-                }}
-              />
-              <TabList
-                title="Temporary"
-                tabs={activeSpace.temporaryTabs}
-                spaces={spaces}
-                activeSpaceId={activeSpaceId}
-                onContextMenu={(tab, event) => {
-                  const x = Math.min(event.clientX, window.innerWidth - 220);
-                  const y = Math.min(event.clientY, window.innerHeight - 160);
-                  setContextMenu({ tab, x, y });
-                }}
-              />
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-medium text-white">Arcline</h2>
+              <div className="text-sm text-slate-400">
+                UI Mode: <span className="font-mono">{uiMode}</span>
+              </div>
             </div>
-          ) : (
-            <p className="text-xs text-slate-500">スペースが見つかりませんでした。</p>
-          )}
-        </section>
+            
+            <div className="border border-surface-light rounded-lg">
+              <div className="flex border-b border-surface-light">
+                {(['spaces', 'archive', 'settings'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === tab
+                        ? 'text-white bg-surface-light'
+                        : 'text-slate-400 hover:text-slate-300'
+                    }`}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
 
-        <section className="grid gap-3 rounded-2xl border border-white/5 bg-black/20 p-6">
-          <h2 className="text-lg font-medium text-white">UI モード</h2>
-          <p className="text-sm text-slate-300">
-            現在のブラウザでは
-            <span className="mx-1 rounded bg-surface-light px-2 py-1 font-mono text-xs uppercase text-slate-100">
-              {uiMode}
-            </span>
-            モードで Arcline を表示します。
-          </p>
-          {uiMode === 'popup' ? (
-            <p className="text-xs text-slate-400">
-              ツールバーアイコンをクリックするか <kbd className="rounded bg-black/30 px-1">Ctrl/Cmd+E</kbd> を押すとポップアップが表示されます。
-            </p>
-          ) : uiMode === 'floating' ? (
-            <p className="text-xs text-slate-400">
-              Atlas モードでは画面左端のホットゾーンを hover するとフローティング UI が表示されます。
-              <span className="ml-1 inline-block rounded bg-surface-light px-2 py-1 font-mono text-[10px] uppercase text-slate-100">
-                chrome://
-              </span>
-              や PDF ビューアなどの保護ページではポップアップを利用してください。
-            </p>
-          ) : (
-            <p className="text-xs text-slate-400">
-              サイドパネルが利用可能です。ショートカットで素早く表示できます。
-            </p>
-          )}
-        </section>
+              <div className="p-4">
+                {activeTab === 'spaces' && (
+                  <div className="space-y-6">
+                    <SpaceManager variant="standalone" />
+                    
+                    {activeSpace && (
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-medium text-white">{activeSpace.name}</h3>
+                        <EnhancedTabList
+                          tabs={activeSpace.pinnedTabs}
+                          title="Pinned Tabs"
+                          emptyMessage="No pinned tabs"
+                          variant="standalone"
+                          onTabContextMenu={(tab, event) => {
+                            const x = Math.min(event.clientX, window.innerWidth - 220);
+                            const y = Math.min(event.clientY, window.innerHeight - 160);
+                            setContextMenu({ tab, x, y });
+                          }}
+                        />
+                        <EnhancedTabList
+                          tabs={activeSpace.temporaryTabs}
+                          title="Temporary Tabs"
+                          emptyMessage="No temporary tabs"
+                          variant="standalone"
+                          onTabContextMenu={(tab, event) => {
+                            const x = Math.min(event.clientX, window.innerWidth - 220);
+                            const y = Math.min(event.clientY, window.innerHeight - 160);
+                            setContextMenu({ tab, x, y });
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
 
-        <footer className="text-xs text-slate-500">
-          Built with React, Tailwind, Zustand, and friends. Replace this placeholder with the actual side panel UI
-          as migration progresses.
-        </footer>
+                {activeTab === 'archive' && (
+                  <ArchiveManager variant="standalone" />
+                )}
+
+                {activeTab === 'settings' && (
+                  <SettingsPanel variant="standalone" />
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-lg font-medium text-white">Keyboard Shortcuts</h3>
+            <div className="space-y-2">
+              {shortcuts.map((shortcut, index) => (
+                <div key={index} className="flex justify-between text-sm">
+                  <span className="text-slate-300">{shortcut.description}</span>
+                  <kbd className="rounded bg-surface-light px-2 py-1 font-mono text-xs text-slate-400">
+                    {shortcut.key}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <footer className="text-center text-sm text-slate-400">
+            <p>Arcline Extension • Development Build with React Query</p>
+          </footer>
+        </div>
+
+        {contextMenu && (
+          <TabContextMenu
+            tab={contextMenu.tab}
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
       </div>
-      {contextMenu && activeSpace && (
-        <TabContextMenu
-          tab={contextMenu.tab}
-          spaces={spaces}
-          activeSpaceId={activeSpaceId}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onRequestClose={() => setContextMenu(null)}
-        />
-      )}
-    </div>
+    </QueryClientProvider>
   );
 }

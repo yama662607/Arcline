@@ -177,7 +177,7 @@ async function initialize() {
   if (window.top !== window) return;
   if (!hasChromeRuntime()) return;
 
-  const mode = await requestUiMode().catch(() => 'side-panel');
+  const mode = await requestUiMode().catch(() => 'side-panel' as const);
   applyUiMode(mode);
 
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
