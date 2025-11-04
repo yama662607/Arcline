@@ -13,6 +13,18 @@ import {
 const UI_MODE_KEY = 'arclineUiMode';
 type UiMode = 'side-panel' | 'popup';
 
+async function applyUiMode(mode: UiMode) {
+  if (mode === 'side-panel') {
+    // Empty string clears the popup so onClicked still fires.
+    chrome.action.setPopup({ popup: '' });
+  } else {
+    chrome.action.setPopup({ popup: 'index.html' });
+  }
+
+  await chrome.storage.local.set({ [UI_MODE_KEY]: mode });
+  console.log('[Arcline] UI mode applied:', mode);
+}
+
 async function initializeUiMode() {
   const hasSidePanel = typeof chrome.sidePanel !== 'undefined';
 
@@ -65,17 +77,17 @@ async function initializeUiMode() {
 
 
   console.log('[Arcline] =======================================');
+  const mode: UiMode = hasSidePanel ? 'side-panel' : 'popup';
+  await applyUiMode(mode);
 
-  // Atlas doesn't support side panel properly (user gesture error even in onClicked)
-  // Use popup mode for maximum compatibility
-  const mode: UiMode = 'popup';
+  if (mode === 'side-panel') {
+    console.log('[Arcline] Using side panel mode by default (sidePanel detected)');
+  } else {
+    console.log('[Arcline] Using popup mode (no sidePanel API)');
+  }
+}
 
-  await chrome.storage.local.set({ [UI_MODE_KEY]: mode });
-
-  // Use popup mode - works in all Chromium browsers
-  chrome.action.setPopup({ popup: 'index.html' });
-  console.log('[Arcline] Using popup mode (Atlas compatibility)');
-} chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async () => {
   console.log('[Arcline] Extension installed/updated');
   await initializeUiMode();
 });
@@ -99,6 +111,7 @@ chrome.action.onClicked.addListener(async () => {
 
       await chrome.sidePanel.open({ windowId: windows.id });
       console.log('[Arcline] ✓ Side panel opened successfully');
+      await applyUiMode('side-panel');
     } catch (error) {
       console.error('[Arcline] ✗ Failed to open side panel:', error);
       console.error('[Arcline] Error details:', {
@@ -106,6 +119,14 @@ chrome.action.onClicked.addListener(async () => {
         name: (error as Error).name,
         stack: (error as Error).stack
       });
+
+      console.warn('[Arcline] Falling back to popup mode');
+      await applyUiMode('popup');
+      try {
+        await chrome.action.openPopup?.();
+      } catch (openPopupError) {
+        console.warn('[Arcline] Failed to auto-open popup after fallback:', openPopupError);
+      }
     }
   } else {
     console.log('[Arcline] Side panel API not available, popup should open instead');
