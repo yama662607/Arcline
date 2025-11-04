@@ -11,7 +11,29 @@ import {
 } from './services/browser';
 
 const UI_MODE_KEY = 'arclineUiMode';
-type UiMode = 'side-panel' | 'popup';
+type UiMode = 'side-panel' | 'popup' | 'floating';
+
+async function broadcastUiMode(mode: UiMode) {
+  try {
+    const tabs = await chrome.tabs.query({});
+    await Promise.all(
+      tabs.map((tab) => {
+        if (!tab.id) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          chrome.tabs.sendMessage(tab.id!, { command: 'currentUiMode', mode }, () => {
+            if (chrome.runtime.lastError) {
+              resolve();
+              return;
+            }
+            resolve();
+          });
+        });
+      })
+    );
+  } catch (error) {
+    console.warn('[Arcline] Failed to broadcast UI mode', error);
+  }
+}
 
 async function applyUiMode(mode: UiMode) {
   if (mode === 'side-panel') {
@@ -23,10 +45,12 @@ async function applyUiMode(mode: UiMode) {
 
   await chrome.storage.local.set({ [UI_MODE_KEY]: mode });
   console.log('[Arcline] UI mode applied:', mode);
+  await broadcastUiMode(mode);
 }
 
-async function initializeUiMode() {
+async function detectUiMode(): Promise<UiMode> {
   const hasSidePanel = typeof chrome.sidePanel !== 'undefined';
+  const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
 
   console.log('[Arcline] ========== Side Panel Detection ==========');
   console.log('[Arcline] chrome.sidePanel available:', hasSidePanel);
@@ -77,13 +101,28 @@ async function initializeUiMode() {
 
 
   console.log('[Arcline] =======================================');
-  const mode: UiMode = hasSidePanel ? 'side-panel' : 'popup';
+  if (hasSidePanel && isAtlas) {
+    console.log('[Arcline] Atlas detected, scheduling floating mode');
+    return 'floating';
+  }
+
+  if (hasSidePanel) {
+    return 'side-panel';
+  }
+
+  return 'popup';
+}
+
+async function initializeUiMode() {
+  const mode = await detectUiMode();
   await applyUiMode(mode);
 
   if (mode === 'side-panel') {
     console.log('[Arcline] Using side panel mode by default (sidePanel detected)');
-  } else {
+  } else if (mode === 'popup') {
     console.log('[Arcline] Using popup mode (no sidePanel API)');
+  } else {
+    console.log('[Arcline] Using floating mode (Atlas fallback)');
   }
 }
 
@@ -120,8 +159,8 @@ chrome.action.onClicked.addListener(async () => {
         stack: (error as Error).stack
       });
 
-      console.warn('[Arcline] Falling back to popup mode');
-      await applyUiMode('popup');
+      console.warn('[Arcline] Falling back to floating mode');
+      await applyUiMode('floating');
       try {
         await chrome.action.openPopup?.();
       } catch (openPopupError) {
@@ -152,7 +191,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       (async () => {
         try {
           const result = await chrome.storage.local.get(UI_MODE_KEY);
-          sendResponse({ command: 'currentUiMode', mode: (result[UI_MODE_KEY] as UiMode) ?? 'side-panel' });
+          const fallbackMode = await detectUiMode();
+          sendResponse({ command: 'currentUiMode', mode: (result[UI_MODE_KEY] as UiMode) ?? fallbackMode });
         } catch (error) {
           console.error('Failed to respond with UI mode', error);
           sendResponse({ command: 'currentUiMode', mode: 'side-panel' as UiMode });

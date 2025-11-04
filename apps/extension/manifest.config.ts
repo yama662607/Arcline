@@ -23,6 +23,13 @@ const manifest = defineManifest(({ mode }) => {
       service_worker: 'src/background/index.ts',
       type: 'module'
     },
+    content_scripts: [
+      {
+        matches: ['<all_urls>'],
+        js: ['src/content-scripts/floating-ui.ts'],
+        run_at: 'document_idle'
+      }
+    ],
     side_panel: {
       default_path: 'index.html'
     },

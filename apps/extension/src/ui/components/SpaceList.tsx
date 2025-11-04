@@ -2,7 +2,13 @@ import { useMemo } from 'react';
 
 import { useSpacesStore } from '@/store';
 
-export function SpaceList() {
+type SpaceListVariant = 'standalone' | 'floating';
+
+interface SpaceListProps {
+  variant?: SpaceListVariant;
+}
+
+export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
   const spaces = useSpacesStore((state) => state.spaces);
   const activeId = useSpacesStore((state) => state.activeSpaceId);
   const setActiveSpace = useSpacesStore((state) => state.setActiveSpace);
@@ -26,6 +32,38 @@ export function SpaceList() {
       description: `${space.pinnedTabs.length} pinned / ${space.temporaryTabs.length} tabs`
     }));
   }, [spaces]);
+
+  if (variant === 'floating') {
+    return (
+      <ul className="flex flex-col gap-1">
+        {items.map((item) => (
+          <li key={item.id}>
+            <button
+              type="button"
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition focus:outline-none focus:ring-1 focus:ring-white/60 ${
+                item.id === activeId ? 'bg-white/15 text-white' : 'bg-white/5 text-slate-200 hover:bg-white/10'
+              }`}
+              onClick={() => setActiveSpace(item.id)}
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: item.color }}
+                aria-hidden="true"
+              />
+              <span className="flex-1 truncate" title={item.name}>
+                {item.name}
+              </span>
+            </button>
+            {item.id === activeId && (
+              <p className="mt-1 text-[10px] text-slate-400" data-testid="arcline-floating-space-meta">
+                {item.description}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <div className="grid gap-3">
