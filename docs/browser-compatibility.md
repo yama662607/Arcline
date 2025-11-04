@@ -196,6 +196,41 @@ Atlas は独自のサイドバー実装（AI 検索、ブックマーク、履�
    - 「サイドバーはブラウザが管理する領域」という方針
    - 拡張機能には開放しない設計
 
+### Service Worker で確認できた API
+
+Atlas の拡張機能サービスワーカーから `chrome` 名前空間を列挙した結果、以下の API 群が利用可能であることを確認した。ただし、**Side Panel API はオブジェクトとしては存在するものの、ユーザージェスチャー要件で実行が阻害される**。
+
+- `chrome.action` / `chrome.commands` / `chrome.bookmarks` / `chrome.tabs` / `chrome.windows` など主要な MV3 API は一通り列挙される
+- `chrome.sidePanel` オブジェクトも存在し、`setOptions`, `setPanelBehavior`, `open`, `close`, `getOptions`, `getLayout` など Chrome と同一のメソッド名が確認できる
+- ただし `chrome.sidePanel.open()` 実行時は "`sidePanel.open()` may only be called in response to a user gesture." というエラーが返り、Atlas 側の制限でユーザージェスチャー判定が拒否されている
+
+#### ログ抜粋（サービスワーカー）
+
+```text
+chrome.sidePanel
+chrome.sidePanel.Side
+chrome.sidePanel.Side.LEFT: string
+chrome.sidePanel.Side.RIGHT: string
+chrome.sidePanel.close()
+chrome.sidePanel.getLayout()
+chrome.sidePanel.getOptions()
+chrome.sidePanel.getPanelBehavior()
+chrome.sidePanel.onClosed.addListener()
+chrome.sidePanel.onOpened.addListener()
+chrome.sidePanel.open()
+chrome.sidePanel.setOptions()
+chrome.sidePanel.setPanelBehavior()
+```
+
+### Atlas での回避策検討
+
+- `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })` は成功レスポンスを返すが、拡張機能アイコンをクリックしてもパネルは開かない
+- `chrome.sidePanel.open({ windowId })` を `chrome.action.onClicked` など明確なユーザージェスチャー内から呼び出しても、Atlas 側がジェスチャーとして認識せずエラーになる
+- `chrome.commands.onCommand` やコンテキストメニューなど他のイベントもユーザージェスチャー扱いにならない可能性が高く、同じ制限に引っかかると推測される
+- `chrome.windows.create({ type: "panel" })` のような代替 UI はブラウザ固有の挙動になり UX が崩れるため現状採用しない方針
+
+**結論**: 2025 年時点では Atlas において Side Panel を開くための確実な回避策は確認できていない。安定した UX を優先し、Popup モードを継続採用する。
+
 ### 推奨設定
 
 ```javascript
