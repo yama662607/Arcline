@@ -72,10 +72,11 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
 
             <div className="space-y-1 max-h-64 overflow-y-auto">
               {sortedTabs.map((tab) => (
-                <div
+                <button
                   key={tab.id}
+                  type="button"
                   onClick={() => handleRestoreTab(tab)}
-                  className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors group"
+                  className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors group w-full text-left"
                 >
                   <img
                     src={getFaviconUrl(tab.url)}
@@ -97,6 +98,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
                   </div>
 
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRestoreTab(tab);
@@ -106,7 +108,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
                   >
                     ↵
                   </button>
-                </div>
+                </button>
               ))}
             </div>
           </>

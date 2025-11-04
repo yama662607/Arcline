@@ -20,9 +20,7 @@ const useSettings = () => ({
 });
 
 const useUpdateSettings = () => ({
-  mutateAsync: async (data: unknown) => {
-    console.log('Updating settings:', data);
-  },
+  mutateAsync: async (_data: unknown) => {},
   isPending: false,
 });
 

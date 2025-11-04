@@ -65,5 +65,8 @@ export async function createSpace(
 }
 
 export async function removeSpace(spaceId: number): Promise<void> {
-  await sendMessage<{ command: 'removeSpace'; spaceId: number }>({ command: 'removeSpace', spaceId });
+  await sendMessage<{ command: 'removeSpace'; spaceId: number }>({
+    command: 'removeSpace',
+    spaceId,
+  });
 }

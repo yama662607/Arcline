@@ -1,7 +1,7 @@
-import { queryKeys } from '@/lib/query-client';
-import type { SpaceCreateRequest, ArchivedTab, Settings } from '@/shared/types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
+import { queryKeys } from '@/lib/query-client';
+import type { ArchivedTab, Settings, SpaceCreateRequest } from '@/shared/types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 // Query hooks
 export function useSpacesSnapshot() {

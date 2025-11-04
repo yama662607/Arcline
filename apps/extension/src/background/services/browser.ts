@@ -46,18 +46,19 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
 
     const groupMap = new Map<number, SpaceSnapshot>();
 
-    tabGroups.forEach((group) => {
+    for (const group of tabGroups) {
       groupMap.set(group.id, {
         id: group.id,
-        name: group.title ?? 'Space',
-        color: colorFromGroup(group),
+        name: group.title,
+        color: group.color || 'grey',
+        tabs: [],
         pinnedTabs: [],
         temporaryTabs: [],
         windowId: group.windowId,
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
       });
-    });
+    }
 
     const ungrouped: SpaceSnapshot = {
       id: TAB_GROUP_ID_NONE,
@@ -70,30 +71,32 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       lastActiveAt: Date.now(),
     };
 
-    allTabs.forEach((tab) => {
+    for (const tab of allTabs) {
       const entry = mapTab(tab);
-      if (!entry) return;
-
-      const targetGroupId = tab.groupId ?? TAB_GROUP_ID_NONE;
-      const targetSpace = groupMap.get(targetGroupId) ?? ungrouped;
-
-      if (entry.pinned) {
-        targetSpace.pinnedTabs.push(entry);
+      
+      if (typeof tab.groupId === 'number' && tab.groupId >= 0) {
+        const space = groupMap.get(tab.groupId);
+        if (space) {
+          if (entry.pinned) {
+            space.pinnedTabs.push(entry);
+          } else {
+            space.tabs.push(entry);
+          }
+        }
       } else {
-        targetSpace.temporaryTabs.push(entry);
+        if (entry.pinned) {
+          ungrouped.pinnedTabs.push(entry);
+        } else {
+          ungrouped.temporaryTabs.push(entry);
+        }
       }
-
-      if (!groupMap.has(targetGroupId) && targetGroupId !== TAB_GROUP_ID_NONE) {
-        // Group may have been removed between queries. Add placeholder entry.
-        groupMap.set(targetGroupId, targetSpace);
-      }
-    });
+    }
 
     const spaces: SpaceSnapshot[] = [];
 
-    groupMap.forEach((space) => {
+    for (const space of groupMap.values()) {
       spaces.push(space);
-    });
+    }
 
     if (ungrouped.pinnedTabs.length || ungrouped.temporaryTabs.length) {
       spaces.push(ungrouped);
