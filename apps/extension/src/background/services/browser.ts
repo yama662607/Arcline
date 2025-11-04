@@ -49,6 +49,7 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       id: TAB_GROUP_ID_NONE,
       name: 'Ungrouped',
       color: 'grey' as chrome.tabGroups.ColorEnum,
+      tabs: [],
       pinnedTabs: [],
       temporaryTabs: [],
       windowId: -1,
