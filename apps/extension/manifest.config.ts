@@ -28,6 +28,11 @@ const manifest = defineManifest(({ mode }) => {
         matches: ['<all_urls>'],
         js: ['src/content-scripts/floating-ui.ts'],
         run_at: 'document_idle'
+      },
+      {
+        matches: ['<all_urls>'],
+        js: ['src/content-scripts/sidebar-manager.ts'],
+        run_at: 'document_idle'
       }
     ],
     side_panel: {

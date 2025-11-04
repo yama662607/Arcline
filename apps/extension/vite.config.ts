@@ -6,7 +6,15 @@ import { crx } from '@crxjs/vite-plugin';
 import manifest from './manifest.config';
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), crx({ manifest })],
+  plugins: [
+    react(),
+    crx({ 
+      manifest,
+      contentScripts: {
+        injectCss: true,
+      },
+    }),
+  ],
   root: '.',
   build: {
     outDir: 'dist',

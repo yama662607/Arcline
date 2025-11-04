@@ -6,13 +6,32 @@ const FALLBACK_SPACES: SpaceSnapshot[] = [
   {
     id: 1,
     name: 'Sample Space',
-    color: '#3b82f6',
+    color: 'blue' as chrome.tabGroups.ColorEnum,
     pinnedTabs: [
-      { id: 101, title: 'Pinned example', url: 'https://example.com', pinned: true }
+      {
+        id: 101,
+        title: 'Pinned example',
+        url: 'https://example.com',
+        pinned: true,
+        active: false,
+        windowId: -1,
+        groupId: 1
+      }
     ],
     temporaryTabs: [
-      { id: 201, title: 'Docs', url: 'https://developer.chrome.com' }
-    ]
+      {
+        id: 201,
+        title: 'Docs',
+        url: 'https://developer.chrome.com',
+        pinned: false,
+        active: false,
+        windowId: -1,
+        groupId: 1
+      }
+    ],
+    windowId: -1,
+    createdAt: Date.now(),
+    lastActiveAt: Date.now()
   }
 ];
 

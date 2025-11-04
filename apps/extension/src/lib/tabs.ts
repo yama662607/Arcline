@@ -1,6 +1,8 @@
 import { hasChromeRuntime } from './utils';
 
-type GenericResponse<T = unknown> = { ok: true } & T | { ok: false; error: string };
+type GenericResponse<T = unknown> =
+  | ({ ok: true } & T)
+  | { ok: false; error: string };
 
 function sendMessage<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -17,7 +19,8 @@ function sendMessage<T>(payload: Record<string, unknown>): Promise<T> {
         }
 
         if (!response || response.ok === false) {
-          reject(new Error(response?.error ?? 'Unknown error'));
+          const errorMsg = response && 'error' in response ? response.error : 'Unknown error';
+          reject(new Error(errorMsg));
           return;
         }
 
