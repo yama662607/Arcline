@@ -7,8 +7,15 @@ import {
   createSpace,
   removeSpace,
   closeTab,
-  activateTab
+  activateTab,
+  archiveTab,
+  restoreArchivedTab,
+  getArchivedTabs,
+  getSettings,
+  updateSettings,
+  getBookmarksForSpace
 } from './services/browser';
+import type { BridgeMessage, BridgeResponse } from '@/lib/service-worker-bridge';
 
 const UI_MODE_KEY = 'arclineUiMode';
 type UiMode = 'side-panel' | 'popup' | 'floating';
@@ -176,6 +183,21 @@ chrome.action.onClicked.addListener(async () => {
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'quickPinToggle') {
     await chrome.runtime.sendMessage({ command: 'quickPinToggle' });
+  } else if (command === 'toggleSidePanel') {
+    // Toggle sidebar in content script
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs[0]?.id) {
+      try {
+        await chrome.tabs.sendMessage(tabs[0].id, { command: 'toggleSidebar' });
+      } catch (error) {
+        // Content script not loaded, try to open side panel instead
+        try {
+          await chrome.sidePanel.open({ windowId: tabs[0].windowId });
+        } catch (sidePanelError) {
+          console.log('Side panel not available, content script should handle toggle');
+        }
+      }
+    }
   }
 });
 
@@ -319,6 +341,111 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         } catch (error) {
           console.error('Failed to activate tab', error);
           sendResponse({ ok: false, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    // Service Worker bridge queries
+    case 'getSpacesSnapshot': {
+      (async () => {
+        try {
+          const spaces = await getSpacesSnapshot();
+          sendResponse({ id: message.id, data: spaces });
+        } catch (error) {
+          sendResponse({ id: message.id, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'getSettings': {
+      (async () => {
+        try {
+          const settings = await getSettings();
+          sendResponse({ id: message.id, data: settings });
+        } catch (error) {
+          sendResponse({ id: message.id, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'getArchivedTabs': {
+      (async () => {
+        try {
+          const archivedTabs = await getArchivedTabs();
+          sendResponse({ id: message.id, data: archivedTabs });
+        } catch (error) {
+          sendResponse({ id: message.id, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'getBookmarksForSpace': {
+      const { spaceId } = message as { spaceId?: number };
+      if (typeof spaceId !== 'number') {
+        sendResponse({ id: message.id, error: 'spaceId is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          const bookmarks = await getBookmarksForSpace(spaceId);
+          sendResponse({ id: message.id, data: bookmarks });
+        } catch (error) {
+          sendResponse({ id: message.id, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    // Service Worker bridge mutations
+    case 'archiveTab': {
+      const { tabId } = message as { tabId?: number };
+      if (typeof tabId !== 'number') {
+        sendResponse({ id: message.id, error: 'tabId is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          await archiveTab(tabId);
+          await broadcastSpacesSnapshot();
+          sendResponse({ id: message.id, data: null });
+        } catch (error) {
+          sendResponse({ id: message.id, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'restoreArchivedTab': {
+      const { archivedTab } = message as { archivedTab?: any };
+      if (!archivedTab) {
+        sendResponse({ id: message.id, error: 'archivedTab is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          await restoreArchivedTab(archivedTab);
+          await broadcastSpacesSnapshot();
+          sendResponse({ id: message.id, data: null });
+        } catch (error) {
+          sendResponse({ id: message.id, error: (error as Error).message });
+        }
+      })();
+      return true;
+    }
+    case 'updateSettings': {
+      const { settings } = message as { settings?: any };
+      if (!settings || typeof settings !== 'object') {
+        sendResponse({ id: message.id, error: 'settings object is required' });
+        return false;
+      }
+
+      (async () => {
+        try {
+          await updateSettings(settings);
+          sendResponse({ id: message.id, data: null });
+        } catch (error) {
+          sendResponse({ id: message.id, error: (error as Error).message });
         }
       })();
       return true;
