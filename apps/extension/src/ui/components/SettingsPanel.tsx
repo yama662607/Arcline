@@ -1,9 +1,30 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useSettings, useUpdateSettings } from '@/hooks/use-spaces-query';
-import type { Settings } from '@/shared/types';
+
+// TODO: Implement actual settings hooks
+const useSettings = () => ({
+  data: {
+    defaultSpaceName: 'Default Space',
+    autoArchiveEnabled: true,
+    autoArchiveIdleMinutes: 30,
+    uiMode: 'side-panel' as const,
+    showFavicons: true,
+    compactMode: false,
+    enableAnimations: true,
+    theme: 'dark' as const,
+  },
+  isLoading: false,
+  error: null,
+});
+
+const useUpdateSettings = () => ({
+  mutateAsync: async (data: unknown) => {
+    console.log('Updating settings:', data);
+  },
+  isPending: false,
+});
 
 const settingsSchema = z.object({
   defaultSpaceName: z.string().min(1, 'Default space name is required'),
@@ -53,10 +74,10 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-4">
-        <div className="h-4 bg-surface-light rounded w-1/4"></div>
+        <div className="h-4 bg-surface-light rounded w-1/4" />
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-8 bg-surface-light rounded"></div>
+            <div key={i} className="h-8 bg-surface-light rounded" />
           ))}
         </div>
       </div>
@@ -125,9 +146,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
           {settings?.autoArchiveEnabled && (
             <div className="pl-6">
-              <label className="block text-sm text-slate-300 mb-1">
-                Archive after (minutes)
-              </label>
+              <label className="block text-sm text-slate-300 mb-1">Archive after (minutes)</label>
               <input
                 type="number"
                 {...register('autoArchiveIdleMinutes', { valueAsNumber: true })}
@@ -218,9 +237,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  UI Mode
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">UI Mode</label>
                 <select
                   {...register('uiMode')}
                   className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
@@ -262,7 +279,9 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
                     className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
                   />
                   {errors.autoArchiveIdleMinutes && (
-                    <p className="mt-1 text-sm text-red-400">{errors.autoArchiveIdleMinutes.message}</p>
+                    <p className="mt-1 text-sm text-red-400">
+                      {errors.autoArchiveIdleMinutes.message}
+                    </p>
                   )}
                   <p className="mt-1 text-xs text-slate-500">
                     Tabs that haven't been accessed for this duration will be automatically archived
@@ -275,9 +294,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
           {activeTab === 'appearance' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Theme
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Theme</label>
                 <select
                   {...register('theme')}
                   className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"

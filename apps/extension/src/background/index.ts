@@ -1,21 +1,21 @@
+import type { BridgeMessage, BridgeResponse } from '@/lib/service-worker-bridge';
 /// <reference types="chrome" />
 import {
-  getSpacesSnapshot,
-  broadcastSpacesSnapshot,
-  toggleTabPinned,
-  moveTabToSpace,
-  createSpace,
-  removeSpace,
-  closeTab,
   activateTab,
   archiveTab,
-  restoreArchivedTab,
+  broadcastSpacesSnapshot,
+  closeTab,
+  createSpace,
   getArchivedTabs,
+  getBookmarksForSpace,
   getSettings,
+  getSpacesSnapshot,
+  moveTabToSpace,
+  removeSpace,
+  restoreArchivedTab,
+  toggleTabPinned,
   updateSettings,
-  getBookmarksForSpace
 } from './services/browser';
-import type { BridgeMessage, BridgeResponse } from '@/lib/service-worker-bridge';
 
 const UI_MODE_KEY = 'arclineUiMode';
 type UiMode = 'side-panel' | 'popup' | 'floating';
@@ -51,7 +51,6 @@ async function applyUiMode(mode: UiMode) {
   }
 
   await chrome.storage.local.set({ [UI_MODE_KEY]: mode });
-  console.log('[Arcline] UI mode applied:', mode);
   await broadcastUiMode(mode);
 }
 
@@ -59,18 +58,11 @@ async function detectUiMode(): Promise<UiMode> {
   const hasSidePanel = typeof chrome.sidePanel !== 'undefined';
   const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
 
-  console.log('[Arcline] ========== Side Panel Detection ==========');
-  console.log('[Arcline] chrome.sidePanel available:', hasSidePanel);
-  console.log('[Arcline] User agent:', navigator.userAgent);
-
   // Test side panel capabilities
   if (hasSidePanel) {
-    console.log('[Arcline] Available side panel methods:', Object.keys(chrome.sidePanel));
-
     try {
       // Try to get current panel options
-      const options = await chrome.sidePanel.getOptions({});
-      console.log('[Arcline] Current side panel options:', options);
+      const _options = await chrome.sidePanel.getOptions({});
     } catch (error) {
       console.warn('[Arcline] Failed to get side panel options:', error);
     }
@@ -78,15 +70,12 @@ async function detectUiMode(): Promise<UiMode> {
     try {
       // Try to get panel state for current window
       const windows = await chrome.windows.getAll();
-      console.log('[Arcline] Number of windows:', windows.length);
 
       if (windows.length > 0) {
-        const currentWindow = windows[0];
-        console.log('[Arcline] Current window ID:', currentWindow.id);
+        const _currentWindow = windows[0];
 
         try {
-          const panelOptions = await chrome.sidePanel.getOptions({ tabId: undefined });
-          console.log('[Arcline] Panel options for current context:', panelOptions);
+          const _panelOptions = await chrome.sidePanel.getOptions({ tabId: undefined });
         } catch (err) {
           console.warn('[Arcline] Could not get panel options:', err);
         }
@@ -100,16 +89,11 @@ async function detectUiMode(): Promise<UiMode> {
       // DON'T use openPanelOnActionClick for Atlas compatibility
       // await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
       await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
-      console.log('[Arcline] ✓ setPanelBehavior succeeded (openPanelOnActionClick: false)');
     } catch (error) {
       console.warn('[Arcline] ✗ setPanelBehavior failed:', error);
     }
   }
-
-
-  console.log('[Arcline] =======================================');
   if (hasSidePanel && isAtlas) {
-    console.log('[Arcline] Atlas detected, scheduling floating mode');
     return 'floating';
   }
 
@@ -125,45 +109,35 @@ async function initializeUiMode() {
   await applyUiMode(mode);
 
   if (mode === 'side-panel') {
-    console.log('[Arcline] Using side panel mode by default (sidePanel detected)');
   } else if (mode === 'popup') {
-    console.log('[Arcline] Using popup mode (no sidePanel API)');
   } else {
-    console.log('[Arcline] Using floating mode (Atlas fallback)');
   }
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('[Arcline] Extension installed/updated');
   await initializeUiMode();
 });
 
 chrome.runtime.onStartup?.addListener(async () => {
-  console.log('[Arcline] Browser startup');
   await initializeUiMode();
 });
 
 // Handle action clicks manually as a fallback
 chrome.action.onClicked.addListener(async () => {
-  console.log('[Arcline] ========== Action Clicked ==========');
   const hasSidePanel = typeof chrome.sidePanel !== 'undefined';
-  console.log('[Arcline] Side panel API available:', hasSidePanel);
 
   if (hasSidePanel) {
     try {
-      console.log('[Arcline] Attempting to open side panel...');
       const windows = await chrome.windows.getCurrent();
-      console.log('[Arcline] Current window ID:', windows.id);
 
       await chrome.sidePanel.open({ windowId: windows.id });
-      console.log('[Arcline] ✓ Side panel opened successfully');
       await applyUiMode('side-panel');
     } catch (error) {
       console.error('[Arcline] ✗ Failed to open side panel:', error);
       console.error('[Arcline] Error details:', {
         message: (error as Error).message,
         name: (error as Error).name,
-        stack: (error as Error).stack
+        stack: (error as Error).stack,
       });
 
       console.warn('[Arcline] Falling back to floating mode');
@@ -175,9 +149,7 @@ chrome.action.onClicked.addListener(async () => {
       }
     }
   } else {
-    console.log('[Arcline] Side panel API not available, popup should open instead');
   }
-  console.log('[Arcline] =====================================');
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
@@ -189,13 +161,11 @@ chrome.commands.onCommand.addListener(async (command) => {
     if (tabs[0]?.id) {
       try {
         await chrome.tabs.sendMessage(tabs[0].id, { command: 'toggleSidebar' });
-      } catch (error) {
+      } catch (_error) {
         // Content script not loaded, try to open side panel instead
         try {
           await chrome.sidePanel.open({ windowId: tabs[0].windowId });
-        } catch (sidePanelError) {
-          console.log('Side panel not available, content script should handle toggle');
-        }
+        } catch (_sidePanelError) {}
       }
     }
   }
@@ -214,7 +184,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         try {
           const result = await chrome.storage.local.get(UI_MODE_KEY);
           const fallbackMode = await detectUiMode();
-          sendResponse({ command: 'currentUiMode', mode: (result[UI_MODE_KEY] as UiMode) ?? fallbackMode });
+          sendResponse({
+            command: 'currentUiMode',
+            mode: (result[UI_MODE_KEY] as UiMode) ?? fallbackMode,
+          });
         } catch (error) {
           console.error('Failed to respond with UI mode', error);
           sendResponse({ command: 'currentUiMode', mode: 'side-panel' as UiMode });
@@ -455,7 +428,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-const tabEventHandlers: Array<[chrome.events.Event<(...args: any[]) => void> | undefined, () => void]> = [
+const tabEventHandlers: Array<
+  [chrome.events.Event<(...args: any[]) => void> | undefined, () => void]
+> = [
   [chrome.tabs.onCreated, () => void broadcastSpacesSnapshot()],
   [chrome.tabs.onUpdated, () => void broadcastSpacesSnapshot()],
   [chrome.tabs.onMoved, () => void broadcastSpacesSnapshot()],
@@ -463,7 +438,7 @@ const tabEventHandlers: Array<[chrome.events.Event<(...args: any[]) => void> | u
   [chrome.tabs.onAttached, () => void broadcastSpacesSnapshot()],
   [chrome.tabs.onRemoved, () => void broadcastSpacesSnapshot()],
   [chrome.tabs.onActivated, () => void broadcastSpacesSnapshot()],
-  [chrome.windows.onFocusChanged, () => void broadcastSpacesSnapshot()]
+  [chrome.windows.onFocusChanged, () => void broadcastSpacesSnapshot()],
 ];
 
 tabEventHandlers.forEach(([event, handler]) => {

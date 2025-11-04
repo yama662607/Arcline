@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { ServiceWorkerBridge } from '@/lib/service-worker-bridge';
 import { queryClient } from '@/lib/query-client';
+import { ServiceWorkerBridge } from '@/lib/service-worker-bridge';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
 // Global bridge instance
 let bridgeInstance: ServiceWorkerBridge | null = null;

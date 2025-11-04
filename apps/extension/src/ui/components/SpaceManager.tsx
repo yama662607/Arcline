@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { useSpacesSnapshot, useCreateSpace, useRemoveSpace } from '@/hooks/use-spaces-query';
+import { useCreateSpace, useRemoveSpace, useSpacesSnapshot } from '@/hooks/use-spaces-query';
 import { useSpacesStore } from '@/store';
-import type { SpaceSnapshot } from '@/shared/types';
+import { useState } from 'react';
 
 interface SpaceManagerProps {
   variant?: 'standalone' | 'floating';
@@ -11,7 +10,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
   const [isCreatingSpace, setIsCreatingSpace] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState('');
   const [newSpaceColor, setNewSpaceColor] = useState<chrome.tabGroups.ColorEnum>('blue');
-  
+
   const { data: spaces = [], isLoading, error } = useSpacesSnapshot();
   const createSpaceMutation = useCreateSpace();
   const removeSpaceMutation = useRemoveSpace();
@@ -40,10 +39,10 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
 
     try {
       await removeSpaceMutation.mutateAsync(spaceId);
-      
+
       // If we removed the active space, switch to another one
-      const remainingSpaces = spaces.filter(s => s.id !== spaceId);
-      if (remainingSpaces.length > 0) {
+      const remainingSpaces = spaces.filter((s) => s.id !== spaceId);
+      if (remainingSpaces.length > 0 && remainingSpaces[0]) {
         setActiveSpace(remainingSpaces[0].id);
       }
     } catch (error) {
@@ -55,16 +54,25 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
     setActiveSpace(spaceId);
   };
 
-  const colors: chrome.tabGroups.ColorEnum[] = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan'];
+  const colors: chrome.tabGroups.ColorEnum[] = [
+    'grey',
+    'blue',
+    'red',
+    'yellow',
+    'green',
+    'pink',
+    'purple',
+    'cyan',
+  ];
 
   if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="animate-pulse">
-          <div className="h-4 bg-surface-light rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-surface-light rounded w-1/4 mb-4" />
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 bg-surface-light rounded"></div>
+              <div key={i} className="h-8 bg-surface-light rounded" />
             ))}
           </div>
         </div>
@@ -93,7 +101,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
             + New
           </button>
         </div>
-        
+
         <div className="space-y-1">
           {spaces.map((space) => (
             <div
@@ -130,7 +138,6 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
               onChange={(e) => setNewSpaceName(e.target.value)}
               placeholder="Space name"
               className="w-full px-2 py-1 text-sm bg-surface-light rounded border border-surface-light focus:outline-none focus:border-blue-500"
-              autoFocus
             />
             <div className="flex gap-1 mt-2">
               {colors.map((color) => (
@@ -200,7 +207,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={(e) => {
@@ -232,26 +239,21 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-surface p-6 rounded-lg border border-surface-light max-w-md w-full mx-4">
             <h3 className="text-lg font-medium text-white mb-4">Create New Space</h3>
-            
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Space Name
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Space Name</label>
                 <input
                   type="text"
                   value={newSpaceName}
                   onChange={(e) => setNewSpaceName(e.target.value)}
                   placeholder="Enter space name"
                   className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
-                  autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Color
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Color</label>
                 <div className="flex gap-2">
                   {colors.map((color) => (
                     <button

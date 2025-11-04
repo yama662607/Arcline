@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
-import type { TabEntry } from '@/shared/types';
 import { activateTab, closeTab, toggleTabPinned } from '@/lib/tabs';
+import type { TabEntry } from '@/shared/types';
 
 interface TabContextMenuProps {
   tab: TabEntry;

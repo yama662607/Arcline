@@ -14,7 +14,7 @@ interface SpacesState {
 export const useSpacesStore = create<SpacesState>()(
   devtools(
     persist(
-      (set, get) => ({
+      (set, _get) => ({
         spaces: [],
         activeSpaceId: null,
         setSpaces: (spaces) =>
@@ -22,23 +22,23 @@ export const useSpacesStore = create<SpacesState>()(
             const hasActive = spaces.some((space) => space.id === state.activeSpaceId);
             const nextActive = hasActive
               ? state.activeSpaceId
-              : spaces.length > 0
+              : spaces.length > 0 && spaces[0]
                 ? spaces[0].id
                 : null;
 
             return {
               spaces,
-              activeSpaceId: nextActive
+              activeSpaceId: nextActive,
             };
           }),
-        setActiveSpace: (spaceId) => set({ activeSpaceId: spaceId })
+        setActiveSpace: (spaceId) => set({ activeSpaceId: spaceId }),
       }),
       {
         name: 'arcline-spaces',
-        storage: createChromeStorage<SpacesState>('spaces'),
+        storage: createChromeStorage<{ activeSpaceId: number | null }>('spaces'),
         partialize: (state) => ({
-          activeSpaceId: state.activeSpaceId
-        })
+          activeSpaceId: state.activeSpaceId,
+        }),
       }
     )
   )

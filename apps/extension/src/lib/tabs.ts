@@ -1,8 +1,6 @@
 import { hasChromeRuntime } from './utils';
 
-type GenericResponse<T = unknown> =
-  | ({ ok: true } & T)
-  | { ok: false; error: string };
+type GenericResponse<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
 
 function sendMessage<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -33,28 +31,39 @@ function sendMessage<T>(payload: Record<string, unknown>): Promise<T> {
 }
 
 export async function toggleTabPinned(tabId: number, pinned?: boolean): Promise<boolean> {
-  const result = await sendMessage<{ pinned: boolean }>({ command: 'toggleTabPinned', tabId, pinned });
+  const result = await sendMessage<{ pinned: boolean }>({
+    command: 'toggleTabPinned',
+    tabId,
+    pinned,
+  });
   return result.pinned;
 }
 
 export async function moveTabToSpace(tabId: number, spaceId: number): Promise<number | null> {
-  const result = await sendMessage<{ groupId: number | null }>({ command: 'moveTabToSpace', tabId, spaceId });
+  const result = await sendMessage<{ groupId: number | null }>({
+    command: 'moveTabToSpace',
+    tabId,
+    spaceId,
+  });
   return result.groupId;
 }
 
 export async function closeTab(tabId: number): Promise<void> {
-  await sendMessage<{}>({ command: 'closeTab', tabId });
+  await sendMessage<{ command: 'closeTab'; tabId: number }>({ command: 'closeTab', tabId });
 }
 
 export async function activateTab(tabId: number): Promise<void> {
-  await sendMessage<{}>({ command: 'activateTab', tabId });
+  await sendMessage<{ command: 'activateTab'; tabId: number }>({ command: 'activateTab', tabId });
 }
 
-export async function createSpace(name: string, color?: chrome.tabGroups.ColorEnum): Promise<number> {
+export async function createSpace(
+  name: string,
+  color?: chrome.tabGroups.ColorEnum
+): Promise<number> {
   const result = await sendMessage<{ groupId: number }>({ command: 'createSpace', name, color });
   return result.groupId;
 }
 
 export async function removeSpace(spaceId: number): Promise<void> {
-  await sendMessage<{}>({ command: 'removeSpace', spaceId });
+  await sendMessage<{ command: 'removeSpace'; spaceId: number }>({ command: 'removeSpace', spaceId });
 }

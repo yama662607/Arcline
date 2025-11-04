@@ -1,17 +1,17 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { queryClient } from './lib/query-client';
 import type { UiMode } from './lib/ui-mode';
 import { requestUiMode } from './lib/ui-mode';
 import { useSpacesSync } from './lib/useSpacesSync';
-import { SpaceManager } from './ui/components/SpaceManager';
-import { EnhancedTabList } from './ui/components/EnhancedTabList';
-import { ArchiveManager } from './ui/components/ArchiveManager';
-import { SettingsPanel } from './ui/components/SettingsPanel';
-import { TabContextMenu } from './ui/components/TabContextMenu';
-import { useSpacesStore } from './store';
 import type { TabEntry } from './shared/types';
-import { queryClient } from './lib/query-client';
+import { useSpacesStore } from './store';
+import { ArchiveManager } from './ui/components/ArchiveManager';
+import { EnhancedTabList } from './ui/components/EnhancedTabList';
+import { SettingsPanel } from './ui/components/SettingsPanel';
+import { SpaceManager } from './ui/components/SpaceManager';
+import { TabContextMenu } from './ui/components/TabContextMenu';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
@@ -32,13 +32,15 @@ export default function App() {
     () => [
       { key: '⇧ Cmd K', description: 'Open command palette' },
       { key: 'Ctrl E', description: 'Toggle side panel' },
-      { key: 'Ctrl D', description: 'Quick pin active tab' }
+      { key: 'Ctrl D', description: 'Quick pin active tab' },
     ],
     []
   );
 
   useEffect(() => {
-    requestUiMode().then(setUiMode).catch(() => setUiMode('side-panel'));
+    requestUiMode()
+      .then(setUiMode)
+      .catch(() => setUiMode('side-panel'));
   }, []);
 
   useSpacesSync();
@@ -51,8 +53,11 @@ export default function App() {
             <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Arcline</p>
             <h1 className="text-4xl font-semibold text-white">Atlas-ready Arc experience</h1>
             <p className="text-slate-300">
-              This sandbox renders the upcoming React + TypeScript UI shell. The legacy Arcify codebase
-              is stored under <code className="rounded bg-surface-light px-2 py-1 font-mono text-xs">legacy/arcify</code>
+              This sandbox renders the upcoming React + TypeScript UI shell. The legacy Arcify
+              codebase is stored under{' '}
+              <code className="rounded bg-surface-light px-2 py-1 font-mono text-xs">
+                legacy/arcify
+              </code>
               for reference.
             </p>
           </header>
@@ -64,7 +69,7 @@ export default function App() {
                 UI Mode: <span className="font-mono">{uiMode}</span>
               </div>
             </div>
-            
+
             <div className="border border-surface-light rounded-lg">
               <div className="flex border-b border-surface-light">
                 {(['spaces', 'archive', 'settings'] as const).map((tab) => (
@@ -86,7 +91,7 @@ export default function App() {
                 {activeTab === 'spaces' && (
                   <div className="space-y-6">
                     <SpaceManager variant="standalone" />
-                    
+
                     {activeSpace && (
                       <div className="space-y-4">
                         <h3 className="text-lg font-medium text-white">{activeSpace.name}</h3>
@@ -117,13 +122,9 @@ export default function App() {
                   </div>
                 )}
 
-                {activeTab === 'archive' && (
-                  <ArchiveManager variant="standalone" />
-                )}
+                {activeTab === 'archive' && <ArchiveManager variant="standalone" />}
 
-                {activeTab === 'settings' && (
-                  <SettingsPanel variant="standalone" />
-                )}
+                {activeTab === 'settings' && <SettingsPanel variant="standalone" />}
               </div>
             </div>
           </section>

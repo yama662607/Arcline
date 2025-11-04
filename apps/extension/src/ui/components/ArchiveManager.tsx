@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { useArchivedTabs, useRestoreArchivedTab } from '@/hooks/use-spaces-query';
 import type { ArchivedTab } from '@/shared/types';
+import { useState } from 'react';
 
 interface ArchiveManagerProps {
   variant?: 'standalone' | 'floating';
@@ -9,15 +9,16 @@ interface ArchiveManagerProps {
 export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) {
   const [selectedTab, setSelectedTab] = useState<ArchivedTab | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  const { data: archivedTabs = [], isLoading, error } = useArchivedTabs();
+
+  const { data: archivedTabs = [] } = useArchivedTabs();
   const restoreTabMutation = useRestoreArchivedTab();
 
   // Filter archived tabs based on search
-  const filteredTabs = archivedTabs.filter(tab =>
-    tab.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tab.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tab.spaceName.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTabs = archivedTabs.filter(
+    (tab) =>
+      tab.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tab.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tab.spaceName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Sort by archived date (newest first)
@@ -34,7 +35,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
 
   const getFaviconUrl = (url: string) => {
@@ -56,9 +57,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
         </div>
 
         {sortedTabs.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-slate-500">
-            No archived tabs
-          </div>
+          <div className="px-3 py-4 text-center text-xs text-slate-500">No archived tabs</div>
         ) : (
           <>
             <div className="px-3 py-2">
@@ -86,11 +85,9 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
-                  
+
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-slate-200 truncate">
-                      {tab.title}
-                    </div>
+                    <div className="text-xs text-slate-200 truncate">{tab.title}</div>
                     <div className="text-xs text-slate-500 truncate">
                       {new URL(tab.url).hostname}
                     </div>
@@ -121,9 +118,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-medium text-white">
-          Archive ({sortedTabs.length})
-        </h2>
+        <h2 className="text-xl font-medium text-white">Archive ({sortedTabs.length})</h2>
       </div>
 
       {sortedTabs.length === 0 ? (
@@ -171,16 +166,10 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-white truncate">
-                    {tab.title}
-                  </h3>
-                  <p className="text-sm text-slate-400 truncate">
-                    {tab.url}
-                  </p>
+                  <h3 className="font-medium text-white truncate">{tab.title}</h3>
+                  <p className="text-sm text-slate-400 truncate">{tab.url}</p>
                   <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="px-2 py-1 bg-surface-light rounded">
-                      {tab.spaceName}
-                    </span>
+                    <span className="px-2 py-1 bg-surface-light rounded">{tab.spaceName}</span>
                     <span>Archived {formatDate(tab.archivedAt)}</span>
                   </div>
                 </div>

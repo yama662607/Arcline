@@ -1,4 +1,4 @@
-import { initializeSidebar, getSidebarManager } from './sidebar';
+import { getSidebarManager, initializeSidebar } from './sidebar';
 
 // Initialize sidebar when content script loads
 initializeSidebar();

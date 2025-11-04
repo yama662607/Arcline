@@ -17,12 +17,12 @@ export const useTabsStore = create<TabsState>()(
         activeTabId: null,
         lastUpdatedAt: null,
         setActiveTabId: (id) => set({ activeTabId: id }),
-        touch: () => set({ lastUpdatedAt: Date.now() })
+        touch: () => set({ lastUpdatedAt: Date.now() }),
       }),
       {
         name: 'arcline-tabs',
-        storage: createChromeStorage<TabsState>('tabs'),
-        partialize: (state) => ({ activeTabId: state.activeTabId })
+        storage: createChromeStorage<{ activeTabId: number | null }>('tabs'),
+        partialize: (state) => ({ activeTabId: state.activeTabId }),
       }
     )
   )

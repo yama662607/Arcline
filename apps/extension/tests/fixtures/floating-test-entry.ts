@@ -23,7 +23,7 @@ window.bootstrapFloatingUiForTest = async () => {
   const instance = await mountFloatingUi({
     host,
     shadowRoot: shadow,
-    onBootstrapReady: () => {}
+    onBootstrapReady: () => {},
   });
 
   window.__arclineFloatingInstance = instance;

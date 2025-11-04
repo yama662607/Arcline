@@ -21,11 +21,11 @@ export const useSettingsStore = create<SettingsState>()(
         enableAutoArchive: false,
         setDefaultSpaceName: (name) => set({ defaultSpaceName: name }),
         setAutoArchiveMinutes: (minutes) => set({ autoArchiveMinutes: minutes }),
-        setEnableAutoArchive: (value) => set({ enableAutoArchive: value })
+        setEnableAutoArchive: (value) => set({ enableAutoArchive: value }),
       }),
       {
         name: 'arcline-settings',
-        storage: createChromeStorage<SettingsState>('settings')
+        storage: createChromeStorage<SettingsState>('settings'),
       }
     )
   )

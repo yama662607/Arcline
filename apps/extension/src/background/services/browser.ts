@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
-import type { SpaceSnapshot, TabEntry, ArchivedTab, Settings } from '@/shared/types';
+import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 
-const DEFAULT_COLORS: Record<string, string> = {
+const _DEFAULT_COLORS: Record<string, string> = {
   grey: '#64748b',
   blue: '#3b82f6',
   red: '#ef4444',
@@ -9,11 +9,11 @@ const DEFAULT_COLORS: Record<string, string> = {
   green: '#22c55e',
   pink: '#ec4899',
   purple: '#a855f7',
-  cyan: '#06b6d4'
+  cyan: '#06b6d4',
 };
 
 const TAB_GROUPS_SUPPORTED = typeof chrome.tabGroups !== 'undefined';
-const TAB_GROUP_ID_NONE = TAB_GROUPS_SUPPORTED ? chrome.tabGroups!.TAB_GROUP_ID_NONE : -1;
+const TAB_GROUP_ID_NONE = TAB_GROUPS_SUPPORTED ? chrome.tabGroups?.TAB_GROUP_ID_NONE : -1;
 
 function mapTab(tab: chrome.tabs.Tab): TabEntry | null {
   if (typeof tab.id !== 'number') return null;
@@ -27,7 +27,7 @@ function mapTab(tab: chrome.tabs.Tab): TabEntry | null {
     active: Boolean(tab.active),
     windowId: tab.windowId ?? -1,
     groupId: tab.groupId ?? TAB_GROUP_ID_NONE,
-    lastAccessed: tab.lastAccessed
+    lastAccessed: tab.lastAccessed,
   };
 }
 
@@ -38,8 +38,10 @@ function colorFromGroup(group: chrome.tabGroups.TabGroup): chrome.tabGroups.Colo
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
   try {
     const [tabGroups, allTabs] = await Promise.all([
-      TAB_GROUPS_SUPPORTED ? chrome.tabGroups!.query({}) : Promise.resolve<chrome.tabGroups.TabGroup[]>([]),
-      chrome.tabs.query({})
+      TAB_GROUPS_SUPPORTED
+        ? chrome.tabGroups?.query({})
+        : Promise.resolve<chrome.tabGroups.TabGroup[]>([]),
+      chrome.tabs.query({}),
     ]);
 
     const groupMap = new Map<number, SpaceSnapshot>();
@@ -53,7 +55,7 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
         temporaryTabs: [],
         windowId: group.windowId,
         createdAt: Date.now(),
-        lastActiveAt: Date.now()
+        lastActiveAt: Date.now(),
       });
     });
 
@@ -65,7 +67,7 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       temporaryTabs: [],
       windowId: -1,
       createdAt: Date.now(),
-      lastActiveAt: Date.now()
+      lastActiveAt: Date.now(),
     };
 
     allTabs.forEach((tab) => {
@@ -126,7 +128,10 @@ export async function moveTabToSpace(tabId: number, spaceId: number): Promise<nu
   return groupId;
 }
 
-export async function createSpace(name: string, color?: chrome.tabGroups.ColorEnum): Promise<number> {
+export async function createSpace(
+  name: string,
+  color?: chrome.tabGroups.ColorEnum
+): Promise<number> {
   if (!TAB_GROUPS_SUPPORTED) {
     throw new Error('Tab groups are not supported in this browser');
   }
@@ -148,7 +153,7 @@ export async function createSpace(name: string, color?: chrome.tabGroups.ColorEn
   const groupId = await chrome.tabs.group({ tabIds: tabId });
   await chrome.tabGroups.update(groupId, {
     title: name,
-    color: color ?? 'blue'
+    color: color ?? 'blue',
   });
   return groupId;
 }
@@ -159,14 +164,16 @@ export async function removeSpace(spaceId: number): Promise<void> {
   const tabs = await chrome.tabs.query({ groupId: spaceId });
   if (!tabs.length) return;
 
-  await chrome.tabs.ungroup(tabs.map((tab) => tab.id!).filter((id): id is number => typeof id === 'number'));
+  await chrome.tabs.ungroup(
+    tabs.map((tab) => tab.id!).filter((id): id is number => typeof id === 'number')
+  );
 }
 
 export async function broadcastSpacesSnapshot(): Promise<void> {
   const spaces = await getSpacesSnapshot();
   try {
     await chrome.runtime.sendMessage({ command: 'spacesSnapshot', spaces });
-  } catch (error) {
+  } catch (_error) {
     // Silently ignore if no listeners are connected (e.g., side panel is closed)
     // This is expected behavior and not an error
   }
@@ -210,13 +217,15 @@ export async function getArchivedTabs(): Promise<ArchivedTab[]> {
   return result[ARCHIVED_TABS_KEY] || [];
 }
 
-export async function addArchivedTab(tabData: Omit<ArchivedTab, 'id' | 'archivedAt'>): Promise<void> {
+export async function addArchivedTab(
+  tabData: Omit<ArchivedTab, 'id' | 'archivedAt'>
+): Promise<void> {
   if (!tabData || !tabData.url || !tabData.title || !tabData.spaceId) return;
 
   const archivedTabs = await getArchivedTabs();
 
   // Check for duplicates
-  const exists = archivedTabs.some(t => t.url === tabData.url && t.spaceId === tabData.spaceId);
+  const exists = archivedTabs.some((t) => t.url === tabData.url && t.spaceId === tabData.spaceId);
   if (exists) return;
 
   // Add new tab with timestamp and ID
@@ -243,7 +252,7 @@ export async function removeArchivedTab(url: string, spaceId: number): Promise<v
   if (!url || !spaceId) return;
 
   let archivedTabs = await getArchivedTabs();
-  archivedTabs = archivedTabs.filter(tab => !(tab.url === url && tab.spaceId === spaceId));
+  archivedTabs = archivedTabs.filter((tab) => !(tab.url === url && tab.spaceId === spaceId));
   await chrome.storage.local.set({ [ARCHIVED_TABS_KEY]: archivedTabs });
 }
 
@@ -254,7 +263,7 @@ export async function archiveTab(tabId: number): Promise<void> {
 
     // Get current active space
     const spaces = await getSpacesSnapshot();
-    const activeSpace = spaces.find(s => s.windowId === tab.windowId);
+    const activeSpace = spaces.find((s) => s.windowId === tab.windowId);
     if (!activeSpace) return;
 
     const tabData = {
@@ -284,11 +293,11 @@ export async function restoreArchivedTab(archivedTab: ArchivedTab): Promise<void
 
     // Group the new tab into the correct space
     const spaces = await getSpacesSnapshot();
-    const targetSpace = spaces.find(s => s.id === archivedTab.spaceId);
+    const targetSpace = spaces.find((s) => s.id === archivedTab.spaceId);
     if (targetSpace) {
       await chrome.tabs.group({
         tabIds: [newTab.id],
-        groupId: targetSpace.id
+        groupId: targetSpace.id,
       });
     }
 
@@ -309,7 +318,9 @@ export async function getOrCreateArcifyFolder(): Promise<chrome.bookmarks.Bookma
   return folder;
 }
 
-export async function getOrCreateSpaceFolder(spaceName: string): Promise<chrome.bookmarks.BookmarkTreeNode> {
+export async function getOrCreateSpaceFolder(
+  spaceName: string
+): Promise<chrome.bookmarks.BookmarkTreeNode> {
   const arcifyFolder = await getOrCreateArcifyFolder();
   const children = await chrome.bookmarks.getChildren(arcifyFolder.id);
   let spaceFolder = children.find((f) => f.title === spaceName);
@@ -317,7 +328,7 @@ export async function getOrCreateSpaceFolder(spaceName: string): Promise<chrome.
   if (!spaceFolder) {
     spaceFolder = await chrome.bookmarks.create({
       parentId: arcifyFolder.id,
-      title: spaceName
+      title: spaceName,
     });
   }
   return spaceFolder;
@@ -327,7 +338,7 @@ export async function getBookmarksForSpace(spaceId: number): Promise<TabEntry[]>
   try {
     // Get space info
     const spaces = await getSpacesSnapshot();
-    const space = spaces.find(s => s.id === spaceId);
+    const space = spaces.find((s) => s.id === spaceId);
     if (!space) return [];
 
     // Get space bookmark folder
@@ -377,7 +388,7 @@ export async function processBookmarkFolder(
   for (const item of items) {
     if (item.url) {
       // This is a bookmark
-      const tab = tabs.find(t => t.url === item.url);
+      const tab = tabs.find((t) => t.url === item.url);
       if (tab) {
         bookmarks.push(tab.id);
         // Set tab name override with the bookmark's title
@@ -398,12 +409,16 @@ export async function processBookmarkFolder(
 // Tab name overrides
 const TAB_NAME_OVERRIDES_KEY = 'tabNameOverridesById';
 
-export async function getTabNameOverrides(): Promise<Record<number, { name: string; originalDomain: string }>> {
+export async function getTabNameOverrides(): Promise<
+  Record<number, { name: string; originalDomain: string }>
+> {
   const result = await chrome.storage.local.get(TAB_NAME_OVERRIDES_KEY);
   return result[TAB_NAME_OVERRIDES_KEY] || {};
 }
 
-export async function saveTabNameOverrides(overrides: Record<number, { name: string; originalDomain: string }>): Promise<void> {
+export async function saveTabNameOverrides(
+  overrides: Record<number, { name: string; originalDomain: string }>
+): Promise<void> {
   await chrome.storage.local.set({ [TAB_NAME_OVERRIDES_KEY]: overrides });
 }
 
@@ -416,7 +431,7 @@ export async function setTabNameOverride(tabId: number, url: string, name: strin
     overrides[tabId] = { name, originalDomain };
     await saveTabNameOverrides(overrides);
   } catch (e) {
-    console.error("Error setting tab name override:", e);
+    console.error('Error setting tab name override:', e);
   }
 }
 
@@ -441,7 +456,7 @@ export async function updateTabLastActivity(tabId: number): Promise<void> {
     activityData[tabId] = Date.now();
     await chrome.storage.local.set({ [TAB_ACTIVITY_STORAGE_KEY]: activityData });
   } catch (error) {
-    console.error("Error updating tab activity:", error);
+    console.error('Error updating tab activity:', error);
   }
 }
 
@@ -453,7 +468,7 @@ export async function removeTabLastActivity(tabId: number): Promise<void> {
     delete activityData[tabId];
     await chrome.storage.local.set({ [TAB_ACTIVITY_STORAGE_KEY]: activityData });
   } catch (error) {
-    console.error("Error removing tab activity:", error);
+    console.error('Error removing tab activity:', error);
   }
 }
 

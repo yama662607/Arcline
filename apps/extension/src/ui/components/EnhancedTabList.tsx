@@ -1,8 +1,14 @@
-import { useState, useRef } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useToggleTabPinned, useMoveTabToSpace, useCloseTab, useActivateTab, useArchiveTab } from '@/hooks/use-spaces-query';
+import {
+  useActivateTab,
+  useArchiveTab,
+  useCloseTab,
+  useMoveTabToSpace,
+  useToggleTabPinned,
+} from '@/hooks/use-spaces-query';
 import { useSpacesSnapshot } from '@/hooks/use-spaces-query';
 import type { TabEntry } from '@/shared/types';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useRef, useState } from 'react';
 
 interface EnhancedTabListProps {
   tabs: TabEntry[];
@@ -25,7 +31,7 @@ export function EnhancedTabList({
 }: EnhancedTabListProps) {
   const [draggedTab, setDraggedTab] = useState<TabEntry | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
-  
+
   const { data: spaces = [] } = useSpacesSnapshot();
   const togglePinMutation = useToggleTabPinned();
   const moveTabMutation = useMoveTabToSpace();
@@ -37,7 +43,7 @@ export function EnhancedTabList({
   const virtualizer = useVirtualizer({
     count: tabs.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => compact ? 32 : 40,
+    estimateSize: () => (compact ? 32 : 40),
     overscan: 5,
   });
 
@@ -118,11 +124,9 @@ export function EnhancedTabList({
             {title} ({tabs.length})
           </h3>
         </div>
-        
+
         {tabs.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-slate-500">
-            {emptyMessage}
-          </div>
+          <div className="px-3 py-4 text-center text-xs text-slate-500">{emptyMessage}</div>
         ) : (
           <div className="space-y-1">
             {tabs.map((tab) => (
@@ -144,11 +148,9 @@ export function EnhancedTabList({
                     <span className="text-xs text-slate-400">🌐</span>
                   </div>
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-slate-200 truncate">
-                    {tab.title}
-                  </div>
+                  <div className="text-sm text-slate-200 truncate">{tab.title}</div>
                   <div className="text-xs text-slate-500 truncate">
                     {new URL(tab.url || '').hostname}
                   </div>
@@ -158,15 +160,15 @@ export function EnhancedTabList({
                   <button
                     onClick={(e) => handlePinToggle(e, tab)}
                     className={`p-1 rounded text-xs ${
-                      tab.pinned 
-                        ? 'text-yellow-400 hover:text-yellow-300' 
+                      tab.pinned
+                        ? 'text-yellow-400 hover:text-yellow-300'
                         : 'text-slate-500 hover:text-slate-300'
                     }`}
                     title={tab.pinned ? 'Unpin' : 'Pin'}
                   >
                     📌
                   </button>
-                  
+
                   <button
                     onClick={(e) => handleTabClose(e, tab)}
                     className="p-1 rounded text-xs text-slate-500 hover:text-red-400"
@@ -189,11 +191,11 @@ export function EnhancedTabList({
         <h3 className="text-lg font-medium text-white">
           {title} ({tabs.length})
         </h3>
-        
+
         {tabs.length > 0 && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => tabs.forEach(tab => archiveTabMutation.mutate(tab.id))}
+              onClick={() => tabs.forEach((tab) => archiveTabMutation.mutate(tab.id))}
               className="text-sm text-slate-400 hover:text-slate-300 transition-colors"
               title="Archive all tabs"
             >
@@ -204,11 +206,9 @@ export function EnhancedTabList({
       </div>
 
       {tabs.length === 0 ? (
-        <div className="text-center py-8 text-slate-500">
-          {emptyMessage}
-        </div>
+        <div className="text-center py-8 text-slate-500">{emptyMessage}</div>
       ) : (
-        <div 
+        <div
           ref={parentRef}
           className="border border-surface-light rounded-lg overflow-hidden"
           style={{ height: Math.min(tabs.length * (compact ? 32 : 40), 400) }}
@@ -221,8 +221,6 @@ export function EnhancedTabList({
             }}
           >
             {virtualizer.getVirtualItems().map((virtualItem) => {
-              const tab = tabs[virtualItem.index];
-              
               return (
                 <div
                   key={virtualItem.index}
@@ -235,63 +233,68 @@ export function EnhancedTabList({
                     transform: `translateY(${virtualItem.start}px)`,
                   }}
                 >
-                  <div
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, tab)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, tab)}
-                    onClick={() => handleTabClick(tab)}
-                    onContextMenu={(e) => onTabContextMenu?.(tab, e)}
-                    className={`flex items-center gap-3 px-4 py-2 hover:bg-surface-light cursor-pointer transition-colors group border-b border-surface-light/50 ${
-                      tab.active ? 'bg-surface-light' : ''
-                    } ${draggedTab?.id === tab.id ? 'opacity-50' : ''}`}
-                  >
-                    <div className="relative flex-shrink-0">
-                      {getTabFavicon(tab)}
-                      <div className="hidden w-4 h-4 bg-surface-light rounded flex items-center justify-center">
-                        <span className="text-xs text-slate-400">🌐</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-slate-200 truncate">
-                        {tab.title}
-                      </div>
-                      <div className="text-xs text-slate-500 truncate">
-                        {tab.url ? new URL(tab.url).hostname : ''}
-                      </div>
-                    </div>
+                  {(() => {
+                    const currentTab = tabs[virtualItem.index];
+                    if (!currentTab) return null;
 
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => handlePinToggle(e, tab)}
-                        className={`p-1 rounded text-sm ${
-                          tab.pinned 
-                            ? 'text-yellow-400 hover:text-yellow-300' 
-                            : 'text-slate-500 hover:text-slate-300'
-                        }`}
-                        title={tab.pinned ? 'Unpin' : 'Pin'}
+                    return (
+                      <div
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, currentTab)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, currentTab)}
+                        onClick={() => handleTabClick(currentTab)}
+                        onContextMenu={(e) => onTabContextMenu?.(currentTab, e)}
+                        className={`flex items-center gap-3 px-4 py-2 hover:bg-surface-light cursor-pointer transition-colors group border-b border-surface-light/50 ${
+                          currentTab.active ? 'bg-surface-light' : ''
+                        } ${draggedTab?.id === currentTab.id ? 'opacity-50' : ''}`}
                       >
-                        📌
-                      </button>
-                      
-                      <button
-                        onClick={(e) => handleTabArchive(e, tab)}
-                        className="p-1 rounded text-sm text-slate-500 hover:text-blue-400"
-                        title="Archive"
-                      >
-                        📦
-                      </button>
-                      
-                      <button
-                        onClick={(e) => handleTabClose(e, tab)}
-                        className="p-1 rounded text-sm text-slate-500 hover:text-red-400"
-                        title="Close"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
+                        <div className="relative flex-shrink-0">
+                          {getTabFavicon(currentTab)}
+                          <div className="hidden w-4 h-4 bg-surface-light rounded flex items-center justify-center">
+                            <span className="text-xs text-slate-400">🌐</span>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-slate-200 truncate">{currentTab.title}</div>
+                          <div className="text-xs text-slate-500 truncate">
+                            {currentTab.url ? new URL(currentTab.url).hostname : ''}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => handlePinToggle(e, currentTab)}
+                            className={`p-1 rounded text-sm ${
+                              currentTab.pinned
+                                ? 'text-yellow-400 hover:text-yellow-300'
+                                : 'text-slate-500 hover:text-slate-300'
+                            }`}
+                            title={currentTab.pinned ? 'Unpin' : 'Pin'}
+                          >
+                            📌
+                          </button>
+
+                          <button
+                            onClick={(e) => handleTabArchive(e, currentTab)}
+                            className="p-1 rounded text-sm text-slate-500 hover:text-blue-400"
+                            title="Archive"
+                          >
+                            📦
+                          </button>
+
+                          <button
+                            onClick={(e) => handleTabClose(e, currentTab)}
+                            className="p-1 rounded text-sm text-slate-500 hover:text-red-400"
+                            title="Close"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -312,10 +315,7 @@ export function EnhancedTabList({
                 className="p-2 border border-surface-light/50 rounded hover:bg-surface-light cursor-pointer transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: space.color }}
-                  />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: space.color }} />
                   <span className="text-sm text-slate-200">{space.name}</span>
                 </div>
               </div>

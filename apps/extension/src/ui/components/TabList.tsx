@@ -1,8 +1,8 @@
-import { useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useMemo, useRef } from 'react';
 
-import type { SpaceSnapshot, TabEntry } from '@/shared/spaces';
 import { activateTab, closeTab, moveTabToSpace, toggleTabPinned } from '@/lib/tabs';
+import type { SpaceSnapshot, TabEntry } from '@/shared/spaces';
 
 type TabListVariant = 'standalone' | 'floating';
 
@@ -10,7 +10,6 @@ interface TabListProps {
   tabs: TabEntry[];
   spaces: SpaceSnapshot[];
   activeSpaceId: number | null;
-  pinned?: boolean;
   title: string;
   onContextMenu?: (tab: TabEntry, event: React.MouseEvent) => void;
   variant?: TabListVariant;
@@ -20,10 +19,9 @@ export function TabList({
   tabs,
   spaces,
   activeSpaceId,
-  pinned = false,
   title,
   onContextMenu,
-  variant = 'standalone'
+  variant = 'standalone',
 }: TabListProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
 
@@ -33,10 +31,13 @@ export function TabList({
     count: items.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 56,
-    overscan: 4
+    overscan: 4,
   });
 
-  const spaceOptions = useMemo(() => spaces.filter((space) => space.id !== activeSpaceId), [spaces, activeSpaceId]);
+  const spaceOptions = useMemo(
+    () => spaces.filter((space) => space.id !== activeSpaceId),
+    [spaces, activeSpaceId]
+  );
 
   const containerClassName =
     variant === 'floating' ? 'flex h-full flex-col space-y-2' : 'space-y-2';
@@ -84,7 +85,9 @@ export function TabList({
                     <button
                       type="button"
                       className={`rounded px-2 py-1 text-xs ${
-                        tab.pinned ? 'bg-amber-500/20 text-amber-200' : 'bg-slate-500/20 text-slate-200'
+                        tab.pinned
+                          ? 'bg-amber-500/20 text-amber-200'
+                          : 'bg-slate-500/20 text-slate-200'
                       }`}
                       onClick={() => toggleTabPinned(tab.id).catch((error) => console.warn(error))}
                     >

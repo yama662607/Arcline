@@ -1,16 +1,16 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { useSpacesSync } from '@/lib/useSpacesSync';
-import { SpaceManager } from '@/ui/components/SpaceManager';
-import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
-import { ArchiveManager } from '@/ui/components/ArchiveManager';
-import { SettingsPanel } from '@/ui/components/SettingsPanel';
-import { TabContextMenu } from '@/ui/components/TabContextMenu';
-import { useSpacesStore } from '@/store';
-import type { TabEntry } from '@/shared/types';
 import { queryClient } from '@/lib/query-client';
+import { useSpacesSync } from '@/lib/useSpacesSync';
+import type { TabEntry } from '@/shared/types';
+import { useSpacesStore } from '@/store';
+import { ArchiveManager } from '@/ui/components/ArchiveManager';
+import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
+import { SettingsPanel } from '@/ui/components/SettingsPanel';
+import { SpaceManager } from '@/ui/components/SpaceManager';
+import { TabContextMenu } from '@/ui/components/TabContextMenu';
 
 function SidebarApp() {
   const [activeTab, setActiveTab] = useState<'spaces' | 'archive' | 'settings'>('spaces');
@@ -73,9 +73,7 @@ function SidebarApp() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 px-2 py-1 text-xs font-medium transition-colors ${
-                activeTab === tab
-                  ? 'text-white bg-white/10'
-                  : 'text-slate-400 hover:text-slate-300'
+                activeTab === tab ? 'text-white bg-white/10' : 'text-slate-400 hover:text-slate-300'
               }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -87,7 +85,7 @@ function SidebarApp() {
           {activeTab === 'spaces' && (
             <div className="space-y-3">
               <SpaceManager variant="floating" />
-              
+
               {activeSpace && (
                 <div className="space-y-2">
                   <EnhancedTabList
@@ -97,10 +95,10 @@ function SidebarApp() {
                     variant="floating"
                     onTabContextMenu={(tab, event) => {
                       const rect = (event.target as HTMLElement).getBoundingClientRect();
-                      setContextMenu({ 
-                        tab, 
-                        x: rect.left, 
-                        y: rect.top 
+                      setContextMenu({
+                        tab,
+                        x: rect.left,
+                        y: rect.top,
                       });
                     }}
                   />
@@ -111,16 +109,16 @@ function SidebarApp() {
                     variant="floating"
                     onTabContextMenu={(tab, event) => {
                       const rect = (event.target as HTMLElement).getBoundingClientRect();
-                      setContextMenu({ 
-                        tab, 
-                        x: rect.left, 
-                        y: rect.top 
+                      setContextMenu({
+                        tab,
+                        x: rect.left,
+                        y: rect.top,
                       });
                     }}
                   />
                 </div>
               )}
-              
+
               {!activeSpace && (
                 <div className="px-3 py-6 text-center text-xs text-slate-500">
                   No spaces available. Create a space to get started.
@@ -129,13 +127,9 @@ function SidebarApp() {
             </div>
           )}
 
-          {activeTab === 'archive' && (
-            <ArchiveManager variant="floating" />
-          )}
+          {activeTab === 'archive' && <ArchiveManager variant="floating" />}
 
-          {activeTab === 'settings' && (
-            <SettingsPanel variant="floating" />
-          )}
+          {activeTab === 'settings' && <SettingsPanel variant="floating" />}
         </div>
 
         <footer className="border-t border-white/10 px-3 py-1 text-[10px] text-slate-400 text-center flex-shrink-0">
@@ -181,7 +175,7 @@ export class SidebarManager {
 
     // Create shadow root
     const shadowRoot = this.container.attachShadow({ mode: 'closed' });
-    
+
     // Inject styles
     const style = document.createElement('style');
     style.textContent = `
@@ -204,17 +198,17 @@ export class SidebarManager {
     shadowRoot.appendChild(link);
 
     document.body.appendChild(this.container);
-    
+
     // Create React root
     this.root = createRoot(reactContainer);
   }
 
   show() {
     if (!this.root || this.isVisible) return;
-    
+
     this.root.render(<SidebarApp />);
     this.isVisible = true;
-    
+
     // Adjust page layout to accommodate sidebar
     document.body.style.marginLeft = '320px';
     document.body.style.transition = 'margin-left 0.3s ease';
@@ -222,14 +216,14 @@ export class SidebarManager {
 
   hide() {
     if (!this.isVisible) return;
-    
+
     // Clear React content
     if (this.root) {
       this.root.render(null);
     }
-    
+
     this.isVisible = false;
-    
+
     // Restore page layout
     document.body.style.marginLeft = '';
   }

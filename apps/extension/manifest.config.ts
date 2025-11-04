@@ -11,32 +11,32 @@ const manifest = defineManifest(({ mode }) => {
     action: {
       default_title: 'Arcline',
       default_icon: {
-        '128': 'assets/icon-128.png'
-      }
+        '128': 'assets/icon-128.png',
+      },
     },
     icons: {
       '16': 'assets/icon-128.png',
       '48': 'assets/icon-128.png',
-      '128': 'assets/icon-128.png'
+      '128': 'assets/icon-128.png',
     },
     background: {
       service_worker: 'src/background/index.ts',
-      type: 'module'
+      type: 'module',
     },
     content_scripts: [
       {
         matches: ['<all_urls>'],
         js: ['src/content-scripts/floating-ui.ts'],
-        run_at: 'document_idle'
+        run_at: 'document_idle',
       },
       {
         matches: ['<all_urls>'],
         js: ['src/content-scripts/sidebar-manager.ts'],
-        run_at: 'document_idle'
-      }
+        run_at: 'document_idle',
+      },
     ],
     side_panel: {
-      default_path: 'index.html'
+      default_path: 'index.html',
     },
     permissions: ['tabs', 'tabGroups', 'bookmarks', 'storage', 'sidePanel', 'commands'],
     host_permissions: ['<all_urls>'],
@@ -44,24 +44,24 @@ const manifest = defineManifest(({ mode }) => {
       _execute_action: {
         suggested_key: {
           default: 'Ctrl+E',
-          mac: 'Command+E'
+          mac: 'Command+E',
         },
-        description: 'Open Arcline side panel'
+        description: 'Open Arcline side panel',
       },
       quickPinToggle: {
         suggested_key: {
           default: 'Ctrl+D',
-          mac: 'Command+D'
+          mac: 'Command+D',
         },
-        description: 'Quick pin or unpin the active tab'
-      }
+        description: 'Quick pin or unpin the active tab',
+      },
     },
     web_accessible_resources: [
       {
         resources: ['index.html', 'assets/*'],
-        matches: ['<all_urls>']
-      }
-    ]
+        matches: ['<all_urls>'],
+      },
+    ],
   };
 });
 

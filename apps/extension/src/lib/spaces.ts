@@ -15,8 +15,8 @@ const FALLBACK_SPACES: SpaceSnapshot[] = [
         pinned: true,
         active: false,
         windowId: -1,
-        groupId: 1
-      }
+        groupId: 1,
+      },
     ],
     temporaryTabs: [
       {
@@ -26,13 +26,13 @@ const FALLBACK_SPACES: SpaceSnapshot[] = [
         pinned: false,
         active: false,
         windowId: -1,
-        groupId: 1
-      }
+        groupId: 1,
+      },
     ],
     windowId: -1,
     createdAt: Date.now(),
-    lastActiveAt: Date.now()
-  }
+    lastActiveAt: Date.now(),
+  },
 ];
 
 export async function requestSpacesSnapshot(timeoutMs = 800): Promise<SpaceSnapshot[]> {

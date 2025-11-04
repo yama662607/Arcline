@@ -7,10 +7,10 @@ export default {
       colors: {
         surface: {
           DEFAULT: '#0f172a',
-          light: '#1e293b'
-        }
-      }
-    }
+          light: '#1e293b',
+        },
+      },
+    },
   },
-  plugins: [require('@tailwindcss/forms'), require('@tailwindcss/typography')]
+  plugins: [require('@tailwindcss/forms'), require('@tailwindcss/typography')],
 } satisfies Config;

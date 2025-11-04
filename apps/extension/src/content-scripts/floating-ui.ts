@@ -9,11 +9,17 @@ let hostElement: HTMLElement | null = null;
 let shadowRoot: ShadowRoot | null = null;
 let bootstrapHotzone: HTMLDivElement | null = null;
 let mountPromise: Promise<typeof import('../floating/mount') | null> | null = null;
-let floatingInstance: Awaited<ReturnType<typeof import('../floating/mount')['mountFloatingUi']>> | null = null;
+let floatingInstance: Awaited<
+  ReturnType<typeof import('../floating/mount')['mountFloatingUi']>
+> | null = null;
 let currentMode: UiMode | null = null;
 
 function hasChromeRuntime(): boolean {
-  return typeof chrome !== 'undefined' && !!chrome.runtime && typeof chrome.runtime.sendMessage === 'function';
+  return (
+    typeof chrome !== 'undefined' &&
+    !!chrome.runtime &&
+    typeof chrome.runtime.sendMessage === 'function'
+  );
 }
 
 function requestUiMode(timeoutMs = 600): Promise<UiMode> {
@@ -126,7 +132,7 @@ async function startFloatingUi() {
       onBootstrapReady: () => {
         bootstrapHotzone?.remove();
         bootstrapHotzone = null;
-      }
+      },
     })
     .catch((error) => {
       console.error('[Arcline] Failed to mount floating UI', error);

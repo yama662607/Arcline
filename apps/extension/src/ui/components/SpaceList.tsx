@@ -20,16 +20,16 @@ export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
           id: -1,
           name: 'サンプルスペース',
           color: '#3b82f6',
-          description: 'Chrome 拡張のイベントからタブ群を読み込みます。'
-        }
+          description: 'Chrome 拡張のイベントからタブ群を読み込みます。',
+        },
       ];
     }
 
-    return spaces.map((space, index) => ({
+    return spaces.map((space, _index) => ({
       id: space.id,
       name: space.name,
       color: space.color,
-      description: `${space.pinnedTabs.length} pinned / ${space.temporaryTabs.length} tabs`
+      description: `${space.pinnedTabs.length} pinned / ${space.temporaryTabs.length} tabs`,
     }));
   }, [spaces]);
 
@@ -41,7 +41,9 @@ export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
             <button
               type="button"
               className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition focus:outline-none focus:ring-1 focus:ring-white/60 ${
-                item.id === activeId ? 'bg-white/15 text-white' : 'bg-white/5 text-slate-200 hover:bg-white/10'
+                item.id === activeId
+                  ? 'bg-white/15 text-white'
+                  : 'bg-white/5 text-slate-200 hover:bg-white/10'
               }`}
               onClick={() => setActiveSpace(item.id)}
             >
@@ -55,7 +57,10 @@ export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
               </span>
             </button>
             {item.id === activeId && (
-              <p className="mt-1 text-[10px] text-slate-400" data-testid="arcline-floating-space-meta">
+              <p
+                className="mt-1 text-[10px] text-slate-400"
+                data-testid="arcline-floating-space-meta"
+              >
                 {item.description}
               </p>
             )}
@@ -73,7 +78,7 @@ export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
           type="button"
           className="group flex items-center justify-between rounded-xl border border-white/5 p-4 text-left transition hover:border-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
           style={{
-            background: `linear-gradient(135deg, ${item.color}40 0%, rgba(15,23,42,0.75) 100%)`
+            background: `linear-gradient(135deg, ${item.color}40 0%, rgba(15,23,42,0.75) 100%)`,
           }}
           onClick={() => setActiveSpace(item.id)}
         >

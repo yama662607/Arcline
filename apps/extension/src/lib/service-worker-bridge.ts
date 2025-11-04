@@ -1,8 +1,8 @@
 /// <reference types="chrome" />
 
+import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 import type { QueryClient } from '@tanstack/react-query';
 import { queryKeys } from './query-client';
-import type { SpaceSnapshot, TabEntry, ArchivedTab, Settings } from '@/shared/types';
 import { hasChromeRuntime } from './utils';
 
 // Message types for Service Worker communication
@@ -21,11 +21,14 @@ export interface BridgeResponse {
 
 // Service Worker bridge for React Query
 export class ServiceWorkerBridge {
-  private pendingRequests = new Map<string, {
-    resolve: (value: unknown) => void;
-    reject: (error: Error) => void;
-    timeout: ReturnType<typeof setTimeout>;
-  }>();
+  private pendingRequests = new Map<
+    string,
+    {
+      resolve: (value: unknown) => void;
+      reject: (error: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >();
 
   constructor(private queryClient: QueryClient) {
     this.setupMessageListener();

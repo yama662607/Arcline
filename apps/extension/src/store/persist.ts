@@ -11,7 +11,7 @@ export function createChromeStorage<T>(key: string) {
       return createJSONStorage<T>(() => ({
         getItem: (name) => memory.get(`${key}:${name}`) ?? null,
         setItem: (name, value) => void memory.set(`${key}:${name}`, value),
-        removeItem: (name) => void memory.delete(`${key}:${name}`)
+        removeItem: (name) => void memory.delete(`${key}:${name}`),
       }));
     }
 
@@ -24,6 +24,6 @@ export function createChromeStorage<T>(key: string) {
       return (result[`${key}:${name}`] as string | undefined) ?? null;
     },
     setItem: (name, value) => chrome.storage.local.set({ [`${key}:${name}`]: value }),
-    removeItem: (name) => chrome.storage.local.remove(`${key}:${name}`)
+    removeItem: (name) => chrome.storage.local.remove(`${key}:${name}`),
   }));
 }

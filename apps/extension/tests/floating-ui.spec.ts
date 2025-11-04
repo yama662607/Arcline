@@ -1,39 +1,45 @@
-import { test, expect } from '@playwright/test';
-import { buildSync } from 'esbuild';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { expect, test } from '@playwright/test';
+import { buildSync } from 'esbuild';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
-const bundle = buildSync({
-  entryPoints: [resolve(currentDir, './fixtures/floating-test-entry.ts')],
-  bundle: true,
-  format: 'iife',
-  platform: 'browser',
-  target: 'es2020',
-  write: false,
-  loader: {
-    '.css': 'text'
-  },
-  define: {
-    'process.env.NODE_ENV': '"test"'
-  }
-}).outputFiles[0]?.text ?? '';
+const bundle =
+  buildSync({
+    entryPoints: [resolve(currentDir, './fixtures/floating-test-entry.ts')],
+    bundle: true,
+    format: 'iife',
+    platform: 'browser',
+    target: 'es2020',
+    write: false,
+    loader: {
+      '.css': 'text',
+    },
+    define: {
+      'process.env.NODE_ENV': '"test"',
+    },
+  }).outputFiles[0]?.text ?? '';
 
 test('floating UI hotzone reveals and hides panel', async ({ page }) => {
   await page.addInitScript(() => {
-    const listeners: Array<(message: unknown, sender: unknown, sendResponse: () => void) => void> = [];
+    const listeners: Array<(message: unknown, sender: unknown, sendResponse: () => void) => void> =
+      [];
     const runtime = {
       onMessage: {
-        addListener(handler: (message: unknown, sender: unknown, sendResponse: () => void) => void) {
+        addListener(
+          handler: (message: unknown, sender: unknown, sendResponse: () => void) => void
+        ) {
           listeners.push(handler);
         },
-        removeListener(handler: (message: unknown, sender: unknown, sendResponse: () => void) => void) {
+        removeListener(
+          handler: (message: unknown, sender: unknown, sendResponse: () => void) => void
+        ) {
           const index = listeners.indexOf(handler);
           if (index >= 0) {
             listeners.splice(index, 1);
           }
-        }
+        },
       },
       sendMessage: (
         payload: { command?: string },
@@ -61,13 +67,11 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
                     name: 'Workspace',
                     color: '#6366f1',
                     pinnedTabs: [
-                      { id: 11, title: 'Pinned tab', url: 'https://example.com', pinned: true }
+                      { id: 11, title: 'Pinned tab', url: 'https://example.com', pinned: true },
                     ],
-                    temporaryTabs: [
-                      { id: 21, title: 'Docs', url: 'https://developer.chrome.com' }
-                    ]
-                  }
-                ]
+                    temporaryTabs: [{ id: 21, title: 'Docs', url: 'https://developer.chrome.com' }],
+                  },
+                ],
               }),
             0
           );
@@ -75,7 +79,7 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
         }
 
         setTimeout(() => respond({ ok: true }), 0);
-      }
+      },
     } as const;
 
     Object.defineProperty(runtime, 'lastError', {
@@ -83,7 +87,7 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
       enumerable: true,
       get() {
         return undefined;
-      }
+      },
     });
 
     const storage = {
@@ -96,8 +100,8 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
         },
         async remove() {
           return {};
-        }
-      }
+        },
+      },
     };
 
     (window as unknown as { chrome: unknown }).chrome = { runtime, storage };
@@ -120,7 +124,9 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
   const readPanelOpen = () =>
     page.evaluate(() => {
       const host = document.querySelector('[data-testid="arcline-floating-host"]');
-      const panel = host?.shadowRoot?.querySelector('[data-testid="arcline-floating-panel"]') as HTMLElement | null;
+      const panel = host?.shadowRoot?.querySelector(
+        '[data-testid="arcline-floating-panel"]'
+      ) as HTMLElement | null;
       if (!panel) {
         return false;
       }
@@ -139,11 +145,15 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
     window.__arclineFloatingInstance?.openFromHover();
   });
 
-  await expect.poll(readPanelOpen, { timeout: 2000, message: 'panel should open after hover' }).toBe(true);
+  await expect
+    .poll(readPanelOpen, { timeout: 2000, message: 'panel should open after hover' })
+    .toBe(true);
 
   await page.evaluate(() => {
     window.__arclineFloatingInstance?.destroy();
   });
 
-  await expect.poll(readPanelOpen, { timeout: 1500, message: 'panel should close after teardown' }).toBe(false);
+  await expect
+    .poll(readPanelOpen, { timeout: 1500, message: 'panel should close after teardown' })
+    .toBe(false);
 });
