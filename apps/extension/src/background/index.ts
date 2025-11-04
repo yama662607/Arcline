@@ -15,26 +15,102 @@ type UiMode = 'side-panel' | 'popup';
 
 async function initializeUiMode() {
   const hasSidePanel = typeof chrome.sidePanel !== 'undefined';
-  const mode: UiMode = hasSidePanel ? 'side-panel' : 'popup';
+
+  console.log('[Arcline] ========== Side Panel Detection ==========');
+  console.log('[Arcline] chrome.sidePanel available:', hasSidePanel);
+  console.log('[Arcline] User agent:', navigator.userAgent);
+
+  // Test side panel capabilities
+  if (hasSidePanel) {
+    console.log('[Arcline] Available side panel methods:', Object.keys(chrome.sidePanel));
+
+    try {
+      // Try to get current panel options
+      const options = await chrome.sidePanel.getOptions({});
+      console.log('[Arcline] Current side panel options:', options);
+    } catch (error) {
+      console.warn('[Arcline] Failed to get side panel options:', error);
+    }
+
+    try {
+      // Try to get panel state for current window
+      const windows = await chrome.windows.getAll();
+      console.log('[Arcline] Number of windows:', windows.length);
+
+      if (windows.length > 0) {
+        const currentWindow = windows[0];
+        console.log('[Arcline] Current window ID:', currentWindow.id);
+
+        try {
+          const panelOptions = await chrome.sidePanel.getOptions({ tabId: undefined });
+          console.log('[Arcline] Panel options for current context:', panelOptions);
+        } catch (err) {
+          console.warn('[Arcline] Could not get panel options:', err);
+        }
+      }
+    } catch (error) {
+      console.warn('[Arcline] Failed to query windows:', error);
+    }
+
+    // Try to set panel behavior and see what happens
+    try {
+      // DON'T use openPanelOnActionClick for Atlas compatibility
+      // await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+      await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+      console.log('[Arcline] ✓ setPanelBehavior succeeded (openPanelOnActionClick: false)');
+    } catch (error) {
+      console.warn('[Arcline] ✗ setPanelBehavior failed:', error);
+    }
+  }
+
+
+  console.log('[Arcline] =======================================');
+
+  // Atlas doesn't support side panel properly (user gesture error even in onClicked)
+  // Use popup mode for maximum compatibility
+  const mode: UiMode = 'popup';
 
   await chrome.storage.local.set({ [UI_MODE_KEY]: mode });
 
-  if (hasSidePanel) {
-    chrome.sidePanel.setPanelBehavior?.({ openPanelOnActionClick: true }).catch((error) => {
-      console.warn('Failed to configure side panel behavior', error);
-    });
-  } else {
-    // Fallback: ensure action opens the popup
-    chrome.action.setPopup({ popup: 'index.html' });
-  }
-}
-
-chrome.runtime.onInstalled.addListener(async () => {
+  // Use popup mode - works in all Chromium browsers
+  chrome.action.setPopup({ popup: 'index.html' });
+  console.log('[Arcline] Using popup mode (Atlas compatibility)');
+} chrome.runtime.onInstalled.addListener(async () => {
+  console.log('[Arcline] Extension installed/updated');
   await initializeUiMode();
 });
 
 chrome.runtime.onStartup?.addListener(async () => {
+  console.log('[Arcline] Browser startup');
   await initializeUiMode();
+});
+
+// Handle action clicks manually as a fallback
+chrome.action.onClicked.addListener(async () => {
+  console.log('[Arcline] ========== Action Clicked ==========');
+  const hasSidePanel = typeof chrome.sidePanel !== 'undefined';
+  console.log('[Arcline] Side panel API available:', hasSidePanel);
+
+  if (hasSidePanel) {
+    try {
+      console.log('[Arcline] Attempting to open side panel...');
+      const windows = await chrome.windows.getCurrent();
+      console.log('[Arcline] Current window ID:', windows.id);
+
+      await chrome.sidePanel.open({ windowId: windows.id });
+      console.log('[Arcline] ✓ Side panel opened successfully');
+    } catch (error) {
+      console.error('[Arcline] ✗ Failed to open side panel:', error);
+      console.error('[Arcline] Error details:', {
+        message: (error as Error).message,
+        name: (error as Error).name,
+        stack: (error as Error).stack
+      });
+    }
+  } else {
+    console.log('[Arcline] Side panel API not available, popup should open instead');
+  }
+  console.log('[Arcline] =====================================');
 });
 
 chrome.commands.onCommand.addListener(async (command) => {

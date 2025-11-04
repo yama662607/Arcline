@@ -32,6 +32,25 @@ Atlas や Arc などの Chromium 系ブラウザでも Arc Browser のような�
 pnpm install
 ```
 
+### Dev 実行（拡張を Chrome に読み込み）
+
+```bash
+pnpm dev
+```
+
+Vite + CRXJS による拡張のウォッチビルドが起動します（`apps/extension/dist/` に出力）。
+
+変更保存で自動的に `dist/` が更新され、Chrome で拡張がリロードされます。
+
+**初回または拡張の再読み込み時：**
+
+1. Chrome の「拡張機能」ページを開く（`chrome://extensions/`）
+2. 「デベロッパーモード」を ON にする
+3. 「パッケージ化されていない拡張機能を読み込む」をクリック
+4. `apps/extension/dist/` フォルダを選択
+
+Arc / Atlas など Chromium 系でも同様に `dist/` を読み込めます。
+
 ### 開発サーバー (サンドボックス UI)
 
 ```bash
@@ -43,7 +62,7 @@ Vite の Dev サーバーが起動し、React + Tailwind ベースのプレー�
 ### 拡張パッケージのビルド
 
 ```bash
-pnpm --filter arcline-extension build
+pnpm build
 ```
 
 `apps/extension/dist/` に Manifest V3 形式の成果物が出力されます。Chrome の「パッケージ化されていない拡張機能を読み込む」で `dist/` を選択すると検証できます。
@@ -51,9 +70,9 @@ pnpm --filter arcline-extension build
 ### Lint / Format / Test
 
 ```bash
-pnpm --filter arcline-extension lint    # Biome lint
-pnpm --filter arcline-extension format  # Biome format
-pnpm --filter arcline-extension test    # Vitest (今後整備)
+pnpm lint    # Biome lint
+pnpm format  # Biome format
+pnpm test    # Vitest (今後整備)
 ```
 
 ## コミット運用

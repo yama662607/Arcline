@@ -157,7 +157,8 @@ export async function broadcastSpacesSnapshot(): Promise<void> {
   try {
     await chrome.runtime.sendMessage({ command: 'spacesSnapshot', spaces });
   } catch (error) {
-    console.warn('Failed to broadcast spaces snapshot', error);
+    // Silently ignore if no listeners are connected (e.g., side panel is closed)
+    // This is expected behavior and not an error
   }
 }
 

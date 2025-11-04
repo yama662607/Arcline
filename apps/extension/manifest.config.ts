@@ -8,11 +8,15 @@ const manifest = defineManifest(({ mode }) => {
     name: isDev ? 'Arcline (Dev)' : 'Arcline',
     description: 'Arc ブラウザ風の垂直タブ体験を Atlas / Arc / Chrome で提供する拡張機能',
     version: '0.0.1',
-    default_locale: 'en',
     action: {
-      default_title: 'Arcline'
+      default_title: 'Arcline',
+      default_icon: {
+        '128': 'assets/icon-128.png'
+      }
     },
     icons: {
+      '16': 'assets/icon-128.png',
+      '48': 'assets/icon-128.png',
       '128': 'assets/icon-128.png'
     },
     background: {

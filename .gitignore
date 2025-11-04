@@ -35,3 +35,5 @@ lerna-debug.log*
 *.sw?
 
 .config/
+
+.chrome-dev-profile/

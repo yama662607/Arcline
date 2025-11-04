@@ -17,5 +17,12 @@ export default defineConfig(({ mode }) => ({
     alias: {
       '@': resolve(__dirname, 'src')
     }
+  },
+  server: {
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      port: 5173
+    }
   }
 }));
