@@ -169,7 +169,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                 onClick={() => {
                   setIsCreatingSpace(false);
                   setNewSpaceName('');
-                  setNewSpaceColor('#3b82f6');
+                  setNewSpaceColor('blue' as chrome.tabGroups.ColorEnum);
                 }}
                 className="flex-1 px-2 py-1 text-xs bg-surface-light text-slate-300 rounded hover:bg-surface"
               >
@@ -219,6 +219,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
 
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleSwitchSpace(space.id);
@@ -229,6 +230,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                 </button>
                 {spaces.length > 1 && (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRemoveSpace(space.id);
@@ -267,6 +269,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                 <div className="flex gap-2">
                   {colors.map((color) => (
                     <button
+                      type="button"
                       key={color}
                       onClick={() => setNewSpaceColor(color)}
                       className={`w-8 h-8 rounded-full border-2 ${

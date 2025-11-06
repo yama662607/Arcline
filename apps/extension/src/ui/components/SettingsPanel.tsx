@@ -312,8 +312,9 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
           {activeTab === 'appearance' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Theme</label>
+                <label htmlFor="theme-select" className="block text-sm font-medium text-slate-300 mb-2">Theme</label>
                 <select
+                  id="theme-select"
                   {...register('theme')}
                   className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
                 >
