@@ -285,6 +285,7 @@ export function EnhancedTabList({
                           </button>
 
                           <button
+                            type="button"
                             onClick={(e) => handleTabArchive(e, currentTab)}
                             className="p-1 rounded text-sm text-slate-500 hover:text-blue-400"
                             title="Archive"
@@ -293,6 +294,7 @@ export function EnhancedTabList({
                           </button>
 
                           <button
+                            type="button"
                             onClick={(e) => handleTabClose(e, currentTab)}
                             className="p-1 rounded text-sm text-slate-500 hover:text-red-400"
                             title="Close"

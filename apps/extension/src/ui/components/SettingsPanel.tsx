@@ -144,8 +144,9 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
           {settings?.autoArchiveEnabled && (
             <div className="pl-6">
-              <label className="block text-sm text-slate-300 mb-1">Archive after (minutes)</label>
+              <label htmlFor="auto-archive-minutes" className="block text-sm text-slate-300 mb-1">Archive after (minutes)</label>
               <input
+                id="auto-archive-minutes"
                 type="number"
                 {...register('autoArchiveIdleMinutes', { valueAsNumber: true })}
                 min="1"

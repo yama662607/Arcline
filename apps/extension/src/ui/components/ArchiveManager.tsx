@@ -237,6 +237,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
 
               <div className="flex gap-3 pt-4">
                 <button
+                  type="button"
                   onClick={() => {
                     handleRestoreTab(selectedTab);
                     setSelectedTab(null);
