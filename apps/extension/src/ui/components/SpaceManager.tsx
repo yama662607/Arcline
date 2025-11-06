@@ -94,6 +94,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
         <div className="flex items-center justify-between px-3 py-2">
           <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Spaces</h3>
           <button
+            type="button"
             onClick={() => setIsCreatingSpace(true)}
             className="text-xs text-slate-400 hover:text-white transition-colors"
             title="Create new space"
@@ -104,10 +105,11 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
 
         <div className="space-y-1">
           {spaces.map((space) => (
-            <div
+            <button
+              type="button"
               key={space.id}
               onClick={() => handleSwitchSpace(space.id)}
-              className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors w-full text-left"
             >
               <div
                 className="w-2 h-2 rounded-full flex-shrink-0"
@@ -126,7 +128,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                   ×
                 </button>
               )}
-            </div>
+            </button>
           ))}
         </div>
 
@@ -180,6 +182,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-medium text-white">Spaces</h2>
         <button
+          type="button"
           onClick={() => setIsCreatingSpace(true)}
           className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
         >
@@ -189,9 +192,10 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
 
       <div className="grid gap-3">
         {spaces.map((space) => (
-          <div
+          <button
+            type="button"
             key={space.id}
-            className="p-4 rounded-lg border border-surface-light bg-surface/50 hover:bg-surface transition-all cursor-pointer group"
+            className="p-4 rounded-lg border border-surface-light bg-surface/50 hover:bg-surface transition-all cursor-pointer group w-full text-left"
             onClick={() => handleSwitchSpace(space.id)}
           >
             <div className="flex items-start justify-between">
@@ -231,7 +235,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                 )}
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 

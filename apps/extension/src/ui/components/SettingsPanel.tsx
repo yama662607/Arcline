@@ -159,6 +159,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
         {isDirty && (
           <div className="px-3 py-2 border-t border-surface-light flex gap-2">
             <button
+              type="button"
               onClick={handleSubmit(onSubmit)}
               disabled={updateSettingsMutation.isPending}
               className="flex-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
@@ -166,6 +167,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
               {updateSettingsMutation.isPending ? 'Saving...' : 'Save'}
             </button>
             <button
+              type="button"
               onClick={handleReset}
               className="flex-1 px-2 py-1 text-xs bg-surface-light text-slate-300 rounded hover:bg-surface"
             >
@@ -184,13 +186,15 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
         {isDirty && (
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={handleSubmit(onSubmit)}
               disabled={updateSettingsMutation.isPending}
               className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              {updateSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
+              {updateSettingsMutation.isPending ? 'Save Changes' : 'Save'}
             </button>
             <button
+              type="button"
               onClick={handleReset}
               className="px-3 py-1 text-sm bg-surface-light text-slate-300 rounded hover:bg-surface"
             >
@@ -204,6 +208,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
         <div className="flex border-b border-surface-light">
           {(['general', 'archive', 'appearance'] as const).map((tab) => (
             <button
+              type="button"
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
@@ -221,11 +226,15 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
           {activeTab === 'general' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                  htmlFor="settings-default-space-name"
+                >
                   Default Space Name
                 </label>
                 <input
                   type="text"
+                  id="settings-default-space-name"
                   {...register('defaultSpaceName')}
                   className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
                 />
@@ -235,8 +244,14 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">UI Mode</label>
+                <label
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                  htmlFor="settings-ui-mode"
+                >
+                  UI Mode
+                </label>
                 <select
+                  id="settings-ui-mode"
                   {...register('uiMode')}
                   className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
                 >
@@ -266,11 +281,15 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
               {settings?.autoArchiveEnabled && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                    htmlFor="settings-auto-archive-minutes"
+                  >
                     Archive inactive tabs after (minutes)
                   </label>
                   <input
                     type="number"
+                    id="settings-auto-archive-minutes"
                     {...register('autoArchiveIdleMinutes', { valueAsNumber: true })}
                     min="1"
                     max="1440"

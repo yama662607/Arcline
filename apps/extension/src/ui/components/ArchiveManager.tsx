@@ -139,6 +139,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-300"
               >
@@ -178,12 +179,14 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
 
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
+                    type="button"
                     onClick={() => setSelectedTab(tab)}
                     className="px-3 py-1 text-sm bg-surface-light text-slate-300 rounded hover:bg-surface"
                   >
                     Details
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleRestoreTab(tab)}
                     disabled={restoreTabMutation.isPending}
                     className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
@@ -203,6 +206,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
             <div className="flex items-start justify-between mb-4">
               <h3 className="text-lg font-medium text-white">Archived Tab Details</h3>
               <button
+                type="button"
                 onClick={() => setSelectedTab(null)}
                 className="text-slate-500 hover:text-slate-300"
               >
@@ -212,22 +216,22 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Title</label>
+                <div className="block text-sm font-medium text-slate-300 mb-1">Title</div>
                 <p className="text-white">{selectedTab.title}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">URL</label>
+                <div className="block text-sm font-medium text-slate-300 mb-1">URL</div>
                 <p className="text-slate-300 break-all">{selectedTab.url}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Space</label>
+                <div className="block text-sm font-medium text-slate-300 mb-1">Space</div>
                 <p className="text-white">{selectedTab.spaceName}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Archived</label>
+                <div className="block text-sm font-medium text-slate-300 mb-1">Archived</div>
                 <p className="text-white">{formatDate(selectedTab.archivedAt)}</p>
               </div>
 
@@ -243,6 +247,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
                   {restoreTabMutation.isPending ? 'Restoring...' : 'Restore Tab'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setSelectedTab(null)}
                   className="flex-1 px-4 py-2 bg-surface-light text-slate-300 rounded hover:bg-surface"
                 >

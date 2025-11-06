@@ -158,6 +158,7 @@ export function EnhancedTabList({
 
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
+                    type="button"
                     onClick={(e) => handlePinToggle(e, tab)}
                     className={`p-1 rounded text-xs ${
                       tab.pinned
@@ -195,7 +196,12 @@ export function EnhancedTabList({
         {tabs.length > 0 && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => tabs.forEach((tab) => archiveTabMutation.mutate(tab.id))}
+              type="button"
+              onClick={() => {
+                for (const tab of tabs) {
+                  archiveTabMutation.mutate(tab.id);
+                }
+              }}
               className="text-sm text-slate-400 hover:text-slate-300 transition-colors"
               title="Archive all tabs"
             >

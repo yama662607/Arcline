@@ -30,7 +30,7 @@ global.chrome = {
   sidePanel: {
     open: vi.fn(),
   },
-} as any;
+} as unknown as typeof chrome;
 
 // Mock ResizeObserver
 global.ResizeObserver = vi.fn().mockImplementation(() => ({

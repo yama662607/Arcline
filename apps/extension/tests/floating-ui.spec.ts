@@ -106,14 +106,16 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
 
     (window as unknown as { chrome: unknown }).chrome = { runtime, storage };
 
-    (window as any).__dispatchRuntimeMessage = (message: unknown) => {
-      listeners.forEach((listener) => {
+    (
+      window as { chrome: unknown; __dispatchRuntimeMessage?: (message: unknown) => void }
+    ).__dispatchRuntimeMessage = (message: unknown) => {
+      for (const listener of listeners) {
         try {
           listener(message, {}, () => {});
         } catch (error) {
           console.error(error);
         }
-      });
+      }
     };
   });
 

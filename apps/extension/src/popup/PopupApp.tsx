@@ -50,6 +50,7 @@ export default function PopupApp() {
           {(['spaces', 'archive', 'settings'] as const).map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => setActiveTab(tab)}
               className={`flex-1 px-2 py-1 text-xs font-medium transition-colors ${
                 activeTab === tab ? 'text-white bg-white/10' : 'text-slate-400 hover:text-slate-300'

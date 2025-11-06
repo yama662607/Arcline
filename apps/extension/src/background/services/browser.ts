@@ -60,7 +60,7 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
     for (const tab of allTabs) {
       const entry = mapTab(tab);
       if (!entry) continue;
-      
+
       if (typeof tab.groupId === 'number' && tab.groupId >= 0) {
         const space = groupMap.get(tab.groupId);
         if (space) {
@@ -379,7 +379,7 @@ export async function processBookmarkFolder(
     if (item.url) {
       // This is a bookmark
       const tab = tabs.find((t) => t.url === item.url);
-      if (tab && tab.id) {
+      if (tab?.id) {
         bookmarks.push(tab.id);
         // Set tab name override with the bookmark's title
         if (item.title && item.title !== tab.title) {
