@@ -253,7 +253,12 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="space-name" className="block text-sm font-medium text-slate-300 mb-2">Space Name</label>
+                <label
+                  htmlFor="space-name"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  Space Name
+                </label>
                 <input
                   id="space-name"
                   type="text"

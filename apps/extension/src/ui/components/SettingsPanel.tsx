@@ -144,7 +144,9 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
           {settings?.autoArchiveEnabled && (
             <div className="pl-6">
-              <label htmlFor="auto-archive-minutes" className="block text-sm text-slate-300 mb-1">Archive after (minutes)</label>
+              <label htmlFor="auto-archive-minutes" className="block text-sm text-slate-300 mb-1">
+                Archive after (minutes)
+              </label>
               <input
                 id="auto-archive-minutes"
                 type="number"
@@ -312,7 +314,12 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
           {activeTab === 'appearance' && (
             <>
               <div>
-                <label htmlFor="theme-select" className="block text-sm font-medium text-slate-300 mb-2">Theme</label>
+                <label
+                  htmlFor="theme-select"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  Theme
+                </label>
                 <select
                   id="theme-select"
                   {...register('theme')}

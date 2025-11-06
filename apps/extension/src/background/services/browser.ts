@@ -155,7 +155,9 @@ export async function removeSpace(spaceId: number): Promise<void> {
   if (!tabs.length) return;
 
   await chrome.tabs.ungroup(
-    tabs.map((tab) => tab.id!).filter((id): id is number => typeof id === 'number')
+    tabs
+      .map((tab) => tab.id)
+      .filter((id): id is number => id !== undefined && typeof id === 'number')
   );
 }
 
