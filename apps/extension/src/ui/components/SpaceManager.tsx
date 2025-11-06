@@ -144,6 +144,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
             <div className="flex gap-1 mt-2">
               {colors.map((color) => (
                 <button
+                  type="button"
                   key={color}
                   onClick={() => setNewSpaceColor(color)}
                   className={`w-4 h-4 rounded-full border-2 ${
@@ -155,6 +156,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
             </div>
             <div className="flex gap-2 mt-2">
               <button
+                type="button"
                 onClick={handleCreateSpace}
                 disabled={!newSpaceName.trim() || createSpaceMutation.isPending}
                 className="flex-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -162,9 +164,11 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                 {createSpaceMutation.isPending ? 'Creating...' : 'Create'}
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setIsCreatingSpace(false);
                   setNewSpaceName('');
+                  setNewSpaceColor('#3b82f6');
                 }}
                 className="flex-1 px-2 py-1 text-xs bg-surface-light text-slate-300 rounded hover:bg-surface"
               >

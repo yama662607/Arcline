@@ -171,6 +171,7 @@ export function EnhancedTabList({
                   </button>
 
                   <button
+                    type="button"
                     onClick={(e) => handleTabClose(e, tab)}
                     className="p-1 rounded text-xs text-slate-500 hover:text-red-400"
                     title="Close"
@@ -271,6 +272,7 @@ export function EnhancedTabList({
 
                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
+                            type="button"
                             onClick={(e) => handlePinToggle(e, currentTab)}
                             className={`p-1 rounded text-sm ${
                               currentTab.pinned

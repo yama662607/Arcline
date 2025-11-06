@@ -3,14 +3,18 @@
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev": "pnpm -C apps/extension dev",
-    "build": "pnpm -C apps/extension build",
-    "preview": "pnpm -C apps/extension preview",
-    "lint": "pnpm -C apps/extension lint",
-    "format": "pnpm -C apps/extension format",
-    "test": "pnpm -C apps/extension test"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "preview": "turbo run preview",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "typecheck": "turbo run typecheck",
+    "check": "turbo run check"
   },
   "devDependencies": {
-    "@arcline/openspec-cli": "workspace:*"
+    "@arcline/openspec-cli": "workspace:*",
+    "turbo": "^2.0.14"
   }
 }
