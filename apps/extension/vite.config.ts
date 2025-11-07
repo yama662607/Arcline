@@ -30,6 +30,12 @@ export default defineConfig(({ mode }) => ({
     host: 'localhost',
     port: 5173,
     strictPort: true,
-    hmr: false,
+    hmr: {
+      host: 'localhost',
+      port: 5173,
+      clientPort: 5173,
+      protocol: 'ws',
+      overlay: false,
+    },
   },
 }));
