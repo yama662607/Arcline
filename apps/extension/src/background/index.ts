@@ -1,4 +1,5 @@
-import type { ArchivedTab, Settings } from '@/shared/types';
+import type { UiMode } from '@/lib/ui-mode';
+import type { ArchivedTab, Settings, SpaceCreateRequest } from '@/shared/types';
 /// <reference types="chrome" />
 import {
   activateTab,
@@ -24,8 +25,7 @@ type CommandHandler = (
   sendResponse: RuntimeSendResponse
 ) => boolean;
 
-const UI_MODE_KEY = 'arclineUiMode';
-type UiMode = 'side-panel' | 'popup' | 'floating';
+const UI_MODE_KEY = 'arclineoMode';
 
 async function broadcastUiMode(mode: UiMode) {
   try {
@@ -63,51 +63,11 @@ async function applyUiMode(mode: UiMode) {
 }
 
 async function detectUiMode(): Promise<UiMode> {
-  const hasSidePanel = typeof chrome.sidePanel !== 'undefined';
   const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
-
-  // Test side panel capabilities
-  if (hasSidePanel) {
-    try {
-      // Try to get current panel options
-      await chrome.sidePanel.getOptions({});
-    } catch (error) {
-      console.warn('[Arcline] Failed to get side panel options:', error);
-    }
-
-    try {
-      // Try to get panel state for current window
-      const windows = await chrome.windows.getAll();
-
-      if (windows.length > 0) {
-        try {
-          await chrome.sidePanel.getOptions({ tabId: undefined });
-        } catch (err) {
-          console.warn('[Arcline] Could not get panel options:', err);
-        }
-      }
-    } catch (error) {
-      console.warn('[Arcline] Failed to query windows:', error);
-    }
-
-    // Try to set panel behavior and see what happens
-    try {
-      // DON'T use openPanelOnActionClick for Atlas compatibility
-      // await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-      await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
-    } catch (error) {
-      console.warn('[Arcline] ✗ setPanelBehavior failed:', error);
-    }
+  if (isAtlas) {
+    console.info('[Arcline] Atlas browser detected: forcing floating mode');
   }
-  if (hasSidePanel && isAtlas) {
-    return 'floating';
-  }
-
-  if (hasSidePanel) {
-    return 'side-panel';
-  }
-
-  return 'popup';
+  return 'floating';
 }
 
 async function initializeUiMode() {
@@ -128,54 +88,73 @@ chrome.runtime.onStartup?.addListener(async () => {
   await initializeUiMode();
 });
 
-// Handle action clicks manually as a fallback
-chrome.action.onClicked.addListener(async () => {
-  const hasSidePanel = typeof chrome.sidePanel !== 'undefined';
+// Handle action clicks manually (always floating for now)
+chrome.action.onClicked.addListener(async (tab) => {
+  const tabId = tab.id;
 
-  if (hasSidePanel) {
+  const showFloatingUi = async () => {
+    chrome.action.setPopup({ popup: 'index.html' });
+    const popupPromise = chrome.action.openPopup?.();
+    await applyUiMode('floating');
     try {
-      const windows = await chrome.windows.getCurrent();
-      const windowId = windows?.id;
-      if (typeof windowId === 'number') {
-        await chrome.sidePanel.open({ windowId });
+      if (typeof tabId === 'number') {
+        const sidebarShown = await sendSidebarCommand(tabId, 'showSidebar');
+        if (!sidebarShown) {
+          console.warn('[Arcline] Sidebar content script not ready; showSidebar command skipped');
+        }
       }
-      await applyUiMode('side-panel');
-    } catch (error) {
-      console.error('[Arcline] ✗ Failed to open side panel:', error);
-      console.error('[Arcline] Error details:', {
-        message: (error as Error).message,
-        name: (error as Error).name,
-        stack: (error as Error).stack,
-      });
-
-      console.warn('[Arcline] Falling back to floating mode');
-      await applyUiMode('floating');
-      try {
-        await chrome.action.openPopup?.();
-      } catch (openPopupError) {
-        console.warn('[Arcline] Failed to auto-open popup after fallback:', openPopupError);
-      }
+      await popupPromise;
+    } catch (openPopupError) {
+      console.warn('[Arcline] Failed to open popup after floating fallback:', openPopupError);
     }
-  } else {
-  }
+  };
+
+  await showFloatingUi();
 });
 
-chrome.commands.onCommand.addListener(async (command) => {
-  if (command === 'quickPinToggle') {
-    await chrome.runtime.sendMessage({ command: 'quickPinToggle' });
-  } else if (command === 'toggleSidePanel') {
-    // Toggle sidebar in content script
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]?.id) {
-      try {
-        await chrome.tabs.sendMessage(tabs[0].id, { command: 'toggleSidebar' });
-      } catch (_error) {
-        // Content script not loaded, try to open side panel instead
-        try {
-          await chrome.sidePanel.open({ windowId: tabs[0].windowId });
-        } catch (_sidePanelError) {}
+const handleQuickPinToggle = async () => {
+  await chrome.runtime.sendMessage({ command: 'quickPinToggle' });
+};
+
+const sendSidebarCommand = async (
+  tabId: number,
+  command: 'toggleSidebar' | 'showSidebar' | 'hideSidebar'
+): Promise<boolean> => {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { command }, () => {
+      if (chrome.runtime.lastError) {
+        resolve(false);
+        return;
       }
-    }
+      resolve(true);
+    });
+  });
+};
+
+const trySendSidebarToggle = async (tabId: number) => sendSidebarCommand(tabId, 'toggleSidebar');
+
+const handleToggleSidePanel = async () => {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab?.id) {
+    return;
+  }
+
+  const toggled = await trySendSidebarToggle(activeTab.id);
+  if (toggled) {
+    return;
+  }
+};
+
+chrome.commands.onCommand.addListener(async (command) => {
+  switch (command) {
+    case 'quickPinToggle':
+      await handleQuickPinToggle();
+      break;
+    case 'toggleSidePanel':
+      await handleToggleSidePanel();
+      break;
+    default:
+      break;
   }
 });
 
@@ -196,7 +175,7 @@ const commandHandlers: Record<string, CommandHandler> = {
         });
       } catch (error) {
         console.error('Failed to respond with UI mode', error);
-        sendResponse({ command: 'currentUiMode', mode: 'side-panel' as UiMode });
+        sendResponse({ command: 'currentUiMode', mode: 'floating' as UiMode });
       }
     }),
   requestSpacesSnapshot: (_message, sendResponse) =>
@@ -246,10 +225,7 @@ const commandHandlers: Record<string, CommandHandler> = {
     });
   },
   createSpace: (message, sendResponse) => {
-    const { name, color } = message as {
-      name?: string;
-      color?: chrome.tabGroups.ColorEnum;
-    };
+    const { name, color } = message as unknown as SpaceCreateRequest;
     if (!name) {
       sendResponse({ ok: false, error: 'name is required' });
       return false;
