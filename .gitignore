@@ -6,6 +6,18 @@ dist/
 dist-dev/
 *.zip
 
+# CRXJS build artifacts
+crx/
+
+# Vite HMR and temp files
+*.hot-update.*
+*.hot-update.json
+*.hot-update.js
+*.hot-update.css
+hot-update.json
+hot-update.js
+hot-update.css
+
 # System files
 .DS_Store
 
