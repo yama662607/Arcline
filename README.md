@@ -75,6 +75,29 @@ pnpm format  # Biome format
 pnpm test    # Vitest (今後整備)
 ```
 
+## UI モードと Side Panel トラブルシューティング
+
+Chrome の UI モードは `chrome.storage.local` に `arclineUiMode` として保存され、次回起動時の初期値に利用されます。Side Panel を利用するには、以下を満たしてください。
+
+1. **ユーザー操作直後に Side Panel を開くこと**  
+   ツールバーアイコンをクリックしてトリガーされたイベント内で `chrome.sidePanel.open` を呼び出します。非同期 API を挟むとユーザー操作扱いが失効するため、`chrome.windows.getCurrent()` ではなく `chrome.windows.WINDOW_ID_CURRENT` を利用し、同期的に `open({ windowId })` を呼び出します。
+
+2. **Chrome の設定確認**  
+   - Chrome バージョンは 116 以上であること。
+   - `chrome://flags/#side-panel` が Disable になっていないこと。
+   - 拡張機能の `manifest` に `permissions: ['sidePanel']` と `side_panel.default_path` が含まれていること（実装済み）。
+
+3. **現在の暫定仕様（2025-11-07 時点）**  
+   - Atlas 判定ロジックが未確定のため、**すべてのブラウザで UI モードを強制的に `floating` に固定**しています。
+   - `chrome.storage.local.get('arclineUiMode')` は常に `'floating'`（または未設定時に初期化で `floating`）になります。
+   - Side Panel は一時的に無効化しているため、`chrome.sidePanel` 関連のログや API 呼び出しは実行されません。
+
+4. **Atlas / その他ブラウザでの挙動**  
+   - Atlas ではこれまで通り左端にフローティングビューが即表示されます。
+   - Chrome など他ブラウザでも同じ挙動になります。今後 Atlas を確実に判定できる方法が見つかった際に、Side Panel と Floating を切り替えるロジックを再導入する予定です。
+
+これらを満たしてもフローティングビューが表示されない場合は、拡張 Service Worker のコンソールで `chrome.tabs.sendMessage(tabId, { command: 'showSidebar' })` の応答を確認し、コンテンツスクリプトが注入されているかを調べてください。
+
 ## コミット運用
 
 - Conventional Commits を採用し、**日本語**でメッセージを記述します。
