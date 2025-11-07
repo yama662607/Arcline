@@ -1,5 +1,7 @@
 // Shared types used across the extension
 
+import type { TabGroupColor } from './chrome-types';
+
 export interface TabEntry {
   id: number;
   url: string;
@@ -9,19 +11,19 @@ export interface TabEntry {
   active: boolean;
   windowId: number;
   groupId: number;
-  lastAccessed?: number;
+  last_accessed?: number;
 }
 
 export interface SpaceSnapshot {
   id: number;
   name: string;
-  color: chrome.tabGroups.ColorEnum;
+  color: TabGroupColor;
   tabs: TabEntry[];
   pinnedTabs: TabEntry[];
   temporaryTabs: TabEntry[];
   windowId: number;
-  createdAt: number;
-  lastActiveAt: number;
+  created_at: number;
+  last_active_at: number;
 }
 
 export interface ArchivedTab {
@@ -59,13 +61,13 @@ export interface TabActivity {
 
 export interface SpaceCreateRequest {
   name: string;
-  color?: chrome.tabGroups.ColorEnum;
+  color?: TabGroupColor;
 }
 
 export interface SpaceUpdateRequest {
   id: number;
   name?: string;
-  color?: chrome.tabGroups.ColorEnum;
+  color?: TabGroupColor;
 }
 
 export interface TabMoveRequest {

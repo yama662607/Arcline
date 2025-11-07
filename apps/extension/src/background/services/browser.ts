@@ -1,4 +1,6 @@
 /// <reference types="chrome" />
+
+import type { TabGroupColor } from '@/shared/chrome-types';
 import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 
 const TAB_GROUP_ID_NONE = -1;
@@ -16,80 +18,140 @@ function mapTab(tab: chrome.tabs.Tab): TabEntry | null {
     active: Boolean(tab.active),
     windowId: tab.windowId ?? -1,
     groupId: tab.groupId ?? TAB_GROUP_ID_NONE,
-    lastAccessed: tab.lastAccessed,
+    last_accessed: tab.lastAccessed,
   };
+}
+
+type SpaceSnapshotInit = {
+  id: number;
+  name: string;
+  color: TabGroupColor;
+  windowId: number;
+  timestamp: number;
+};
+
+async function queryChromeState(): Promise<{
+  tabGroups: chrome.tabGroups.TabGroup[];
+  allTabs: chrome.tabs.Tab[];
+}> {
+  const tabGroups = TAB_GROUPS_SUPPORTED ? await chrome.tabGroups.query({}) : [];
+  const allTabs = await chrome.tabs.query({});
+  return { tabGroups, allTabs };
+}
+
+function createEmptySpaceSnapshot({
+  id,
+  name,
+  color,
+  windowId,
+  timestamp,
+}: SpaceSnapshotInit): SpaceSnapshot {
+  return {
+    id,
+    name,
+    color,
+    tabs: [],
+    pinnedTabs: [],
+    temporaryTabs: [],
+    windowId,
+    created_at: timestamp,
+    last_active_at: timestamp,
+  };
+}
+
+function initializeSpaceSnapshots(tabGroups: chrome.tabGroups.TabGroup[], timestamp: number) {
+  const groupMap = new Map<number, SpaceSnapshot>();
+
+  for (const group of tabGroups) {
+    const snapshot = createEmptySpaceSnapshot({
+      id: group.id,
+      name: group.title ?? 'Untitled',
+      color: (group.color ?? 'grey') as TabGroupColor,
+      windowId: group.windowId ?? -1,
+      timestamp,
+    });
+    groupMap.set(snapshot.id, snapshot);
+  }
+
+  const ungrouped = createEmptySpaceSnapshot({
+    id: TAB_GROUP_ID_NONE,
+    name: 'Ungrouped',
+    color: 'grey' as TabGroupColor,
+    windowId: -1,
+    timestamp,
+  });
+
+  return { groupMap, ungrouped };
+}
+
+function getGroupedSpace(groupId: number | undefined, groupMap: Map<number, SpaceSnapshot>) {
+  if (typeof groupId !== 'number' || groupId < 0) {
+    return undefined;
+  }
+  return groupMap.get(groupId);
+}
+
+function addTabToGroupedSpace(entry: TabEntry, space: SpaceSnapshot) {
+  if (entry.pinned) {
+    space.pinnedTabs.push(entry);
+  } else {
+    space.tabs.push(entry);
+  }
+}
+
+function addTabToUngroupedSpace(entry: TabEntry, ungrouped: SpaceSnapshot) {
+  if (entry.pinned) {
+    ungrouped.pinnedTabs.push(entry);
+  } else {
+    ungrouped.temporaryTabs.push(entry);
+  }
+}
+
+function distributeTabs(
+  tabs: chrome.tabs.Tab[],
+  groupMap: Map<number, SpaceSnapshot>,
+  ungrouped: SpaceSnapshot
+) {
+  for (const tab of tabs) {
+    const entry = mapTab(tab);
+    if (!entry) {
+      continue;
+    }
+
+    const space = getGroupedSpace(tab.groupId, groupMap);
+    if (space) {
+      addTabToGroupedSpace(entry, space);
+      continue;
+    }
+
+    addTabToUngroupedSpace(entry, ungrouped);
+  }
+}
+
+function hasUngroupedContent(ungrouped: SpaceSnapshot): boolean {
+  return ungrouped.pinnedTabs.length > 0 || ungrouped.temporaryTabs.length > 0;
+}
+
+function buildSnapshotList(
+  groupMap: Map<number, SpaceSnapshot>,
+  ungrouped: SpaceSnapshot
+): SpaceSnapshot[] {
+  const spaces = Array.from(groupMap.values());
+  if (hasUngroupedContent(ungrouped)) {
+    spaces.push(ungrouped);
+  }
+  return spaces.sort((a, b) => a.id - b.id);
 }
 
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
   try {
-    const [tabGroups, allTabs] = await Promise.all([
-      TAB_GROUPS_SUPPORTED
-        ? chrome.tabGroups?.query({})
-        : Promise.resolve<chrome.tabGroups.TabGroup[]>([]),
-      chrome.tabs.query({}),
-    ]);
+    const { tabGroups, allTabs } = await queryChromeState();
+    const timestamp = Date.now();
+    const { groupMap, ungrouped } = initializeSpaceSnapshots(tabGroups, timestamp);
 
-    const groupMap = new Map<number, SpaceSnapshot>();
+    distributeTabs(allTabs, groupMap, ungrouped);
 
-    for (const group of tabGroups) {
-      groupMap.set(group.id, {
-        id: group.id,
-        name: group.title || 'Untitled',
-        color: group.color || 'grey',
-        tabs: [],
-        pinnedTabs: [],
-        temporaryTabs: [],
-        windowId: group.windowId,
-        createdAt: Date.now(),
-        lastActiveAt: Date.now(),
-      });
-    }
-
-    const ungrouped: SpaceSnapshot = {
-      id: TAB_GROUP_ID_NONE,
-      name: 'Ungrouped',
-      color: 'grey' as chrome.tabGroups.ColorEnum,
-      tabs: [],
-      pinnedTabs: [],
-      temporaryTabs: [],
-      windowId: -1,
-      createdAt: Date.now(),
-      lastActiveAt: Date.now(),
-    };
-
-    for (const tab of allTabs) {
-      const entry = mapTab(tab);
-      if (!entry) continue;
-
-      if (typeof tab.groupId === 'number' && tab.groupId >= 0) {
-        const space = groupMap.get(tab.groupId);
-        if (space) {
-          if (entry.pinned) {
-            space.pinnedTabs.push(entry);
-          } else {
-            space.tabs.push(entry);
-          }
-        }
-      } else {
-        if (entry.pinned) {
-          ungrouped.pinnedTabs.push(entry);
-        } else {
-          ungrouped.temporaryTabs.push(entry);
-        }
-      }
-    }
-
-    const spaces: SpaceSnapshot[] = [];
-
-    for (const space of groupMap.values()) {
-      spaces.push(space);
-    }
-
-    if (ungrouped.pinnedTabs.length || ungrouped.temporaryTabs.length) {
-      spaces.push(ungrouped);
-    }
-
-    return spaces.sort((a, b) => a.id - b.id);
+    return buildSnapshotList(groupMap, ungrouped);
   } catch (error) {
     console.warn('Failed to load spaces snapshot', error);
     return [];
@@ -114,14 +176,11 @@ export async function moveTabToSpace(tabId: number, spaceId: number): Promise<nu
     return null;
   }
 
-  const groupId = await chrome.tabs.group({ groupId: spaceId, tabIds: tabId });
+  const groupId = await chrome.tabs.group({ groupId: spaceId, tabIds: [tabId] });
   return groupId;
 }
 
-export async function createSpace(
-  name: string,
-  color?: chrome.tabGroups.ColorEnum
-): Promise<number> {
+export async function createSpace(name: string, color?: TabGroupColor): Promise<number> {
   if (!TAB_GROUPS_SUPPORTED) {
     throw new Error('Tab groups are not supported in this browser');
   }
@@ -154,11 +213,13 @@ export async function removeSpace(spaceId: number): Promise<void> {
   const tabs = await chrome.tabs.query({ groupId: spaceId });
   if (!tabs.length) return;
 
-  await chrome.tabs.ungroup(
-    tabs
-      .map((tab) => tab.id)
-      .filter((id): id is number => id !== undefined && typeof id === 'number')
-  );
+  const tabIds = tabs
+    .map((tab) => tab.id)
+    .filter((id): id is number => id !== undefined && typeof id === 'number');
+
+  if (tabIds.length === 0) return;
+
+  await chrome.tabs.ungroup(tabIds as [number, ...number[]]);
 }
 
 export async function broadcastSpacesSnapshot(): Promise<void> {
@@ -352,7 +413,7 @@ export async function getBookmarksForSpace(spaceId: number): Promise<TabEntry[]>
             active: false,
             windowId: 0,
             groupId: spaceId,
-            lastAccessed: item.dateAdded,
+            last_accessed: item.dateAdded,
           });
         } else if (!item.url) {
           // This is a folder, process recursively

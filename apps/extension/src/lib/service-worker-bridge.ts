@@ -1,7 +1,8 @@
 /// <reference types="chrome" />
 
-import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 import type { QueryClient } from '@tanstack/react-query';
+import type { OptionalTabGroupColor } from '@/shared/chrome-types';
+import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 import { queryKeys } from './query-client';
 import { hasChromeRuntime } from './utils';
 
@@ -128,7 +129,7 @@ export class ServiceWorkerBridge {
     }) as Promise<void>;
   }
 
-  async createSpace(name: string, color?: chrome.tabGroups.ColorEnum): Promise<number> {
+  async createSpace(name: string, color?: OptionalTabGroupColor): Promise<number> {
     return this.sendMessage({
       type: 'mutation',
       method: 'createSpace',

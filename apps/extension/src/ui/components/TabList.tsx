@@ -11,7 +11,7 @@ interface TabListProps {
   spaces: SpaceSnapshot[];
   activeSpaceId: number | null;
   title: string;
-  onContextMenu?: (tab: TabEntry, event: React.MouseEvent) => void;
+  onContextMenu?: (tab: TabEntry, event: React.MouseEvent<HTMLButtonElement>) => void;
   variant?: TabListVariant;
 }
 
@@ -66,15 +66,15 @@ export function TabList({
                   className={`flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-100 shadow-sm ${
                     variant === 'floating' ? 'bg-slate-900/70 hover:bg-slate-800/70' : 'bg-black/20'
                   }`}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    onContextMenu?.(tab, event);
-                  }}
                 >
                   <button
                     type="button"
                     className="flex-1 text-left"
                     onClick={() => activateTab(tab.id).catch((error) => console.warn(error))}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      onContextMenu?.(tab, event);
+                    }}
                   >
                     <div className="font-medium leading-tight line-clamp-1">{tab.title}</div>
                     {tab.url && (

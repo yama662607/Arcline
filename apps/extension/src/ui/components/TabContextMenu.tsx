@@ -36,6 +36,9 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
       style={{ top: y, left: x }}
       onMouseDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
+      role="menu"
+      tabIndex={-1}
+      aria-label="Tab actions"
     >
       <button
         type="button"

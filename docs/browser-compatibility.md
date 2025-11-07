@@ -354,7 +354,7 @@ async function initializeUiMode() {
   "action": {
     "default_title": "Arcline",
     "default_icon": {
-      "128": "assets/icon-128.png"
+      "128": "icons/icon-128.png"
     }
   },
   "side_panel": {

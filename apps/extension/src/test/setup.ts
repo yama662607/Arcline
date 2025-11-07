@@ -2,7 +2,7 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
 // Chrome API mocks
-global.chrome = {
+globalThis.chrome = {
   runtime: {
     sendMessage: vi.fn(),
     onMessage: {
@@ -33,14 +33,14 @@ global.chrome = {
 } as unknown as typeof chrome;
 
 // Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
+globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }));
 
 // Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+globalThis.IntersectionObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),

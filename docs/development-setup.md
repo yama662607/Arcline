@@ -184,7 +184,7 @@ Chrome と同様の手順でサービスワーカーとポップアップをデ�
 
 - `manifest.config.ts`の変更
 - Background script (`src/background/index.ts`)の変更
-- アセット（アイコンなど）の変更
+- アセット（`apps/extension/public/` 以下のアイコンなど）の変更
 
 手動再読み込み方法:
 
@@ -200,8 +200,14 @@ apps/extension/
 ├── dist/                    # ビルド出力（Git無視）
 │   ├── manifest.json
 │   ├── index.html
-│   ├── assets/
-│   └── service-worker-loader.js
+│   ├── popup.html
+│   ├── options.html
+│   └── assets/
+├── public/                 # Vite の public ルート（そのまま dist へコピー）
+│   ├── icons/
+│   │   └── icon-128.png
+│   ├── popup.html
+│   └── options.html
 ├── src/
 │   ├── main.tsx            # エントリーポイント
 │   ├── App.tsx             # メインコンポーネント
@@ -212,10 +218,10 @@ apps/extension/
 │   ├── lib/                # ユーティリティ
 │   ├── shared/             # 型定義
 │   ├── store/              # Zustand store
+│   ├── popup/              # Popup UI
+│   ├── options/            # Options UI（React Hook Form + Zod）
 │   └── ui/                 # UIコンポーネント
 │       └── components/
-├── assets/
-│   └── icon-128.png
 ├── index.html              # HTMLテンプレート
 ├── manifest.config.ts      # Manifest設定
 ├── vite.config.ts          # Vite設定

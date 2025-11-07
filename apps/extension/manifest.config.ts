@@ -11,13 +11,14 @@ const manifest = defineManifest(({ mode }) => {
     action: {
       default_title: 'Arcline',
       default_icon: {
-        '128': 'assets/icon-128.png',
+        '128': 'icons/icon-128.png',
       },
+      default_popup: 'popup.html',
     },
     icons: {
-      '16': 'assets/icon-128.png',
-      '48': 'assets/icon-128.png',
-      '128': 'assets/icon-128.png',
+      '16': 'icons/icon-128.png',
+      '48': 'icons/icon-128.png',
+      '128': 'icons/icon-128.png',
     },
     background: {
       service_worker: 'src/background/index.ts',
@@ -38,6 +39,7 @@ const manifest = defineManifest(({ mode }) => {
     side_panel: {
       default_path: 'index.html',
     },
+    options_page: 'options.html',
     permissions: ['tabs', 'tabGroups', 'bookmarks', 'storage', 'sidePanel', 'commands'],
     host_permissions: ['<all_urls>'],
     commands: {
@@ -58,7 +60,7 @@ const manifest = defineManifest(({ mode }) => {
     },
     web_accessible_resources: [
       {
-        resources: ['index.html', 'assets/*'],
+        resources: ['index.html', 'popup.html', 'options.html', 'assets/*', 'icons/*'],
         matches: ['<all_urls>'],
       },
     ],

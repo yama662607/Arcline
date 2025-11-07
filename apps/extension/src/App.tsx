@@ -1,17 +1,17 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { queryClient } from './lib/query-client';
-import type { UiMode } from './lib/ui-mode';
-import { requestUiMode } from './lib/ui-mode';
-import { useSpacesSync } from './lib/useSpacesSync';
-import type { TabEntry } from './shared/types';
-import { useSpacesStore } from './store';
-import { ArchiveManager } from './ui/components/ArchiveManager';
-import { EnhancedTabList } from './ui/components/EnhancedTabList';
-import { SettingsPanel } from './ui/components/SettingsPanel';
-import { SpaceManager } from './ui/components/SpaceManager';
-import { TabContextMenu } from './ui/components/TabContextMenu';
+import { queryClient } from '@/lib/query-client';
+import type { UiMode } from '@/lib/ui-mode';
+import { requestUiMode } from '@/lib/ui-mode';
+import { useSpacesSync } from '@/lib/useSpacesSync';
+import type { TabEntry } from '@/shared/types';
+import { useSpacesStore } from '@/store';
+import { ArchiveManager } from '@/ui/components/ArchiveManager';
+import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
+import { SettingsPanel } from '@/ui/components/SettingsPanel';
+import { SpaceManager } from '@/ui/components/SpaceManager';
+import { TabContextMenu } from '@/ui/components/TabContextMenu';
 
 export default function App() {
   const [uiMode, setUiMode] = useState<UiMode>('side-panel');
@@ -74,6 +74,7 @@ export default function App() {
               <div className="flex border-b border-surface-light">
                 {(['spaces', 'archive', 'settings'] as const).map((tab) => (
                   <button
+                    type="button"
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
@@ -132,8 +133,8 @@ export default function App() {
           <section className="space-y-4">
             <h3 className="text-lg font-medium text-white">Keyboard Shortcuts</h3>
             <div className="space-y-2">
-              {shortcuts.map((shortcut, index) => (
-                <div key={index} className="flex justify-between text-sm">
+              {shortcuts.map((shortcut) => (
+                <div key={shortcut.description} className="flex justify-between text-sm">
                   <span className="text-slate-300">{shortcut.description}</span>
                   <kbd className="rounded bg-surface-light px-2 py-1 font-mono text-xs text-slate-400">
                     {shortcut.key}

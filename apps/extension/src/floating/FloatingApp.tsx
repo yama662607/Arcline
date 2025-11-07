@@ -66,6 +66,7 @@ export default function FloatingApp({ pinned, onTogglePinned, onRequestClose }: 
         <div className="flex border-b border-white/10">
           {(['spaces', 'archive', 'settings'] as const).map((tab) => (
             <button
+              type="button"
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${

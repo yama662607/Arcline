@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 
 import { queryClient } from '@/lib/query-client';
 import { useSpacesSync } from '@/lib/useSpacesSync';
@@ -34,11 +34,20 @@ function SidebarApp() {
       <QueryClientProvider client={queryClient}>
         <div className="w-8 h-full bg-surface border-r border-white/10 flex flex-col items-center py-2">
           <button
+            type="button"
             onClick={() => setIsCollapsed(false)}
             className="p-1 text-slate-400 hover:text-white transition-colors"
             title="Expand Arcline"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              role="img"
+              aria-hidden="true"
+            >
+              <title>Expand sidebar</title>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -70,6 +79,7 @@ function SidebarApp() {
         <div className="flex border-b border-white/10 flex-shrink-0">
           {(['spaces', 'archive', 'settings'] as const).map((tab) => (
             <button
+              type="button"
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 px-2 py-1 text-xs font-medium transition-colors ${
@@ -152,7 +162,7 @@ function SidebarApp() {
 // Sidebar injection and management
 export class SidebarManager {
   private container: HTMLDivElement | null = null;
-  private root: any = null;
+  private root: Root | null = null;
   private isVisible = false;
 
   constructor() {

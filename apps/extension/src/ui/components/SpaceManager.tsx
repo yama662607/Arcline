@@ -1,6 +1,8 @@
-import { useCreateSpace, useRemoveSpace, useSpacesSnapshot } from '@/hooks/use-spaces-query';
-import { useSpacesStore } from '@/store';
 import { useState } from 'react';
+
+import { useCreateSpace, useRemoveSpace, useSpacesSnapshot } from '@/hooks/use-spaces-query';
+import type { TabGroupColor } from '@/shared/chrome-types';
+import { useSpacesStore } from '@/store';
 
 interface SpaceManagerProps {
   variant?: 'standalone' | 'floating';
@@ -9,7 +11,7 @@ interface SpaceManagerProps {
 export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
   const [isCreatingSpace, setIsCreatingSpace] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState('');
-  const [newSpaceColor, setNewSpaceColor] = useState<chrome.tabGroups.ColorEnum>('blue');
+  const [newSpaceColor, setNewSpaceColor] = useState<TabGroupColor>('blue');
 
   const { data: spaces = [], isLoading, error } = useSpacesSnapshot();
   const createSpaceMutation = useCreateSpace();
@@ -54,7 +56,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
     setActiveSpace(spaceId);
   };
 
-  const colors: chrome.tabGroups.ColorEnum[] = [
+  const colors: TabGroupColor[] = [
     'grey',
     'blue',
     'red',
@@ -169,7 +171,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                 onClick={() => {
                   setIsCreatingSpace(false);
                   setNewSpaceName('');
-                  setNewSpaceColor('blue' as chrome.tabGroups.ColorEnum);
+                  setNewSpaceColor('blue' as TabGroupColor);
                 }}
                 className="flex-1 px-2 py-1 text-xs bg-surface-light text-slate-300 rounded hover:bg-surface"
               >

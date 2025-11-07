@@ -1,21 +1,174 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
+import type {
+  DragEvent as ReactDragEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from 'react';
+import { useRef, useState } from 'react';
+
 import {
   useActivateTab,
   useArchiveTab,
   useCloseTab,
   useMoveTabToSpace,
+  useSpacesSnapshot,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
-import { useSpacesSnapshot } from '@/hooks/use-spaces-query';
 import type { TabEntry } from '@/shared/types';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef, useState } from 'react';
+
+interface TabRowProps {
+  tab: TabEntry;
+  compact: boolean;
+  variant: 'standalone' | 'floating';
+  isDragged: boolean;
+  showFavicons: boolean;
+  onSelect: (tab: TabEntry) => void;
+  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onPinToggle: (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
+  onArchive: (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
+  onClose: (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
+  onDragStart?: (event: ReactDragEvent<HTMLElement>, tab: TabEntry) => void;
+  onDragOver?: (event: ReactDragEvent<HTMLElement>) => void;
+  onDrop?: (event: ReactDragEvent<HTMLElement>, tab: TabEntry) => void;
+}
+
+function safeHostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
+  }
+}
+
+function TabRow({
+  tab,
+  compact,
+  variant,
+  isDragged,
+  showFavicons,
+  onSelect,
+  onContextMenu,
+  onPinToggle,
+  onArchive,
+  onClose,
+  onDragStart,
+  onDragOver,
+  onDrop,
+}: TabRowProps) {
+  const containerClasses = [
+    variant === 'floating'
+      ? `group flex items-center gap-2 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded hover:bg-surface-light transition-colors`
+      : `group flex items-center gap-3 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light transition-colors border-b border-surface-light/50`,
+    tab.active ? 'bg-surface-light' : '',
+    isDragged ? 'opacity-50' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const actionButtonTextClass = variant === 'floating' ? 'text-xs' : 'text-sm';
+
+  return (
+    <div className={containerClasses}>
+      <button
+        type="button"
+        className="flex flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        onClick={() => onSelect(tab)}
+        onKeyDown={(event: ReactKeyboardEvent<HTMLButtonElement>) => {
+          if (event.key === ' ' || event.key === 'Enter') {
+            // Space already activates button but we prevent scroll bounce
+            event.preventDefault();
+            onSelect(tab);
+          }
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          onContextMenu?.(tab, event);
+        }}
+        draggable={Boolean(onDragStart)}
+        onDragStart={
+          onDragStart
+            ? (event) => {
+                onDragStart(event, tab);
+              }
+            : undefined
+        }
+        onDragOver={onDragOver}
+        onDrop={
+          onDrop
+            ? (event) => {
+                onDrop(event, tab);
+              }
+            : undefined
+        }
+      >
+        <div className="flex-shrink-0">
+          {showFavicons && tab.favIconUrl ? (
+            <img
+              src={tab.favIconUrl}
+              alt=""
+              className="w-4 h-4 rounded"
+              onError={(event) => {
+                const target = event.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="w-4 h-4 bg-surface-light rounded flex items-center justify-center">
+              <span className="text-xs text-slate-400">🌐</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="text-sm text-slate-200 truncate">{tab.title}</div>
+          <div className="text-xs text-slate-500 truncate">
+            {tab.url ? safeHostname(tab.url) : ''}
+          </div>
+        </div>
+      </button>
+
+      <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={(event) => onPinToggle(event, tab)}
+          className={`p-1 rounded ${actionButtonTextClass} ${
+            tab.pinned
+              ? 'text-yellow-400 hover:text-yellow-300'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+          title={tab.pinned ? 'Unpin' : 'Pin'}
+        >
+          📌
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => onArchive(event, tab)}
+          className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-blue-400`}
+          title="Archive"
+        >
+          📦
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => onClose(event, tab)}
+          className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-red-400`}
+          title="Close"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
 
 interface EnhancedTabListProps {
   tabs: TabEntry[];
   title: string;
   emptyMessage: string;
   variant?: 'standalone' | 'floating';
-  onTabContextMenu?: (tab: TabEntry, event: React.MouseEvent) => void;
+  onTabContextMenu?: (tab: TabEntry, event: React.MouseEvent<HTMLButtonElement>) => void;
   showFavicons?: boolean;
   compact?: boolean;
 }
@@ -94,28 +247,6 @@ export function EnhancedTabList({
     setDraggedTab(null);
   };
 
-  const getTabFavicon = (tab: TabEntry) => {
-    if (!showFavicons || !tab.favIconUrl) {
-      return (
-        <div className="w-4 h-4 bg-surface-light rounded flex items-center justify-center">
-          <span className="text-xs text-slate-400">🌐</span>
-        </div>
-      );
-    }
-
-    return (
-      <img
-        src={tab.favIconUrl}
-        alt=""
-        className="w-4 h-4 rounded"
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = 'none';
-          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-        }}
-      />
-    );
-  };
-
   if (variant === 'floating') {
     return (
       <div className="space-y-2">
@@ -130,56 +261,22 @@ export function EnhancedTabList({
         ) : (
           <div className="space-y-1">
             {tabs.map((tab) => (
-              <div
+              <TabRow
                 key={tab.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, tab)}
+                tab={tab}
+                compact={compact}
+                variant="floating"
+                isDragged={draggedTab?.id === tab.id}
+                showFavicons={showFavicons}
+                onSelect={handleTabClick}
+                onContextMenu={onTabContextMenu}
+                onPinToggle={handlePinToggle}
+                onArchive={handleTabArchive}
+                onClose={handleTabClose}
+                onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, tab)}
-                onClick={() => handleTabClick(tab)}
-                onContextMenu={(e) => onTabContextMenu?.(tab, e)}
-                className={`flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors group ${
-                  tab.active ? 'bg-surface-light' : ''
-                } ${draggedTab?.id === tab.id ? 'opacity-50' : ''}`}
-              >
-                <div className="relative">
-                  {getTabFavicon(tab)}
-                  <div className="hidden w-4 h-4 bg-surface-light rounded flex items-center justify-center">
-                    <span className="text-xs text-slate-400">🌐</span>
-                  </div>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-slate-200 truncate">{tab.title}</div>
-                  <div className="text-xs text-slate-500 truncate">
-                    {new URL(tab.url || '').hostname}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    type="button"
-                    onClick={(e) => handlePinToggle(e, tab)}
-                    className={`p-1 rounded text-xs ${
-                      tab.pinned
-                        ? 'text-yellow-400 hover:text-yellow-300'
-                        : 'text-slate-500 hover:text-slate-300'
-                    }`}
-                    title={tab.pinned ? 'Unpin' : 'Pin'}
-                  >
-                    📌
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => handleTabClose(e, tab)}
-                    className="p-1 rounded text-xs text-slate-500 hover:text-red-400"
-                    title="Close"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
+                onDrop={handleDrop}
+              />
             ))}
           </div>
         )}
@@ -228,9 +325,14 @@ export function EnhancedTabList({
             }}
           >
             {virtualizer.getVirtualItems().map((virtualItem) => {
+              const currentTab = tabs[virtualItem.index];
+              if (!currentTab) {
+                return null;
+              }
+
               return (
                 <div
-                  key={virtualItem.index}
+                  key={currentTab.id}
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -240,71 +342,21 @@ export function EnhancedTabList({
                     transform: `translateY(${virtualItem.start}px)`,
                   }}
                 >
-                  {(() => {
-                    const currentTab = tabs[virtualItem.index];
-                    if (!currentTab) return null;
-
-                    return (
-                      <div
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, currentTab)}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, currentTab)}
-                        onClick={() => handleTabClick(currentTab)}
-                        onContextMenu={(e) => onTabContextMenu?.(currentTab, e)}
-                        className={`flex items-center gap-3 px-4 py-2 hover:bg-surface-light cursor-pointer transition-colors group border-b border-surface-light/50 ${
-                          currentTab.active ? 'bg-surface-light' : ''
-                        } ${draggedTab?.id === currentTab.id ? 'opacity-50' : ''}`}
-                      >
-                        <div className="relative flex-shrink-0">
-                          {getTabFavicon(currentTab)}
-                          <div className="hidden w-4 h-4 bg-surface-light rounded flex items-center justify-center">
-                            <span className="text-xs text-slate-400">🌐</span>
-                          </div>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-slate-200 truncate">{currentTab.title}</div>
-                          <div className="text-xs text-slate-500 truncate">
-                            {currentTab.url ? new URL(currentTab.url).hostname : ''}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={(e) => handlePinToggle(e, currentTab)}
-                            className={`p-1 rounded text-sm ${
-                              currentTab.pinned
-                                ? 'text-yellow-400 hover:text-yellow-300'
-                                : 'text-slate-500 hover:text-slate-300'
-                            }`}
-                            title={currentTab.pinned ? 'Unpin' : 'Pin'}
-                          >
-                            📌
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => handleTabArchive(e, currentTab)}
-                            className="p-1 rounded text-sm text-slate-500 hover:text-blue-400"
-                            title="Archive"
-                          >
-                            📦
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => handleTabClose(e, currentTab)}
-                            className="p-1 rounded text-sm text-slate-500 hover:text-red-400"
-                            title="Close"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  <TabRow
+                    tab={currentTab}
+                    compact={compact}
+                    variant="standalone"
+                    isDragged={draggedTab?.id === currentTab.id}
+                    showFavicons={showFavicons}
+                    onSelect={handleTabClick}
+                    onContextMenu={onTabContextMenu}
+                    onPinToggle={handlePinToggle}
+                    onArchive={handleTabArchive}
+                    onClose={handleTabClose}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                  />
                 </div>
               );
             })}
@@ -318,17 +370,37 @@ export function EnhancedTabList({
           <h4 className="text-sm font-medium text-slate-300 mb-2">Move to space:</h4>
           <div className="grid grid-cols-2 gap-2">
             {spaces.map((space) => (
-              <div
+              <button
                 key={space.id}
+                type="button"
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDropOnSpace(e, space.id)}
-                className="p-2 border border-surface-light/50 rounded hover:bg-surface-light cursor-pointer transition-colors"
+                className="p-2 border border-surface-light/50 rounded hover:bg-surface-light text-left transition-colors"
+                onKeyDown={(event) => {
+                  if (!draggedTab) {
+                    return;
+                  }
+
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    moveTabMutation.mutate({ tabId: draggedTab.id, spaceId: space.id });
+                    setDraggedTab(null);
+                  }
+                }}
+                onClick={() => {
+                  if (!draggedTab) {
+                    return;
+                  }
+
+                  moveTabMutation.mutate({ tabId: draggedTab.id, spaceId: space.id });
+                  setDraggedTab(null);
+                }}
               >
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: space.color }} />
                   <span className="text-sm text-slate-200">{space.name}</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

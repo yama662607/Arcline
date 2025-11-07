@@ -1,6 +1,7 @@
+import { useState } from 'react';
+
 import { useArchivedTabs, useRestoreArchivedTab } from '@/hooks/use-spaces-query';
 import type { ArchivedTab } from '@/shared/types';
-import { useState } from 'react';
 
 interface ArchiveManagerProps {
   variant?: 'standalone' | 'floating';

@@ -1,4 +1,5 @@
-import type { SpaceSnapshot } from '@/shared/spaces';
+import type { TabGroupColor } from '@/shared/chrome-types';
+import type { SpaceSnapshot } from '@/shared/types';
 
 import { hasChromeRuntime } from './utils';
 
@@ -6,7 +7,7 @@ const FALLBACK_SPACES: SpaceSnapshot[] = [
   {
     id: 1,
     name: 'Sample Space',
-    color: 'blue' as chrome.tabGroups.ColorEnum,
+    color: 'blue' as TabGroupColor,
     tabs: [
       {
         id: 102,
@@ -41,8 +42,8 @@ const FALLBACK_SPACES: SpaceSnapshot[] = [
       },
     ],
     windowId: -1,
-    createdAt: Date.now(),
-    lastActiveAt: Date.now(),
+    created_at: Date.now(),
+    last_active_at: Date.now(),
   },
 ];
 

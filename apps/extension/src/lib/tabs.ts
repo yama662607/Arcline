@@ -1,3 +1,4 @@
+import type { OptionalTabGroupColor } from '@/shared/chrome-types';
 import { hasChromeRuntime } from './utils';
 
 type GenericResponse<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
@@ -56,10 +57,7 @@ export async function activateTab(tabId: number): Promise<void> {
   await sendMessage<{ command: 'activateTab'; tabId: number }>({ command: 'activateTab', tabId });
 }
 
-export async function createSpace(
-  name: string,
-  color?: chrome.tabGroups.ColorEnum
-): Promise<number> {
+export async function createSpace(name: string, color?: OptionalTabGroupColor): Promise<number> {
   const result = await sendMessage<{ groupId: number }>({ command: 'createSpace', name, color });
   return result.groupId;
 }

@@ -1,4 +1,6 @@
 import { createRoot } from 'react-dom/client';
+
+import '../styles.css';
 import PopupApp from './PopupApp';
 
 const container = document.getElementById('app');

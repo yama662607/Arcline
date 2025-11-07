@@ -1,14 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import React, {
-  Suspense,
   forwardRef,
+  Suspense,
   useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
 } from 'react';
-import { type Root, createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 
 import stylesText from '@/styles.css?inline';
 
@@ -102,8 +102,9 @@ const FloatingUiRoot = forwardRef<
   return (
     <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[356px]">
       <div className="pointer-events-auto flex h-full w-full max-w-[356px] items-stretch">
-        <div
+        <button
           data-testid="arcline-floating-hotzone"
+          type="button"
           className="relative flex w-[6px] flex-col items-center justify-center"
           onPointerEnter={() => {
             cancelClose();
@@ -122,6 +123,8 @@ const FloatingUiRoot = forwardRef<
               return next;
             });
           }}
+          aria-label="Toggle floating sidebar pin"
+          aria-pressed={pinned}
           title="Arcline floating hotzone"
         >
           <span
@@ -131,7 +134,7 @@ const FloatingUiRoot = forwardRef<
               background: 'linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.1))',
             }}
           />
-        </div>
+        </button>
         <AnimatePresence>
           {(open || pinned) && (
             <motion.aside

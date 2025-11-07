@@ -1,7 +1,7 @@
+import { useEffect, useRef } from 'react';
+
 import { queryClient } from '@/lib/query-client';
 import { ServiceWorkerBridge } from '@/lib/service-worker-bridge';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
 
 // Global bridge instance
 let bridgeInstance: ServiceWorkerBridge | null = null;
@@ -16,8 +16,7 @@ export function getServiceWorkerBridge(): ServiceWorkerBridge {
 
 // Hook to access the bridge and handle cleanup
 export function useServiceWorkerBridge() {
-  const bridgeRef = useRef<ServiceWorkerBridge>();
-  const queryClient = useQueryClient();
+  const bridgeRef = useRef<ServiceWorkerBridge | null>(null);
 
   useEffect(() => {
     // Get or create bridge instance
@@ -26,9 +25,9 @@ export function useServiceWorkerBridge() {
     // Cleanup on unmount
     return () => {
       // Don't destroy the global instance, just clear reference
-      bridgeRef.current = undefined;
+      bridgeRef.current = null;
     };
-  }, [queryClient]);
+  }, []);
 
   return bridgeRef.current;
 }
