@@ -3,23 +3,28 @@
 > arcline-extension@0.0.1 build /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/apps/extension
 > vite build
 
-[36mvite v5.4.21 [32mbuilding for production...[36m[39m
-[2K[1Gtransforming (1) [2m../../../../../../../../../@crx/manifest[22m[2K[1Gtransforming (5) [2msrc/main.tsx[22m[2K[1G[2K[1Gtransforming (38) [2m../../node_modules/.pnpm/@tanstack+query-core@5.90.6/node_mo[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (60) [2m../../node_modules/.pnpm/framer-motion@11.18.2_react-dom@18.[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (194) [2m../../node_modules/.pnpm/@tanstack+react-query@5.90.6_react[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (391) [2m../../node_modules/.pnpm/framer-motion@11.18.2_react-dom@18[2K[1G[2K[1G[32m✓[39m 495 modules transformed.
-[2K[1Grendering chunks (1)...[2K[1Grendering chunks (2)...[2K[1Grendering chunks (3)...[2K[1Grendering chunks (4)...[2K[1Grendering chunks (5)...[2K[1Grendering chunks (6)...[2K[1Grendering chunks (7)...[2K[1Grendering chunks (8)...[2K[1Grendering chunks (9)...[2K[1Grendering chunks (10)...[2K[1G[2K[1GThe emitted file "assets/icon-128.png" overwrites a previously emitted file of the same name.
-[2K[1Gcomputing gzip size (0)...[2K[1Gcomputing gzip size (1)...[2K[1Gcomputing gzip size (2)...[2K[1Gcomputing gzip size (3)...[2K[1Gcomputing gzip size (4)...[2K[1Gcomputing gzip size (5)...[2K[1Gcomputing gzip size (6)...[2K[1Gcomputing gzip size (7)...[2K[1Gcomputing gzip size (8)...[2K[1Gcomputing gzip size (9)...[2K[1Gcomputing gzip size (10)...[2K[1Gcomputing gzip size (11)...[2K[1Gcomputing gzip size (12)...[2K[1G[2mdist/[22m[32mservice-worker-loader.js                      [39m[1m[2m  0.04 kB[22m[1m[22m
-[2mdist/[22m[2massets/[22m[32mfloating-ui.ts-loader-S-VHaWte.js      [39m[1m[2m  0.35 kB[22m[1m[22m
-[2mdist/[22m[2massets/[22m[32msidebar-manager.ts-loader-CQRk4HrG.js  [39m[1m[2m  0.35 kB[22m[1m[22m
-[2mdist/[22m[32mindex.html                                    [39m[1m[2m  0.60 kB[22m[1m[22m[2m │ gzip:  0.35 kB[22m
-[2mdist/[22m[2massets/[22m[32micon-128.png                           [39m[1m[2m  1.26 kB[22m[1m[22m
-[2mdist/[22m[32mmanifest.json                                 [39m[1m[2m  1.87 kB[22m[1m[22m[2m │ gzip:  0.78 kB[22m
-[2mdist/[22m[32m.vite/manifest.json                           [39m[1m[2m  2.35 kB[22m[1m[22m[2m │ gzip:  0.54 kB[22m
-[2mdist/[22m[2massets/[22m[35mindex-DJbkUhX8.css                     [39m[1m[2m 29.84 kB[22m[1m[22m[2m │ gzip:  6.02 kB[22m
-[2mdist/[22m[2massets/[22m[36mFloatingApp-BV3XbbfS.js                [39m[1m[2m  2.45 kB[22m[1m[22m[2m │ gzip:  1.04 kB[22m
-[2mdist/[22m[2massets/[22m[36mfloating-ui.ts-WPbHkaf7.js             [39m[1m[2m  3.42 kB[22m[1m[22m[2m │ gzip:  1.62 kB[22m
-[2mdist/[22m[2massets/[22m[36mindex.html-CUvK4YAb.js                 [39m[1m[2m  4.98 kB[22m[1m[22m[2m │ gzip:  2.02 kB[22m
-[2mdist/[22m[2massets/[22m[36msidebar-manager.ts-ChjcpwMx.js         [39m[1m[2m  5.09 kB[22m[1m[22m[2m │ gzip:  2.03 kB[22m
-[2mdist/[22m[2massets/[22m[36mindex.ts-BtsPyip2.js                   [39m[1m[2m 10.68 kB[22m[1m[22m[2m │ gzip:  3.09 kB[22m
-[2mdist/[22m[2massets/[22m[36mclient-DdeTP7wa.js                     [39m[1m[2m141.84 kB[22m[1m[22m[2m │ gzip: 45.43 kB[22m
-[2mdist/[22m[2massets/[22m[36mmount-DBMQDSb3.js                      [39m[1m[2m147.23 kB[22m[1m[22m[2m │ gzip: 45.01 kB[22m
-[2mdist/[22m[2massets/[22m[36mTabContextMenu-CTZuzE00.js             [39m[1m[2m177.04 kB[22m[1m[22m[2m │ gzip: 48.61 kB[22m
-[32m✓ built in 1.27s[39m
+[36mvite v7.2.1 [32mbuilding client environment for production...[36m[39m
+[2K[1Gtransforming (1) [2m../../../../../../../../../@crx/manifest[22m[2K[1Gtransforming (3) [2msrc/popup/index.tsx[22m[2K[1Gtransforming (31) [2msrc/store/index.ts[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (157) [2msrc/lib/utils.ts[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (389) [2m../../node_modules/.pnpm/zustand@5.0.8_@types+[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[32m✓[39m 590 modules transformed.
+[2K[1Grendering chunks (1)...[2K[1Grendering chunks (2)...[2K[1Grendering chunks (3)...[2K[1Grendering chunks (4)...[2K[1Grendering chunks (5)...[2K[1Grendering chunks (6)...[2K[1Grendering chunks (7)...[2K[1Grendering chunks (8)...[2K[1Grendering chunks (9)...[2K[1Grendering chunks (10)...[2K[1Grendering chunks (11)...[2K[1Grendering chunks (12)...[2K[1Grendering chunks (13)...[2K[1Grendering chunks (14)...[2K[1G[2K[1Gcomputing gzip size (0)...[2K[1Gcomputing gzip size (1)...[2K[1Gcomputing gzip size (2)...[2K[1Gcomputing gzip size (3)...[2K[1Gcomputing gzip size (4)...[2K[1Gcomputing gzip size (5)...[2K[1Gcomputing gzip size (6)...[2K[1Gcomputing gzip size (7)...[2K[1Gcomputing gzip size (8)...[2K[1Gcomputing gzip size (9)...[2K[1Gcomputing gzip size (10)...[2K[1Gcomputing gzip size (11)...[2K[1Gcomputing gzip size (12)...[2K[1Gcomputing gzip size (13)...[2K[1Gcomputing gzip size (14)...[2K[1Gcomputing gzip size (15)...[2K[1Gcomputing gzip size (16)...[2K[1Gcomputing gzip size (17)...[2K[1Gcomputing gzip size (18)...[2K[1G[2mdist/[22m[32mservice-worker-loader.js                      [39m[1m[2m  0.04 kB[22m[1m[22m
+[2mdist/[22m[2massets/[22m[32mfloating-ui.ts-loader-BpCLN20y.js      [39m[1m[2m  0.35 kB[22m[1m[22m
+[2mdist/[22m[2massets/[22m[32msidebar-manager.ts-loader-CcMiIUnW.js  [39m[1m[2m  0.35 kB[22m[1m[22m
+[2mdist/[22m[32moptions.html                                  [39m[1m[2m  0.68 kB[22m[1m[22m[2m │ gzip:  0.36 kB[22m
+[2mdist/[22m[32mpopup.html                                    [39m[1m[2m  0.75 kB[22m[1m[22m[2m │ gzip:  0.37 kB[22m
+[2mdist/[22m[32mindex.html                                    [39m[1m[2m  0.76 kB[22m[1m[22m[2m │ gzip:  0.38 kB[22m
+[2mdist/[22m[32micons/icon-128.png                            [39m[1m[2m  1.26 kB[22m[1m[22m
+[2mdist/[22m[32mmanifest.json                                 [39m[1m[2m  2.08 kB[22m[1m[22m[2m │ gzip:  0.84 kB[22m
+[2mdist/[22m[32m.vite/manifest.json                           [39m[1m[2m  3.43 kB[22m[1m[22m[2m │ gzip:  0.66 kB[22m
+[2mdist/[22m[2massets/[22m[35mstyles-CdVTgYxE.css                    [39m[1m[2m 31.72 kB[22m[1m[22m[2m │ gzip:  6.21 kB[22m
+[2mdist/[22m[2massets/[22m[36mstyles-mt7bJe9G.js                     [39m[1m[2m  0.71 kB[22m[1m[22m[2m │ gzip:  0.40 kB[22m
+[2mdist/[22m[2massets/[22m[36mFloatingApp-ZMbo6BuX.js                [39m[1m[2m  2.50 kB[22m[1m[22m[2m │ gzip:  1.06 kB[22m
+[2mdist/[22m[2massets/[22m[36mpopup.html-DS0YUcBX.js                 [39m[1m[2m  2.56 kB[22m[1m[22m[2m │ gzip:  1.14 kB[22m
+[2mdist/[22m[2massets/[22m[36mfloating-ui.ts-CEONMkMN.js             [39m[1m[2m  3.81 kB[22m[1m[22m[2m │ gzip:  1.78 kB[22m
+[2mdist/[22m[2massets/[22m[36mindex.html-PMJD6O67.js                 [39m[1m[2m  4.35 kB[22m[1m[22m[2m │ gzip:  1.73 kB[22m
+[2mdist/[22m[2massets/[22m[36msidebar-manager.ts-BRVBQs4q.js         [39m[1m[2m  5.24 kB[22m[1m[22m[2m │ gzip:  2.09 kB[22m
+[2mdist/[22m[2massets/[22m[36moptions.html-CHHz5Mct.js               [39m[1m[2m  8.81 kB[22m[1m[22m[2m │ gzip:  3.54 kB[22m
+[2mdist/[22m[2massets/[22m[36mindex.ts-Bmeb5Nyx.js                   [39m[1m[2m 10.47 kB[22m[1m[22m[2m │ gzip:  3.11 kB[22m
+[2mdist/[22m[2massets/[22m[36mTabContextMenu-DIQcnNfw.js             [39m[1m[2m 94.43 kB[22m[1m[22m[2m │ gzip: 26.06 kB[22m
+[2mdist/[22m[2massets/[22m[36mschemas-B_YdnHW7.js                    [39m[1m[2m102.07 kB[22m[1m[22m[2m │ gzip: 30.75 kB[22m
+[2mdist/[22m[2massets/[22m[36mmount-CZXAoCcL.js                      [39m[1m[2m150.49 kB[22m[1m[22m[2m │ gzip: 45.71 kB[22m
+[2mdist/[22m[2massets/[22m[36mclient-DW_5FHOy.js                     [39m[1m[2m193.05 kB[22m[1m[22m[2m │ gzip: 60.49 kB[22m
+[32m✓ built in 1.46s[39m

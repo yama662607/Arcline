@@ -96,7 +96,7 @@ const FloatingUiRoot = forwardRef<
     host.style.height = '100vh';
     host.style.width = open || pinned ? '356px' : '6px';
     host.style.zIndex = '2147483646';
-    host.style.pointerEvents = 'none';
+    host.style.pointerEvents = 'auto';
   }, [host, open, pinned]);
 
   return (

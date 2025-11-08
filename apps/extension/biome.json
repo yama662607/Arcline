@@ -70,6 +70,19 @@
     }
   },
   "files": {
-    "includes": ["**", "!dist", "!node_modules", "!coverage", "!**/*.min.js", "!**/*.generated.ts"]
+    "includes": [
+      "**/*.{ts,tsx,js,jsx,mjs,cjs,cts,mts,json,html,css}",
+      "vite.config.ts",
+      "vitest.config.ts",
+      "tailwind.config.ts",
+      "manifest.config.ts",
+      "!dist",
+      "!node_modules",
+      "!coverage",
+      "!playwright-report",
+      "!test-results",
+      "!**/*.min.js",
+      "!**/*.generated.ts"
+    ]
   }
 }

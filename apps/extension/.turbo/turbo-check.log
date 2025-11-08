@@ -7,12 +7,12 @@
 > arcline-extension@0.0.1 lint /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/apps/extension
 > biome check
 
-[0m[34mChecked [0m[0m[34m58[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m39[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m
+[0m[34mChecked [0m[0m[34m69[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m47[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m
 
 > arcline-extension@0.0.1 format /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/apps/extension
 > biome format --write
 
-[0m[34mFormatted [0m[0m[34m54[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m12[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m
+[0m[34mFormatted [0m[0m[34m63[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m16[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m
 
 > arcline-extension@0.0.1 typecheck /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/apps/extension
 > tsc -p tsconfig.json --noEmit

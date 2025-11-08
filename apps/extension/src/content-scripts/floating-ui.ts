@@ -1,8 +1,11 @@
 /// <reference types="chrome" />
 
+export {};
+
 // Minimal inline utilities to avoid pulling large modules into the bootstrap bundle.
 type UiMode = 'side-panel' | 'popup' | 'floating';
 
+const DEFAULT_UI_MODE: UiMode = 'floating';
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
 let hostElement: HTMLElement | null = null;
@@ -14,6 +17,12 @@ let floatingInstance: Awaited<
 > | null = null;
 let currentMode: UiMode | null = null;
 
+declare global {
+  interface Window {
+    __arclineFloatingReady?: boolean;
+  }
+}
+
 function hasChromeRuntime(): boolean {
   return (
     typeof chrome !== 'undefined' &&
@@ -22,9 +31,9 @@ function hasChromeRuntime(): boolean {
   );
 }
 
-function requestUiMode(timeoutMs = 600): Promise<UiMode> {
+function requestUiMode(timeoutMs = 1500): Promise<UiMode> {
   if (!hasChromeRuntime()) {
-    return Promise.resolve('side-panel');
+    return Promise.resolve(DEFAULT_UI_MODE);
   }
 
   return new Promise<UiMode>((resolve) => {
@@ -37,22 +46,22 @@ function requestUiMode(timeoutMs = 600): Promise<UiMode> {
     };
 
     const timer = window.setTimeout(() => {
-      cleanup('side-panel');
+      cleanup(DEFAULT_UI_MODE);
     }, timeoutMs);
 
     try {
       chrome.runtime.sendMessage({ command: 'requestUiMode' }, (response?: { mode?: UiMode }) => {
         window.clearTimeout(timer);
         if (chrome.runtime.lastError) {
-          cleanup('side-panel');
+          cleanup(DEFAULT_UI_MODE);
           return;
         }
-        cleanup((response?.mode as UiMode | undefined) ?? 'side-panel');
+        cleanup((response?.mode as UiMode | undefined) ?? DEFAULT_UI_MODE);
       });
     } catch (error) {
       console.warn('[Arcline] requestUiMode failed', error);
       window.clearTimeout(timer);
-      cleanup('side-panel');
+      cleanup(DEFAULT_UI_MODE);
     }
   });
 }
@@ -78,7 +87,7 @@ function ensureHost() {
   element.style.height = '100vh';
   element.style.width = '6px';
   element.style.zIndex = '2147483646';
-  element.style.pointerEvents = 'none';
+  element.style.pointerEvents = 'auto';
   document.documentElement.append(element);
 
   hostElement = element;
@@ -106,6 +115,7 @@ function ensureBootstrapHotzone() {
 
   shadowRoot.append(hotzone);
   bootstrapHotzone = hotzone;
+  window.__arclineFloatingReady = true;
 }
 
 async function startFloatingUi() {
@@ -151,6 +161,8 @@ function teardownFloatingUi() {
   floatingInstance = null;
   mountPromise = null;
 
+  window.__arclineFloatingReady = false;
+
   if (hostElement) {
     hostElement.remove();
   }
@@ -176,6 +188,24 @@ function handleRuntimeMessage(message: unknown) {
   const payload = message as { command?: string; mode?: UiMode };
   if (payload.command === 'currentUiMode' && payload.mode) {
     applyUiMode(payload.mode);
+    return;
+  }
+
+  if (payload.command === 'openFloatingUi') {
+    ensureHost();
+    ensureBootstrapHotzone();
+    void startFloatingUi();
+  }
+}
+
+function handleWindowMessage(event: MessageEvent) {
+  if (event.source !== window) return;
+  const payload = event.data;
+  if (typeof payload !== 'object' || payload === null) return;
+  if ('type' in payload && (payload as { type?: unknown }).type === 'ARCLINE_OPEN_FLOATING_UI') {
+    ensureHost();
+    ensureBootstrapHotzone();
+    void startFloatingUi();
   }
 }
 
@@ -187,6 +217,7 @@ async function initialize() {
   applyUiMode(mode);
 
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+  window.addEventListener('message', handleWindowMessage);
 }
 
 if (document.readyState === 'loading') {

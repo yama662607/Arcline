@@ -93,19 +93,17 @@ chrome.action.onClicked.addListener(async (tab) => {
   const tabId = tab.id;
 
   const showFloatingUi = async () => {
-    chrome.action.setPopup({ popup: 'index.html' });
-    const popupPromise = chrome.action.openPopup?.();
     await applyUiMode('floating');
-    try {
-      if (typeof tabId === 'number') {
-        const sidebarShown = await sendSidebarCommand(tabId, 'showSidebar');
-        if (!sidebarShown) {
-          console.warn('[Arcline] Sidebar content script not ready; showSidebar command skipped');
-        }
+    if (typeof tabId === 'number') {
+      try {
+        chrome.tabs.sendMessage(tabId, { command: 'openFloatingUi' }, () => {
+          if (chrome.runtime.lastError) {
+            console.warn('[Arcline] Floating message failed, ensure content script is ready');
+          }
+        });
+      } catch (error) {
+        console.warn('[Arcline] Failed to request floating UI open', error);
       }
-      await popupPromise;
-    } catch (openPopupError) {
-      console.warn('[Arcline] Failed to open popup after floating fallback:', openPopupError);
     }
   };
 

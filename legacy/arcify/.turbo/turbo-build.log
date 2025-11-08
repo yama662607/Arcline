@@ -3,8 +3,8 @@
 > arcify@3.1.0 build /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/legacy/arcify
 > vite build
 
-[36mvite v6.4.1 [32mbuilding for production...[36m[39m
-[2K[1Gtransforming (1) [2msidebar.html[22m<script src="onboarding-script.js"> in "/onboarding.html" can't be bundled without type="module" attribute
+[36mvite v7.2.1 [32mbuilding client environment for production...[36m[39m
+[2K[1Gtransforming (1) [2mbackground.js[22m<script src="onboarding-script.js"> in "/onboarding.html" can't be bundled without type="module" attribute
 [2K[1G[32m✓[39m 15 modules transformed.
 [2K[1Grendering chunks (1)...[2K[1Grendering chunks (2)...[2K[1Grendering chunks (3)...[2K[1Grendering chunks (4)...[2K[1Grendering chunks (5)...[2K[1Grendering chunks (6)...[2K[1Grendering chunks (7)...[2K[1Grendering chunks (8)...[2K[1Grendering chunks (9)...[2K[1Grendering chunks (10)...[2K[1Grendering chunks (11)...[2K[1Grendering chunks (12)...[2K[1G[2K[1Gcomputing gzip size (0)...[2K[1Gcomputing gzip size (1)...[2K[1Gcomputing gzip size (2)...[2K[1Gcomputing gzip size (3)...[2K[1Gcomputing gzip size (4)...[2K[1Gcomputing gzip size (5)...[2K[1Gcomputing gzip size (6)...[2K[1Gcomputing gzip size (7)...[2K[1Gcomputing gzip size (8)...[2K[1Gcomputing gzip size (9)...[2K[1Gcomputing gzip size (10)...[2K[1Gcomputing gzip size (11)...[2K[1Gcomputing gzip size (12)...[2K[1Gcomputing gzip size (13)...[2K[1G[2mdist/[22m[2massets/[22m[32micon-yKOdomcq.png            [39m[1m[2m    1.26 kB[22m[1m[22m
 [2mdist/[22m[32moptions.html                        [39m[1m[2m    1.83 kB[22m[1m[22m[2m │ gzip:  0.63 kB[22m
@@ -18,7 +18,7 @@
 [2mdist/[22m[35mstyles.css                          [39m[1m[2m   28.70 kB[22m[1m[22m[2m │ gzip:  6.02 kB[22m
 [2mdist/[22m[36monboarding-script.js                [39m[1m[2m    0.44 kB[22m[1m[22m[2m │ gzip:  0.24 kB[22m
 [2mdist/[22m[36mchromeHelper.js                     [39m[1m[2m    0.63 kB[22m[1m[22m[2m │ gzip:  0.31 kB[22m
-[2mdist/[22m[2massets/[22m[36mstyles-CxqUaUUo.js           [39m[1m[2m    1.26 kB[22m[1m[22m[2m │ gzip:  0.52 kB[22m
+[2mdist/[22m[2massets/[22m[36mstyles-UrnUUPiZ.js           [39m[1m[2m    1.19 kB[22m[1m[22m[2m │ gzip:  0.50 kB[22m
 [2mdist/[22m[36moptions.js                          [39m[1m[2m    1.71 kB[22m[1m[22m[2m │ gzip:  0.58 kB[22m
 [2mdist/[22m[36micons.js                            [39m[1m[2m    2.23 kB[22m[1m[22m[2m │ gzip:  0.96 kB[22m
 [2mdist/[22m[36mlocalstorage.js                     [39m[1m[2m    5.47 kB[22m[1m[22m[2m │ gzip:  1.49 kB[22m
@@ -26,4 +26,4 @@
 [2mdist/[22m[36mutils.js                            [39m[1m[2m    9.41 kB[22m[1m[22m[2m │ gzip:  2.69 kB[22m
 [2mdist/[22m[36msidebar.js                          [39m[1m[2m   76.33 kB[22m[1m[22m[2m │ gzip: 14.06 kB[22m
 ✅ Chrome extension files copied to dist/
-[32m✓ built in 146ms[39m
+[32m✓ built in 130ms[39m
