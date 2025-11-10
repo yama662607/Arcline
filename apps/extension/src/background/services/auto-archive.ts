@@ -20,9 +20,10 @@ export async function setupAutoArchiveAlarm(enabled: boolean, idleMinutes: numbe
 
     if (enabled && idleMinutes > 0) {
       // 新しいアラームを作成
+      const delayMinutes = Math.max(idleMinutes, 1); // 最低1分間隔
       await chrome.alarms.create(AUTO_ARCHIVE_ALARM_NAME, {
-        delayInMinutes: idleMinutes,
-        periodInMinutes: Math.max(idleMinutes, 1), // 最低1分間隔
+        delayInMinutes: delayMinutes,
+        periodInMinutes: delayMinutes,
       });
 
       console.log(`[Arcline] Auto-archive alarm set: ${idleMinutes} minutes`);
@@ -62,7 +63,7 @@ export async function runAutoArchiveCheck(): Promise<void> {
 /**
  * 非アクティブなタブをアーカイブする
  */
-async function archiveInactiveTabs(
+export async function archiveInactiveTabs(
   tabActivity: Record<number, number>,
   currentTime: number,
   idleThreshold: number
@@ -105,7 +106,7 @@ async function archiveInactiveTabs(
 /**
  * 自動アーカイブ除外条件をチェックする
  */
-function shouldExcludeFromAutoArchive(tab: chrome.tabs.Tab): boolean {
+export function shouldExcludeFromAutoArchive(tab: chrome.tabs.Tab): boolean {
   // ピン留めタブは除外
   if (tab.pinned) {
     return true;
@@ -135,7 +136,7 @@ function shouldExcludeFromAutoArchive(tab: chrome.tabs.Tab): boolean {
 /**
  * 自動アーカイブ設定を取得する
  */
-async function getAutoArchiveSettings(): Promise<{ enabled: boolean; idleMinutes: number }> {
+export async function getAutoArchiveSettings(): Promise<{ enabled: boolean; idleMinutes: number }> {
   try {
     const settings = await chrome.storage.sync.get([
       'autoArchiveEnabled',
@@ -147,7 +148,10 @@ async function getAutoArchiveSettings(): Promise<{ enabled: boolean; idleMinutes
     };
   } catch (error) {
     console.error('[Arcline] Failed to get auto-archive settings:', error);
-    return { enabled: false, idleMinutes: 30 };
+    return {
+      enabled: false,
+      idleMinutes: 30,
+    };
   }
 }
 
