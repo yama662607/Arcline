@@ -73,11 +73,11 @@ export async function getOrCreateSpaceFolder(
       (folder) => folder.title === spaceName && folder.id !== spaceFolder?.id
     );
 
-    if (duplicateFolders.length > 0) {
+    if (spaceFolder && duplicateFolders.length > 0) {
       console.warn(
         `[Arcline] Found ${duplicateFolders.length} duplicate folders for "${spaceName}"`
       );
-      await mergeDuplicateSpaceFolders(spaceFolder!, duplicateFolders);
+      await mergeDuplicateSpaceFolders(spaceFolder, duplicateFolders);
     }
 
     if (!spaceFolder) {
@@ -117,7 +117,7 @@ async function mergeDuplicateSpaceFolders(
       await chrome.bookmarks.removeTree(duplicateFolder.id);
     }
 
-    console.log(`[Arcline] Merged ${duplicateFolders.length} duplicate folders`);
+    console.error(`[Arcline] Merged ${duplicateFolders.length} duplicate folders`);
   } catch (error) {
     console.error('[Arcline] Failed to merge duplicate folders:', error);
     throw error;
@@ -141,7 +141,7 @@ export async function syncSpaceToBookmarks(spaceName: string, tabs: TabEntry[]):
 
     // 新しいブックマークを作成
     for (const tab of tabs) {
-      if (tab.url && tab.url.startsWith('http')) {
+      if (tab.url?.startsWith('http')) {
         await chrome.bookmarks.create({
           parentId: spaceFolder.id,
           title: tab.title,
@@ -157,7 +157,7 @@ export async function syncSpaceToBookmarks(spaceName: string, tabs: TabEntry[]):
       error: null,
     });
 
-    console.log(`[Arcline] Synced ${tabs.length} tabs to bookmarks for space "${spaceName}"`);
+    console.error(`[Arcline] Synced ${tabs.length} tabs to bookmarks for space "${spaceName}"`);
   } catch (error) {
     console.error(`[Arcline] Failed to sync space "${spaceName}" to bookmarks:`, error);
     await updateSyncStatus({
@@ -189,7 +189,7 @@ export async function restoreSpacesFromBookmarks(): Promise<SpaceBookmarkData[]>
       });
     }
 
-    console.log(`[Arcline] Restored ${spacesData.length} spaces from bookmarks`);
+    console.error(`[Arcline] Restored ${spacesData.length} spaces from bookmarks`);
     return spacesData;
   } catch (error) {
     console.error('[Arcline] Failed to restore spaces from bookmarks:', error);
@@ -236,13 +236,10 @@ export async function getSyncStatus(): Promise<BookmarkSyncStatus> {
  */
 export async function removeSpaceFolder(spaceName: string): Promise<void> {
   try {
-    const arclineFolder = await getOrCreateArcifyFolder();
-    const spaceFolders = await chrome.bookmarks.getChildren(arclineFolder.id);
-
     const spaceFolder = spaceFolders.find((folder) => folder.title === spaceName);
     if (spaceFolder) {
       await chrome.bookmarks.removeTree(spaceFolder.id);
-      console.log(`[Arcline] Removed bookmark folder for space "${spaceName}"`);
+      console.error(`[Arcline] Removed bookmark folder for space "${spaceName}"`);
     }
   } catch (error) {
     console.error(`[Arcline] Failed to remove space folder "${spaceName}":`, error);
@@ -297,7 +294,7 @@ export async function cleanupAllBookmarks(): Promise<void> {
   try {
     const arclineFolder = await getOrCreateArcifyFolder();
     await chrome.bookmarks.removeTree(arclineFolder.id);
-    console.log('[Arcline] Cleaned up all Arcline bookmarks');
+    console.error('[Arcline] Cleaned up all Arcline bookmarks');
   } catch (error) {
     console.error('[Arcline] Failed to cleanup bookmarks:', error);
     throw error;

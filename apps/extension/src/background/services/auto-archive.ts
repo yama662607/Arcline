@@ -176,7 +176,7 @@ export function setupTabActivityListeners(): void {
     await removeTabLastActivity(tabId);
   });
 
-  console.log('[Arcline] Tab activity listeners initialized');
+  console.error('[Arcline] Tab activity listeners initialized');
 }
 
 /**
@@ -189,7 +189,7 @@ export function setupAlarmListener(): void {
     }
   });
 
-  console.log('[Arcline] Alarm listener initialized');
+  console.error('[Arcline] Alarm listener initialized');
 }
 
 /**
@@ -214,7 +214,7 @@ export async function initializeAutoArchive(): Promise<void> {
     const settings = await getAutoArchiveSettings();
     await setupAutoArchiveAlarm(settings.enabled, settings.idleMinutes);
 
-    console.log('[Arcline] Auto-archive functionality initialized');
+    console.error('[Arcline] Auto-archive functionality initialized');
   } catch (error) {
     console.error('[Arcline] Failed to initialize auto-archive:', error);
   }

@@ -173,7 +173,7 @@ describe('Auto-Archive Service', () => {
     it('should archive tabs inactive beyond threshold', async () => {
       const currentTime = Date.now();
       const idleThreshold = 30 * 60 * 1000; // 30 minutes
-      
+
       const mockTabs = [
         {
           id: 1,
@@ -190,12 +190,12 @@ describe('Auto-Archive Service', () => {
           audible: false,
         },
       ];
-      
+
       const mockTabActivity = {
         1: currentTime - idleThreshold - 1000, // Inactive
         2: currentTime - 1000, // Recently active
       };
-      
+
       mockChrome.tabs.query.mockResolvedValue(mockTabs as chrome.tabs.Tab[]);
       vi.mocked(getTabActivity).mockResolvedValue(mockTabActivity);
       vi.mocked(archiveTab).mockResolvedValue(undefined);
@@ -209,7 +209,7 @@ describe('Auto-Archive Service', () => {
     it('should not archive excluded tabs', async () => {
       const currentTime = Date.now();
       const idleThreshold = 30 * 60 * 1000;
-      
+
       const mockTabs = [
         {
           id: 1,
@@ -226,12 +226,12 @@ describe('Auto-Archive Service', () => {
           audible: false,
         },
       ];
-      
+
       const mockTabActivity = {
         1: currentTime - idleThreshold - 1000,
         2: currentTime - idleThreshold - 1000,
       };
-      
+
       mockChrome.tabs.query.mockResolvedValue(mockTabs as chrome.tabs.Tab[]);
       vi.mocked(getTabActivity).mockResolvedValue(mockTabActivity);
       vi.mocked(archiveTab).mockResolvedValue(undefined);
@@ -312,7 +312,7 @@ describe('Auto-Archive Service', () => {
           active: false,
         },
       ];
-      
+
       mockChrome.tabs.query.mockResolvedValue(mockTabs as chrome.tabs.Tab[]);
       mockChrome.storage.sync.get.mockResolvedValue({
         autoArchiveEnabled: true,
@@ -320,7 +320,7 @@ describe('Auto-Archive Service', () => {
       });
       mockChrome.alarms.clear.mockResolvedValue(undefined);
       mockChrome.alarms.create.mockResolvedValue(undefined);
-      
+
       vi.mocked(updateTabLastActivity).mockResolvedValue(undefined);
 
       await initializeAutoArchive();

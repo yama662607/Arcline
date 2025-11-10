@@ -59,6 +59,8 @@ function createEmptySpaceSnapshot({
   };
 }
 
+type GlobalPinnedMap = Map<number, TabEntry>;
+
 function initializeSpaceSnapshots(tabGroups: chrome.tabGroups.TabGroup[], timestamp: number) {
   const groupMap = new Map<number, SpaceSnapshot>();
 
@@ -110,12 +112,17 @@ function addTabToUngroupedSpace(entry: TabEntry, ungrouped: SpaceSnapshot) {
 function distributeTabs(
   tabs: chrome.tabs.Tab[],
   groupMap: Map<number, SpaceSnapshot>,
-  ungrouped: SpaceSnapshot
+  ungrouped: SpaceSnapshot,
+  globalPinned: GlobalPinnedMap
 ) {
   for (const tab of tabs) {
     const entry = mapTab(tab);
     if (!entry) {
       continue;
+    }
+
+    if (entry.pinned) {
+      globalPinned.set(entry.id, { ...entry, pinned: true });
     }
 
     const space = getGroupedSpace(tab.groupId, groupMap);
@@ -132,15 +139,43 @@ function hasUngroupedContent(ungrouped: SpaceSnapshot): boolean {
   return ungrouped.pinnedTabs.length > 0 || ungrouped.temporaryTabs.length > 0;
 }
 
+function mergeGlobalPinnedTabs(spaces: SpaceSnapshot[], globalPinned: GlobalPinnedMap) {
+  if (globalPinned.size === 0) {
+    return;
+  }
+
+  const globalPinnedEntries = Array.from(globalPinned.values());
+
+  for (const space of spaces) {
+    const dedupe = new Map<number, TabEntry>();
+
+    for (const entry of globalPinnedEntries) {
+      dedupe.set(entry.id, { ...entry, pinned: true });
+    }
+
+    for (const entry of space.pinnedTabs) {
+      dedupe.set(entry.id, { ...entry, pinned: true });
+    }
+
+    space.pinnedTabs = Array.from(dedupe.values());
+  }
+}
+
 function buildSnapshotList(
   groupMap: Map<number, SpaceSnapshot>,
-  ungrouped: SpaceSnapshot
+  ungrouped: SpaceSnapshot,
+  globalPinned: GlobalPinnedMap
 ): SpaceSnapshot[] {
   const spaces = Array.from(groupMap.values());
   if (hasUngroupedContent(ungrouped)) {
     spaces.push(ungrouped);
   }
-  return spaces.sort((a, b) => a.id - b.id);
+
+  spaces.sort((a, b) => a.id - b.id);
+
+  mergeGlobalPinnedTabs(spaces, globalPinned);
+
+  return spaces;
 }
 
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
@@ -148,10 +183,11 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
     const { tabGroups, allTabs } = await queryChromeState();
     const timestamp = Date.now();
     const { groupMap, ungrouped } = initializeSpaceSnapshots(tabGroups, timestamp);
+    const globalPinned: GlobalPinnedMap = new Map();
 
-    distributeTabs(allTabs, groupMap, ungrouped);
+    distributeTabs(allTabs, groupMap, ungrouped, globalPinned);
 
-    return buildSnapshotList(groupMap, ungrouped);
+    return buildSnapshotList(groupMap, ungrouped, globalPinned);
   } catch (error) {
     console.warn('Failed to load spaces snapshot', error);
     return [];
@@ -162,6 +198,19 @@ export async function toggleTabPinned(tabId: number, nextPinned?: boolean): Prom
   const tab = await chrome.tabs.get(tabId);
   const pinned = nextPinned ?? !tab.pinned;
   await chrome.tabs.update(tabId, { pinned });
+
+  try {
+    if (pinned) {
+      await addGlobalPinnedTab(tab);
+    } else {
+      await removeGlobalPinnedTab(tabId);
+    }
+  } catch (error) {
+    console.warn('[Arcline] Failed to update global pinned tabs:', error);
+  }
+
+  await broadcastSpacesSnapshot();
+
   return pinned;
 }
 
@@ -193,8 +242,12 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
   } else {
     // Create empty group by grouping a dummy tab and then ungrouping it
     const tempTab = await chrome.tabs.create({ url: 'about:blank', active: false });
-    groupId = await chrome.tabs.group({ tabIds: [tempTab.id!] });
-    await chrome.tabs.remove(tempTab.id!);
+    if (tempTab.id) {
+      groupId = await chrome.tabs.group({ tabIds: [tempTab.id] });
+      await chrome.tabs.remove(tempTab.id);
+    } else {
+      throw new Error('Failed to create temporary tab for group creation');
+    }
   }
 
   await chrome.tabGroups.update(groupId, {
@@ -431,6 +484,98 @@ export async function removeTabNameOverride(tabId: number): Promise<void> {
 
 // Tab activity tracking for auto-archive
 const TAB_ACTIVITY_STORAGE_KEY = 'tabLastActivity';
+
+// Global pinned tabs management
+const GLOBAL_PINNED_TABS_STORAGE_KEY = 'globalPinnedTabs';
+
+export interface PinnedTab {
+  id: number;
+  url: string;
+  title: string;
+  favIconUrl?: string;
+  position: number;
+  timestamp: number;
+}
+
+export async function getGlobalPinnedTabs(): Promise<PinnedTab[]> {
+  try {
+    const result = await chrome.storage.local.get(GLOBAL_PINNED_TABS_STORAGE_KEY);
+    return result[GLOBAL_PINNED_TABS_STORAGE_KEY] || [];
+  } catch (error) {
+    console.error('Error getting global pinned tabs:', error);
+    return [];
+  }
+}
+
+export async function saveGlobalPinnedTabs(pinnedTabs: PinnedTab[]): Promise<void> {
+  try {
+    await chrome.storage.local.set({ [GLOBAL_PINNED_TABS_STORAGE_KEY]: pinnedTabs });
+  } catch (error) {
+    console.error('Error saving global pinned tabs:', error);
+  }
+}
+
+export async function addGlobalPinnedTab(tab: chrome.tabs.Tab): Promise<void> {
+  if (!tab.id || !tab.url) return;
+
+  const pinnedTabs = await getGlobalPinnedTabs();
+
+  // Check if tab is already pinned
+  const existingIndex = pinnedTabs.findIndex((pinned) => pinned.id === tab.id);
+  if (existingIndex >= 0) return; // Already pinned
+
+  const newPinnedTab: PinnedTab = {
+    id: tab.id,
+    url: tab.url,
+    title: tab.title || 'Untitled',
+    favIconUrl: tab.favIconUrl,
+    position: pinnedTabs.length,
+    timestamp: Date.now(),
+  };
+
+  pinnedTabs.push(newPinnedTab);
+  await saveGlobalPinnedTabs(pinnedTabs);
+
+  console.error(`[Arcline] Added global pinned tab: ${tab.title}`);
+}
+
+export async function removeGlobalPinnedTab(tabId: number): Promise<void> {
+  if (!tabId) return;
+
+  const pinnedTabs = await getGlobalPinnedTabs();
+  const filteredTabs = pinnedTabs.filter((pinned) => pinned.id !== tabId);
+
+  if (filteredTabs.length !== pinnedTabs.length) {
+    // Reorder positions
+    filteredTabs.forEach((tab, index) => {
+      tab.position = index;
+    });
+
+    await saveGlobalPinnedTabs(filteredTabs);
+    console.error(`[Arcline] Removed global pinned tab: ${tabId}`);
+  }
+}
+
+export async function isTabGloballyPinned(tabId: number): Promise<boolean> {
+  if (!tabId) return false;
+
+  const pinnedTabs = await getGlobalPinnedTabs();
+  return pinnedTabs.some((pinned) => pinned.id === tabId);
+}
+
+export async function toggleGlobalPinnedTab(tab: chrome.tabs.Tab): Promise<boolean> {
+  if (!tab.id) return false;
+
+  const isPinned = await isTabGloballyPinned(tab.id);
+
+  if (isPinned) {
+    await removeGlobalPinnedTab(tab.id);
+    return false;
+  } else {
+    await addGlobalPinnedTab(tab);
+    return true;
+  }
+}
 
 export async function updateTabLastActivity(tabId: number): Promise<void> {
   if (!tabId) return;
