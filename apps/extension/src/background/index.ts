@@ -1,7 +1,7 @@
+/// <reference types="chrome" />
 import type { UiMode } from '@/lib/ui-mode';
 import type { ArchivedTab, Settings, SpaceCreateRequest } from '@/shared/types';
 import { initializeAutoArchive } from './services/auto-archive';
-/// <reference types="chrome" />
 import {
   activateTab,
   archiveTab,
@@ -18,6 +18,8 @@ import {
   toggleTabPinned,
   updateSettings,
 } from './services/browser';
+import { initializeGestureDetection, subscribeToSwipe } from './services/gestures';
+import { navigateSpace } from './services/space-navigation';
 
 type RuntimeSendResponse = (response?: unknown) => void;
 
@@ -89,6 +91,21 @@ chrome.runtime.onInstalled.addListener(async () => {
 chrome.runtime.onStartup?.addListener(async () => {
   await initializeUiMode();
   await initializeAutoArchive();
+});
+
+initializeGestureDetection();
+
+subscribeToSwipe(async ({ direction }) => {
+  try {
+    const navigated = await navigateSpace(direction);
+    if (!navigated) {
+      return;
+    }
+
+    await broadcastSpacesSnapshot();
+  } catch (error) {
+    console.error('[Arcline] Swipe navigation failed', error);
+  }
 });
 
 // Handle action clicks manually (always floating for now)

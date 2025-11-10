@@ -2,16 +2,16 @@ import type { Mock } from 'vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  DEFAULT_GESTURE_SETTINGS,
   __resetGestureListenersForTests,
+  DEFAULT_GESTURE_SETTINGS,
   evaluateSwipe,
-  getGestureSettings,
-  initializeGestureDetection,
-  saveGestureSettings,
-  subscribeToSwipe,
   type GestureDetectionResult,
   type GestureSettings,
+  getGestureSettings,
+  initializeGestureDetection,
   type SwipeSample,
+  saveGestureSettings,
+  subscribeToSwipe,
 } from './gestures';
 
 const createSample = (overrides: Partial<SwipeSample> = {}): SwipeSample => ({
@@ -93,12 +93,16 @@ describe('gestures service', () => {
     });
 
     it('merges and persists next settings', async () => {
-      const merged = await saveGestureSettings({ sensitivity: 'high' } satisfies Partial<GestureSettings>);
+      const merged = await saveGestureSettings({
+        sensitivity: 'high',
+      } satisfies Partial<GestureSettings>);
       expect(getChromeMock().storage.local.set).toHaveBeenCalledWith({
         arclineGestureSettings: merged,
       });
       expect(merged.sensitivity).toBe('high');
-      expect(merged.distanceThreshold).toBeLessThanOrEqual(DEFAULT_GESTURE_SETTINGS.distanceThreshold);
+      expect(merged.distanceThreshold).toBeLessThanOrEqual(
+        DEFAULT_GESTURE_SETTINGS.distanceThreshold
+      );
     });
   });
 
