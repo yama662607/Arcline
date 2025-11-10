@@ -15,6 +15,7 @@ import {
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
 import type { TabEntry } from '@/shared/types';
+import { GlobalPinnedTabs } from '@/ui/components/GlobalPinnedTabs';
 
 interface TabRowProps {
   tab: TabEntry;
@@ -192,9 +193,12 @@ export function EnhancedTabList({
   const activateTabMutation = useActivateTab();
   const archiveTabMutation = useArchiveTab();
 
-  // Virtual scrolling for performance
+  // Separate pinned tabs from regular tabs
+  const pinnedTabs = tabs.filter((tab) => tab.pinned);
+  const regularTabs = tabs.filter((tab) => !tab.pinned);
+
   const virtualizer = useVirtualizer({
-    count: tabs.length,
+    count: regularTabs.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => (compact ? 32 : 40),
     overscan: 5,
@@ -312,55 +316,77 @@ export function EnhancedTabList({
       {tabs.length === 0 ? (
         <div className="text-center py-8 text-slate-500">{emptyMessage}</div>
       ) : (
-        <div
-          ref={parentRef}
-          className="border border-surface-light rounded-lg overflow-hidden"
-          style={{ height: Math.min(tabs.length * (compact ? 32 : 40), 400) }}
-        >
-          <div
-            style={{
-              height: `${virtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualItem) => {
-              const currentTab = tabs[virtualItem.index];
-              if (!currentTab) {
-                return null;
-              }
+        <div className="space-y-4">
+          {/* Global Pinned Tabs Section */}
+          <GlobalPinnedTabs
+            tabs={pinnedTabs}
+            compact={compact}
+            showFavicons={showFavicons}
+            variant={variant}
+            onTabContextMenu={onTabContextMenu}
+          />
 
-              return (
+          {/* Regular Tabs Section */}
+          {regularTabs.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between px-3 py-2 text-xs font-medium text-slate-400 border-b border-surface-light">
+                <span>通常のタブ</span>
+                <span className="text-xs text-slate-500 bg-surface-light/50 px-2 py-0.5 rounded-full">
+                  {regularTabs.length}
+                </span>
+              </div>
+              <div
+                ref={parentRef}
+                className="border border-surface-light rounded-lg overflow-hidden"
+                style={{ height: Math.min(regularTabs.length * (compact ? 32 : 40), 400) }}
+              >
                 <div
-                  key={currentTab.id}
                   style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
+                    height: `${virtualizer.getTotalSize()}px`,
                     width: '100%',
-                    height: `${virtualItem.size}px`,
-                    transform: `translateY(${virtualItem.start}px)`,
+                    position: 'relative',
                   }}
                 >
-                  <TabRow
-                    tab={currentTab}
-                    compact={compact}
-                    variant="standalone"
-                    isDragged={draggedTab?.id === currentTab.id}
-                    showFavicons={showFavicons}
-                    onSelect={handleTabClick}
-                    onContextMenu={onTabContextMenu}
-                    onPinToggle={handlePinToggle}
-                    onArchive={handleTabArchive}
-                    onClose={handleTabClose}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                  />
+                  {virtualizer.getVirtualItems().map((virtualItem) => {
+                    const currentTab = regularTabs[virtualItem.index];
+                    if (!currentTab) {
+                      return null;
+                    }
+
+                    return (
+                      <div
+                        key={currentTab.id}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: `${virtualItem.size}px`,
+                          transform: `translateY(${virtualItem.start}px)`,
+                        }}
+                      >
+                        <TabRow
+                          tab={currentTab}
+                          compact={compact}
+                          variant="standalone"
+                          isDragged={draggedTab?.id === currentTab.id}
+                          showFavicons={showFavicons}
+                          onSelect={handleTabClick}
+                          onContextMenu={onTabContextMenu}
+                          onPinToggle={handlePinToggle}
+                          onArchive={handleTabArchive}
+                          onClose={handleTabClose}
+                          onDragStart={handleDragStart}
+                          onDragOver={handleDragOver}
+                          onDrop={handleDrop}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
