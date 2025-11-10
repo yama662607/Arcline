@@ -40,7 +40,16 @@ const manifest = defineManifest(({ mode }) => {
       default_path: 'index.html',
     },
     // options_page: 'options.html',
-    permissions: ['tabs', 'tabGroups', 'bookmarks', 'storage', 'sidePanel', 'commands'],
+    permissions: [
+      'tabs',
+      'tabGroups',
+      'bookmarks',
+      'storage',
+      'sidePanel',
+      'commands',
+      'alarms',
+      'contextMenus',
+    ],
     host_permissions: ['<all_urls>'],
     commands: {
       _execute_action: {

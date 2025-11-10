@@ -1,5 +1,6 @@
 import type { UiMode } from '@/lib/ui-mode';
 import type { ArchivedTab, Settings, SpaceCreateRequest } from '@/shared/types';
+import { initializeAutoArchive } from './services/auto-archive';
 /// <reference types="chrome" />
 import {
   activateTab,
@@ -82,10 +83,12 @@ async function initializeUiMode() {
 
 chrome.runtime.onInstalled.addListener(async () => {
   await initializeUiMode();
+  await initializeAutoArchive();
 });
 
 chrome.runtime.onStartup?.addListener(async () => {
   await initializeUiMode();
+  await initializeAutoArchive();
 });
 
 // Handle action clicks manually (always floating for now)
@@ -321,15 +324,15 @@ const commandHandlers: Record<string, CommandHandler> = {
       }
     }),
   getBookmarksForSpace: (message, sendResponse) => {
-    const { spaceId } = message as { spaceId?: number };
-    if (typeof spaceId !== 'number') {
-      sendResponse({ id: message.id, error: 'spaceId is required' });
+    const { spaceName } = message as { spaceName?: string };
+    if (typeof spaceName !== 'string') {
+      sendResponse({ id: message.id, error: 'spaceName is required' });
       return false;
     }
 
     return respondAsync(async () => {
       try {
-        const bookmarks = await getBookmarksForSpace(spaceId);
+        const bookmarks = await getBookmarksForSpace(spaceName);
         sendResponse({ id: message.id, data: bookmarks });
       } catch (error) {
         sendResponse({ id: message.id, error: (error as Error).message });

@@ -9,6 +9,8 @@ const settingsSchema = z.object({
   defaultSpaceName: z.string().min(1, 'スペース名は1文字以上で入力してください'),
   enableFloatingEntry: z.boolean(),
   autoSwitchToSidePanel: z.boolean(),
+  autoArchiveEnabled: z.boolean(),
+  autoArchiveIdleMinutes: z.number().min(1, 'アーカイブ時間は1分以上で設定してください'),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -17,6 +19,8 @@ const defaultSettings: SettingsFormValues = {
   defaultSpaceName: 'Workspace',
   enableFloatingEntry: true,
   autoSwitchToSidePanel: true,
+  autoArchiveEnabled: false,
+  autoArchiveIdleMinutes: 30,
 };
 
 async function readStoredSettings(): Promise<SettingsFormValues> {
@@ -155,6 +159,47 @@ export function OptionsApp() {
               />
             </label>
 
+            <div className="space-y-3 rounded-md border border-white/10 bg-black/20 p-3">
+              <h3 className="text-sm font-medium text-white">自動アーカイブ設定</h3>
+
+              <label className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">自動アーカイブを有効化</p>
+                  <p className="text-xs text-slate-400">
+                    非アクティブなタブを自動的にアーカイブします
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 rounded border-white/40 text-indigo-400 focus:ring-0"
+                  {...register('autoArchiveEnabled')}
+                />
+              </label>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="autoArchiveIdleMinutes">
+                  アーカイブまでの時間（分）
+                </label>
+                <input
+                  id="autoArchiveIdleMinutes"
+                  type="number"
+                  min="1"
+                  max="1440"
+                  className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm focus:border-white/40 focus:outline-none"
+                  placeholder="30"
+                  {...register('autoArchiveIdleMinutes', { valueAsNumber: true })}
+                />
+                {formState.errors.autoArchiveIdleMinutes && (
+                  <p className="mt-1 text-xs text-red-300">
+                    {formState.errors.autoArchiveIdleMinutes.message}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-slate-400">
+                  指定時間非アクティブなタブをアーカイブします（1分〜24時間）
+                </p>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2">
               <Button disabled={status === 'loading'} type="submit">
                 {status === 'loading' ? '保存中...' : '設定を保存'}
@@ -180,6 +225,12 @@ export function OptionsApp() {
               <li>
                 <span className="text-slate-400">Side Panel 自動表示</span>:{' '}
                 {livePreview.autoSwitchToSidePanel ? '有効' : '無効'}
+              </li>
+              <li>
+                <span className="text-slate-400">自動アーカイブ</span>:{' '}
+                {livePreview.autoArchiveEnabled
+                  ? `有効 (${livePreview.autoArchiveIdleMinutes}分)`
+                  : '無効'}
               </li>
             </ul>
             <p className="text-xs text-slate-500">

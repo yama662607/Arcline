@@ -185,30 +185,40 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
     throw new Error('Tab groups are not supported in this browser');
   }
 
-  let tabId: number | undefined;
+  let groupId: number;
 
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (activeTab?.id) {
-    tabId = activeTab.id;
+    groupId = await chrome.tabs.group({ tabIds: [activeTab.id] });
   } else {
-    const newTab = await chrome.tabs.create({ active: true });
-    tabId = newTab.id;
+    // Create empty group by grouping a dummy tab and then ungrouping it
+    const tempTab = await chrome.tabs.create({ url: 'about:blank', active: false });
+    groupId = await chrome.tabs.group({ tabIds: [tempTab.id!] });
+    await chrome.tabs.remove(tempTab.id!);
   }
 
-  if (typeof tabId !== 'number') {
-    throw new Error('Failed to locate a tab for grouping');
-  }
-
-  const groupId = await chrome.tabs.group({ tabIds: tabId });
   await chrome.tabGroups.update(groupId, {
     title: name,
     color: color ?? 'blue',
   });
+
+  // Sync new space to bookmarks
+  try {
+    await syncSpaceToBookmarks(name, []);
+  } catch (error) {
+    console.warn(`[Arcline] Failed to sync new space "${name}" to bookmarks:`, error);
+  }
+
   return groupId;
 }
 
 export async function removeSpace(spaceId: number): Promise<void> {
   if (!TAB_GROUPS_SUPPORTED) return;
+
+  // Get space name for bookmark cleanup
+  const spaces = await getSpacesSnapshot();
+  const space = spaces.find((s) => s.id === spaceId);
+  const spaceName = space?.name;
 
   const tabs = await chrome.tabs.query({ groupId: spaceId });
   if (!tabs.length) return;
@@ -220,6 +230,15 @@ export async function removeSpace(spaceId: number): Promise<void> {
   if (tabIds.length === 0) return;
 
   await chrome.tabs.ungroup(tabIds as [number, ...number[]]);
+
+  // Remove space folder from bookmarks
+  if (spaceName) {
+    try {
+      await removeSpaceFolder(spaceName);
+    } catch (error) {
+      console.warn(`[Arcline] Failed to remove bookmark folder for space "${spaceName}":`, error);
+    }
+  }
 }
 
 export async function broadcastSpacesSnapshot(): Promise<void> {
@@ -362,102 +381,14 @@ export async function restoreArchivedTab(archivedTab: ArchivedTab): Promise<void
   }
 }
 
-// Bookmark functionality
-export async function getOrCreateArcifyFolder(): Promise<chrome.bookmarks.BookmarkTreeNode> {
-  let [folder] = await chrome.bookmarks.search({ title: 'Arcline' });
-  if (!folder) {
-    folder = await chrome.bookmarks.create({ title: 'Arcline' });
-  }
-  return folder;
-}
+// Import bookmark functionality from dedicated service
+import {
+  getBookmarksForSpace as getBookmarksForSpaceFromService,
+  removeSpaceFolder,
+  syncSpaceToBookmarks,
+} from './bookmarks';
 
-export async function getOrCreateSpaceFolder(
-  spaceName: string
-): Promise<chrome.bookmarks.BookmarkTreeNode> {
-  const arcifyFolder = await getOrCreateArcifyFolder();
-  const children = await chrome.bookmarks.getChildren(arcifyFolder.id);
-  let spaceFolder = children.find((f) => f.title === spaceName);
-
-  if (!spaceFolder) {
-    spaceFolder = await chrome.bookmarks.create({
-      parentId: arcifyFolder.id,
-      title: spaceName,
-    });
-  }
-  return spaceFolder;
-}
-
-export async function getBookmarksForSpace(spaceId: number): Promise<TabEntry[]> {
-  try {
-    // Get space info
-    const spaces = await getSpacesSnapshot();
-    const space = spaces.find((s) => s.id === spaceId);
-    if (!space) return [];
-
-    // Get space bookmark folder
-    const spaceFolder = await getOrCreateSpaceFolder(space.name);
-
-    // Get all bookmarks in the space folder (recursive)
-    const bookmarks: TabEntry[] = [];
-    const processFolder = async (folderId: string) => {
-      const items = await chrome.bookmarks.getChildren(folderId);
-      for (const item of items) {
-        if (item.url) {
-          // This is a bookmark, convert to TabEntry format
-          bookmarks.push({
-            id: 0, // Bookmarks don't have tab IDs
-            url: item.url,
-            title: item.title,
-            favIconUrl: undefined, // Would need to fetch separately
-            pinned: false, // Bookmarks are not pinned tabs
-            active: false,
-            windowId: 0,
-            groupId: spaceId,
-            last_accessed: item.dateAdded,
-          });
-        } else if (!item.url) {
-          // This is a folder, process recursively
-          await processFolder(item.id);
-        }
-      }
-    };
-
-    await processFolder(spaceFolder.id);
-    return bookmarks;
-  } catch (error) {
-    console.error(`Error getting bookmarks for space ${spaceId}:`, error);
-    return [];
-  }
-}
-
-export async function processBookmarkFolder(
-  folder: chrome.bookmarks.BookmarkTreeNode,
-  groupId: number
-): Promise<number[]> {
-  const bookmarks: number[] = [];
-  const items = await chrome.bookmarks.getChildren(folder.id);
-  const tabs = await chrome.tabs.query({ groupId });
-
-  for (const item of items) {
-    if (item.url) {
-      // This is a bookmark
-      const tab = tabs.find((t) => t.url === item.url);
-      if (tab?.id) {
-        bookmarks.push(tab.id);
-        // Set tab name override with the bookmark's title
-        if (item.title && item.title !== tab.title) {
-          await setTabNameOverride(tab.id, tab.url || '', item.title || '');
-        }
-      }
-    } else {
-      // This is a folder, recursively process it
-      const subFolderBookmarks = await processBookmarkFolder(item, groupId);
-      bookmarks.push(...subFolderBookmarks);
-    }
-  }
-
-  return bookmarks;
-}
+export const getBookmarksForSpace = getBookmarksForSpaceFromService;
 
 // Tab name overrides
 const TAB_NAME_OVERRIDES_KEY = 'tabNameOverridesById';
