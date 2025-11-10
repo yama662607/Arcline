@@ -4,6 +4,11 @@ import { broadcastSpacesSnapshot, getSpacesSnapshot } from './browser';
 
 const UNGROUPED_SPACE_ID = -1;
 
+type NavigationTarget = {
+  space: SpaceSnapshot;
+  tab: TabEntry;
+};
+
 function containsTab(space: SpaceSnapshot, tabId: number): boolean {
   const lists: TabEntry[][] = [space.tabs, space.temporaryTabs, space.pinnedTabs];
   return lists.some((entries) => entries.some((entry) => entry.id === tabId));
@@ -86,62 +91,92 @@ function findCurrentSpaceIndex(spaces: SpaceSnapshot[], activeTab: chrome.tabs.T
   return 0;
 }
 
-export async function navigateSpace(direction: SwipeDirection): Promise<boolean> {
+function determineTargetIndex(direction: SwipeDirection): number {
+  return direction === 'left' ? -1 : 1;
+}
+
+async function resolveNavigationTarget(
+  direction: SwipeDirection
+): Promise<NavigationTarget | null> {
   const spaces = await getSpacesSnapshot();
   if (spaces.length <= 1) {
-    return false;
+    return null;
   }
 
   const activeTab = await resolveActiveTab();
   const currentIndex = findCurrentSpaceIndex(spaces, activeTab);
   if (currentIndex < 0) {
-    return false;
+    return null;
   }
 
-  const offset = direction === 'left' ? -1 : 1;
-  const targetIndex = normalizeIndex(currentIndex + offset, spaces.length);
-  if (targetIndex < 0 || targetIndex >= spaces.length) {
-    return false;
-  }
-
-  const targetSpace = spaces[targetIndex] ?? null;
+  const targetIndex = normalizeIndex(currentIndex + determineTargetIndex(direction), spaces.length);
+  const targetSpace = spaces[targetIndex];
   if (!targetSpace) {
-    return false;
+    return null;
   }
 
   const activeTabId = typeof activeTab?.id === 'number' ? activeTab.id : undefined;
   const targetTab = selectTargetTab(targetSpace, activeTabId);
   if (!targetTab) {
     console.warn('[Arcline] No navigable tabs found for target space', targetSpace.id);
-    return false;
+    return null;
   }
 
+  return { space: targetSpace, tab: targetTab };
+}
+
+async function activateTargetTab(tab: TabEntry): Promise<boolean> {
   try {
-    await chrome.tabs.update(targetTab.id, { active: true });
+    await chrome.tabs.update(tab.id, { active: true });
+    return true;
   } catch (error) {
     console.warn('[Arcline] Failed to activate tab during swipe navigation:', error);
     return false;
   }
+}
 
-  if (typeof targetTab.windowId === 'number' && targetTab.windowId >= 0) {
-    try {
-      await chrome.windows.update(targetTab.windowId, { focused: true });
-    } catch (error) {
-      console.warn('[Arcline] Failed to focus target window during swipe navigation:', error);
-    }
+async function focusWindowIfNeeded(windowId: number | undefined): Promise<void> {
+  if (typeof windowId !== 'number' || windowId < 0) {
+    return;
   }
 
+  try {
+    await chrome.windows.update(windowId, { focused: true });
+  } catch (error) {
+    console.warn('[Arcline] Failed to focus target window during swipe navigation:', error);
+  }
+}
+
+async function broadcastSpacesSafely(): Promise<void> {
   try {
     await broadcastSpacesSnapshot();
   } catch (error) {
     console.warn('[Arcline] Failed to broadcast spaces after swipe navigation:', error);
   }
+}
 
+async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
   try {
-    await chrome.runtime.sendMessage({ command: 'activeSpaceChanged', spaceId: targetSpace.id });
+    await chrome.runtime.sendMessage({ command: 'activeSpaceChanged', spaceId });
   } catch (error) {
     console.warn('[Arcline] Failed to notify active space change:', error);
   }
+}
+
+export async function navigateSpace(direction: SwipeDirection): Promise<boolean> {
+  const target = await resolveNavigationTarget(direction);
+  if (!target) {
+    return false;
+  }
+
+  const activated = await activateTargetTab(target.tab);
+  if (!activated) {
+    return false;
+  }
+
+  await focusWindowIfNeeded(target.tab.windowId);
+  await broadcastSpacesSafely();
+  await notifyActiveSpaceChange(target.space.id);
 
   return true;
 }
