@@ -34,7 +34,7 @@
     "motion": "^12.23.24",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "tailwind-merge": "^3.3.1",
+    "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -59,8 +59,8 @@
     "react-hook-form": "^7.66.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
-    "vite": "^7.2.1",
-    "vitest": "^4.0.7",
+    "vite": "^7.2.2",
+    "vitest": "^4.0.8",
     "zod": "^4.1.12"
   }
 }
