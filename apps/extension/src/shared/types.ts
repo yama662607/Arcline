@@ -92,6 +92,11 @@ export interface UiModeMessage extends ExtensionMessage {
   mode: 'side-panel' | 'popup' | 'floating';
 }
 
+export interface ActiveSpaceChangedMessage extends ExtensionMessage {
+  command: 'activeSpaceChanged';
+  spaceId: number;
+}
+
 export interface TogglePinMessage extends ExtensionMessage {
   command: 'toggleTabPinned';
   tabId: number;

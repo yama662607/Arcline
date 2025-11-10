@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import type { SpaceSnapshot } from '@/shared/spaces';
+import type { ActiveSpaceChangedMessage, SpaceSnapshot } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { requestSpacesSnapshot } from './spaces';
 import { hasChromeRuntime } from './utils';
@@ -17,8 +17,18 @@ function isSpacesSnapshotResponse(message: unknown): message is {
   );
 }
 
+function isActiveSpaceMessage(message: unknown): message is ActiveSpaceChangedMessage {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    'command' in message &&
+    (message as { command?: string }).command === 'activeSpaceChanged'
+  );
+}
+
 export function useSpacesSync() {
   const setSpaces = useSpacesStore((state) => state.setSpaces);
+  const setActiveSpace = useSpacesStore((state) => state.setActiveSpace);
 
   useEffect(() => {
     let active = true;
@@ -41,6 +51,14 @@ export function useSpacesSync() {
     if (!hasChromeRuntime()) return undefined;
 
     const listener = (message: unknown) => {
+      if (isActiveSpaceMessage(message)) {
+        const { spaceId } = message as ActiveSpaceChangedMessage;
+        if (typeof spaceId === 'number') {
+          setActiveSpace(spaceId);
+        }
+        return;
+      }
+
       if (!isSpacesSnapshotResponse(message)) return;
       const spaces = Array.isArray(message.spaces) ? (message.spaces as SpaceSnapshot[]) : [];
       setSpaces(spaces);
@@ -50,5 +68,5 @@ export function useSpacesSync() {
     return () => {
       chrome.runtime.onMessage.removeListener(listener);
     };
-  }, [setSpaces]);
+  }, [setActiveSpace, setSpaces]);
 }

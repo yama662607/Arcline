@@ -1,14 +1,6 @@
+import type { GestureSettings, SwipeDirection } from '@/shared/gestures';
+
 const GESTURE_STORAGE_KEY = 'arclineGestureSettings';
-
-export type SwipeDirection = 'left' | 'right';
-
-export interface GestureSettings {
-  enabled: boolean;
-  sensitivity: 'low' | 'medium' | 'high';
-  distanceThreshold: number;
-  velocityThreshold: number;
-  visualFeedback: boolean;
-}
 
 // Test utilities ---------------------------------------------------------
 export function __resetGestureListenersForTests(): void {

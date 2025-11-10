@@ -1,6 +1,6 @@
+import type { SwipeDirection } from '@/shared/gestures';
 import type { SpaceSnapshot, TabEntry } from '@/shared/types';
 import { broadcastSpacesSnapshot, getSpacesSnapshot } from './browser';
-import type { SwipeDirection } from './gestures';
 
 const UNGROUPED_SPACE_ID = -1;
 
@@ -135,6 +135,12 @@ export async function navigateSpace(direction: SwipeDirection): Promise<boolean>
     await broadcastSpacesSnapshot();
   } catch (error) {
     console.warn('[Arcline] Failed to broadcast spaces after swipe navigation:', error);
+  }
+
+  try {
+    await chrome.runtime.sendMessage({ command: 'activeSpaceChanged', spaceId: targetSpace.id });
+  } catch (error) {
+    console.warn('[Arcline] Failed to notify active space change:', error);
   }
 
   return true;

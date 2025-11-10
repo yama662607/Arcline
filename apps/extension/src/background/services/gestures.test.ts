@@ -1,12 +1,12 @@
 import type { Mock } from 'vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { GestureSettings } from '@/shared/gestures';
 import {
   __resetGestureListenersForTests,
   DEFAULT_GESTURE_SETTINGS,
   evaluateSwipe,
   type GestureDetectionResult,
-  type GestureSettings,
   getGestureSettings,
   initializeGestureDetection,
   type SwipeSample,
