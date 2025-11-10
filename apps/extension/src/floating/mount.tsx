@@ -105,7 +105,7 @@ const FloatingUiRoot = forwardRef<
         <button
           data-testid="arcline-floating-hotzone"
           type="button"
-          className="relative flex w-[6px] flex-col items-center justify-center"
+          className="relative flex w-[6px] flex-col items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent transition-all active:scale-95"
           onPointerEnter={() => {
             cancelClose();
             setOpen(true);
@@ -123,17 +123,35 @@ const FloatingUiRoot = forwardRef<
               return next;
             });
           }}
-          aria-label="Toggle floating sidebar pin"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setOpen(true);
+            }
+            if (e.key === 'Escape' && (open || pinned)) {
+              e.preventDefault();
+              setPinned(false);
+              setOpen(false);
+            }
+          }}
+          aria-label={pinned ? 'Unpin floating sidebar (currently pinned)' : 'Pin floating sidebar'}
           aria-pressed={pinned}
-          title="Arcline floating hotzone"
+          aria-expanded={open || pinned}
+          tabIndex={0}
+          title={pinned ? 'Click to unpin sidebar' : 'Hover or click to open sidebar'}
         >
           <span
-            className="absolute inset-y-0 left-0 w-full rounded-r transition-opacity duration-150"
+            className="absolute inset-y-0 left-0 w-full rounded-r transition-all duration-200"
             style={{
               opacity: open || pinned ? 0.65 : 0,
               background: 'linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.1))',
+              transform: pinned ? 'scaleY(1.02)' : 'scaleY(1)',
             }}
           />
+          {/* Visual indicator for pinned state */}
+          {pinned && (
+            <span className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-400 animate-pulse" />
+          )}
         </button>
         <AnimatePresence>
           {(open || pinned) && (

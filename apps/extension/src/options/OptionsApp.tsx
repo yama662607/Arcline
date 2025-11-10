@@ -187,6 +187,31 @@ export function OptionsApp() {
             </p>
           </div>
         </section>
+
+        <footer className="border-t border-white/10 pt-6 text-center text-xs text-slate-500">
+          <p>
+            Arcline is free software licensed under{' '}
+            <a
+              href="https://www.gnu.org/licenses/gpl-3.0.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-white underline"
+            >
+              GPL-3.0
+            </a>
+          </p>
+          <p className="mt-2">
+            Source code available at{' '}
+            <a
+              href="https://github.com/anthropics/arcline"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-white underline"
+            >
+              GitHub
+            </a>
+          </p>
+        </footer>
       </div>
     </main>
   );

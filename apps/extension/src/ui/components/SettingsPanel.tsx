@@ -3,26 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-// TODO: Implement actual settings hooks
-const useSettings = () => ({
-  data: {
-    defaultSpaceName: 'Default Space',
-    autoArchiveEnabled: true,
-    autoArchiveIdleMinutes: 30,
-    uiMode: 'side-panel' as const,
-    showFavicons: true,
-    compactMode: false,
-    enableAnimations: true,
-    theme: 'dark' as const,
-  },
-  isLoading: false,
-  error: null,
-});
-
-const useUpdateSettings = () => ({
-  mutateAsync: async (_data: unknown) => {},
-  isPending: false,
-});
+import { useSettings, useUpdateSettings } from '@/hooks/use-spaces-query';
 
 const settingsSchema = z.object({
   defaultSpaceName: z.string().min(1, 'Default space name is required'),

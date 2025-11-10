@@ -113,7 +113,23 @@ export default function PopupApp() {
         </div>
 
         <footer className="border-t border-white/10 px-3 py-1 text-[10px] text-slate-400 text-center">
-          Popup UI • Click outside to close
+          <a
+            href="https://www.gnu.org/licenses/gpl-3.0.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-white underline"
+          >
+            GPL-3.0
+          </a>
+          {' • '}
+          <a
+            href="https://github.com/anthropics/arcline"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-white underline"
+          >
+            Source
+          </a>
         </footer>
 
         {contextMenu && (

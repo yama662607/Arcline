@@ -39,7 +39,7 @@ const manifest = defineManifest(({ mode }) => {
     side_panel: {
       default_path: 'index.html',
     },
-    options_page: 'options.html',
+    // options_page: 'options.html',
     permissions: ['tabs', 'tabGroups', 'bookmarks', 'storage', 'sidePanel', 'commands'],
     host_permissions: ['<all_urls>'],
     commands: {
