@@ -4,14 +4,14 @@
   "packageManager": "pnpm@9.0.0",
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build",
-    "preview": "turbo run preview",
-    "test": "turbo run test",
-    "test:e2e": "turbo run test:e2e",
-    "lint": "turbo run lint",
-    "format": "turbo run format",
-    "typecheck": "turbo run typecheck",
-    "check": "turbo run check"
+    "build": "pnpm --filter arcline-extension run build",
+    "preview": "pnpm --filter arcline-extension run preview",
+    "test": "pnpm --filter arcline-extension run test",
+    "test:e2e": "pnpm --filter arcline-extension run test:e2e",
+    "lint": "pnpm --filter arcline-extension run lint",
+    "format": "pnpm --filter arcline-extension run format",
+    "typecheck": "pnpm --filter arcline-extension run typecheck",
+    "check": "pnpm --filter arcline-extension run check"
   },
   "devDependencies": {
     "@arcline/openspec-cli": "workspace:*",
