@@ -236,7 +236,12 @@ export async function getSyncStatus(): Promise<BookmarkSyncStatus> {
  */
 export async function removeSpaceFolder(spaceName: string): Promise<void> {
   try {
-    const spaceFolder = spaceFolders.find((folder) => folder.title === spaceName);
+    const arclineFolder = await getOrCreateArcifyFolder();
+    const existingFolders = await chrome.bookmarks.getChildren(arclineFolder.id);
+    const spaceFolder = existingFolders.find(
+      (folder: chrome.bookmarks.BookmarkTreeNode) => folder.title === spaceName
+    );
+
     if (spaceFolder) {
       await chrome.bookmarks.removeTree(spaceFolder.id);
       console.error(`[Arcline] Removed bookmark folder for space "${spaceName}"`);

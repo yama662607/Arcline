@@ -33,11 +33,11 @@ vi.mock('./bookmarks', () => ({
 
 // Import mocked functions
 import {
+  cleanupAllBookmarks,
+  getBookmarksForSpace,
   getOrCreateArcifyFolder,
   removeSpaceFolder,
-  getBookmarksForSpace,
   syncSpaceToBookmarks,
-  cleanupAllBookmarks,
 } from './bookmarks';
 
 describe('Bookmarks Service', () => {

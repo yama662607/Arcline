@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  setupAutoArchiveAlarm,
   archiveInactiveTabs,
-  shouldExcludeFromAutoArchive,
   getAutoArchiveSettings,
-  setupTabActivityListeners,
-  setupAlarmListener,
   initializeAutoArchive,
+  setupAlarmListener,
+  setupAutoArchiveAlarm,
+  setupTabActivityListeners,
+  shouldExcludeFromAutoArchive,
 } from './auto-archive';
 import { archiveTab, getTabActivity, updateTabLastActivity } from './browser';
 

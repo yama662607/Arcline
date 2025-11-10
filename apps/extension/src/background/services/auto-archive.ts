@@ -26,9 +26,9 @@ export async function setupAutoArchiveAlarm(enabled: boolean, idleMinutes: numbe
         periodInMinutes: delayMinutes,
       });
 
-      console.log(`[Arcline] Auto-archive alarm set: ${idleMinutes} minutes`);
+      console.error(`[Arcline] Auto-archive alarm set: ${idleMinutes} minutes`);
     } else {
-      console.log('[Arcline] Auto-archive alarm disabled');
+      console.error('[Arcline] Auto-archive alarm disabled');
     }
   } catch (error) {
     console.error('[Arcline] Failed to setup auto-archive alarm:', error);
@@ -43,7 +43,7 @@ export async function runAutoArchiveCheck(): Promise<void> {
   try {
     const settings = await getAutoArchiveSettings();
     if (!settings.enabled) {
-      console.log('[Arcline] Auto-archive is disabled');
+      console.error('[Arcline] Auto-archive is disabled');
       return;
     }
 
@@ -53,7 +53,7 @@ export async function runAutoArchiveCheck(): Promise<void> {
     const archivedCount = await archiveInactiveTabs(tabActivity, currentTime, idleThreshold);
 
     if (archivedCount > 0) {
-      console.log(`[Arcline] Auto-archived ${archivedCount} inactive tabs`);
+      console.error(`[Arcline] Auto-archived ${archivedCount} inactive tabs`);
     }
   } catch (error) {
     console.error('[Arcline] Failed to run auto-archive check:', error);
@@ -90,7 +90,7 @@ export async function archiveInactiveTabs(
         try {
           await archiveTab(tab.id);
           archivedCount++;
-          console.log(`[Arcline] Auto-archived tab: ${tab.title} (${tab.url})`);
+          console.error(`[Arcline] Auto-archived tab: ${tab.title} (${tab.url})`);
         } catch (error) {
           console.warn(`[Arcline] Failed to archive tab ${tab.id}:`, error);
         }
