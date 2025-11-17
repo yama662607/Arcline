@@ -1,0 +1,33 @@
+{
+    "name": "arcline-quality-check",
+    "version": "1.0.0",
+    "description": "Quality checks and scripts for Arcline extension",
+    "scripts": {
+        "quality-check": "./scripts/quality-check.sh",
+        "quality-check:strict": "./scripts/quality-check.sh --strict",
+        "quality-check:full": "./scripts/quality-check.sh --all",
+        "pre-commit": "./scripts/pre-commit.sh",
+        "pre-commit:strict": "./scripts/pre-commit.sh --strict",
+        "setup-hooks": "node scripts/setup-hooks.js"
+    },
+    "devDependencies": {
+        "audit-ci": "^7.1.0",
+        "husky": "^9.1.6",
+        "lint-staged": "^15.2.10"
+    },
+    "lint-staged": {
+        "*.{ts,tsx,js,jsx}": [
+            "biome check --reporter=compact",
+            "biome format --write"
+        ],
+        "*.{json,md,yml,yaml}": [
+            "prettier --write"
+        ]
+    },
+    "husky": {
+        "hooks": {
+            "pre-commit": "lint-staged && ./scripts/pre-commit.sh",
+            "pre-push": "./scripts/quality-check.sh --coverage"
+        }
+    }
+}

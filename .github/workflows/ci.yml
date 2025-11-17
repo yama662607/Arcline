@@ -2,13 +2,14 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
-  test:
+  quality-check:
     runs-on: ubuntu-latest
+    name: 品質チェック
 
     strategy:
       matrix:
@@ -17,6 +18,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Complete history for better analysis
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -32,38 +35,315 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
+      - name: Setup Git hooks
+        run: pnpm setup-hooks
+
+      - name: 🔍 Lint check
         run: pnpm lint
 
-      - name: Type check
+      - name: 📝 Format check
+        run: pnpm format
+
+      - name: 🔧 Type check
         run: pnpm typecheck
 
-      - name: Unit tests
-        run: pnpm test
+      - name: 🧪 Unit tests with coverage
+        run: pnpm test:coverage
+
+      - name: 📊 Upload coverage to Codecov
+        if: matrix.node-version == 20
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./apps/extension/coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: 🏗️ Build extension
+        run: pnpm build
+
+      - name: 📦 Bundle size check
+        run: |
+          echo "## Bundle Size Report" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          du -sh apps/extension/dist/* >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🔒 Security audit
+        run: |
+          if command -v audit-ci &> /dev/null; then
+            audit-ci --moderate
+          else
+            echo "audit-ci not available, skipping security audit"
+          fi
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: E2Eテスト
+    needs: quality-check
+
+    strategy:
+      matrix:
+        browser: [chromium, firefox]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build extension
         run: pnpm build
 
       - name: Install Playwright browsers
-        run: pnpm --filter arcline-extension exec playwright install --with-deps chromium
+        run: pnpm --filter arcline-extension exec playwright install --with-deps ${{ matrix.browser }}
 
-      - name: E2E tests
-        run: pnpm test:e2e
+      - name: 🎭 Run E2E tests
+        run: |
+          cd apps/extension
+          PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright playwright test \
+            --config playwright/playwright.config.ts \
+            --project=${{ matrix.browser }} \
+            --reporter=html,github
 
-      - name: Upload test results
+      - name: 📊 Upload E2E test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: e2e-results-${{ matrix.browser }}
           path: |
             apps/extension/playwright-report/
             apps/extension/test-results/
           retention-days: 7
 
-      - name: Upload build artifacts (on main branch)
-        if: github.ref == 'refs/heads/main' && matrix.node-version == 20
+      - name: 📈 Upload E2E coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage-${{ matrix.browser }}
+          path: apps/extension/coverage-e2e/
+          retention-days: 7
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    name: パフォーマンステスト
+    needs: quality-check
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension
+        run: pnpm build
+
+      - name: 🚀 Performance audit
+        run: |
+          # Lighthouse CI for performance testing
+          npm install -g @lhci/cli@0.12.x
+          lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: 📊 Performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: .lighthouseci/
+          retention-days: 7
+
+  accessibility-tests:
+    runs-on: ubuntu-latest
+    name: アクセシビリティテスト
+    needs: quality-check
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension
+        run: pnpm build
+
+      - name: ♿ Accessibility tests
+        run: |
+          cd apps/extension
+          playwright test \
+            --config playwright/playwright.config.ts \
+            --grep "Accessibility" \
+            --reporter=html,github
+
+      - name: 📊 Upload accessibility results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-results
+          path: |
+            apps/extension/playwright-report/
+            apps/extension/test-results/
+          retention-days: 7
+
+  cross-browser-tests:
+    runs-on: ubuntu-latest
+    name: クロスブラウザテスト
+    needs: quality-check
+
+    strategy:
+      matrix:
+        browser: [chromium, webkit, firefox]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter arcline-extension exec playwright install --with-deps ${{ matrix.browser }}
+
+      - name: 🌐 Cross-browser tests
+        run: |
+          cd apps/extension
+          playwright test \
+            --config playwright/playwright.config.ts \
+            --project=${{ matrix.browser }} \
+            --grep "Cross-Browser" \
+            --reporter=html,github
+
+      - name: 📊 Upload cross-browser results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-browser-results-${{ matrix.browser }}
+          path: |
+            apps/extension/playwright-report/
+            apps/extension/test-results/
+          retention-days: 7
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: ビルドとデプロイ
+    needs: [quality-check, e2e-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏗️ Build production
+        run: pnpm build
+
+      - name: 📦 Package extension
+        run: |
+          cd apps/extension
+          zip -r ../arcline-extension.zip dist/
+
+      - name: 📤 Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: extension-build
-          path: apps/extension/dist/
-          retention-days: 7 
+          path: |
+            apps/extension/dist/
+            arcline-extension.zip
+          retention-days: 30
+
+      - name: 🚀 Deploy to Chrome Web Store (if needed)
+        if: contains(github.event.head_commit.message, '[deploy]')
+        run: |
+          echo "Deploy to Chrome Web Store would happen here"
+          # Add Chrome Web Store deployment logic
+        env:
+          CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
+          CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
+          CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+
+  notify-results:
+    runs-on: ubuntu-latest
+    name: 結果通知
+    needs: [quality-check, e2e-tests, performance-tests, accessibility-tests, cross-browser-tests]
+    if: always()
+
+    steps:
+      - name: 📧 Notify on success
+        if: ${{ needs.quality-check.result == 'success' && needs.e2e-tests.result == 'success' }}
+        run: |
+          echo "✅ All tests passed successfully!"
+          echo "🎉 Arcline extension is ready for release"
+
+      - name: 🚨 Notify on failure
+        if: ${{ needs.quality-check.result == 'failure' || needs.e2e-tests.result == 'failure' }}
+        run: |
+          echo "❌ Some tests failed"
+          echo "🔧 Please check the logs and fix the issues"
+          exit 1
