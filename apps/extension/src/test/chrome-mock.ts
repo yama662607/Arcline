@@ -4,7 +4,12 @@ import { vi } from 'vitest';
 export const chromeMock = {
   tabs: {
     query: vi.fn().mockResolvedValue([]),
-    sendMessage: vi.fn().mockResolvedValue(undefined),
+    sendMessage: vi.fn().mockImplementation((_tabId, _message, callback) => {
+      if (typeof callback === 'function') {
+        callback();
+      }
+      return undefined;
+    }),
     create: vi.fn().mockResolvedValue({ id: 1 }),
     update: vi.fn().mockResolvedValue({}),
     remove: vi.fn().mockResolvedValue(undefined),
@@ -29,6 +34,10 @@ export const chromeMock = {
       set: vi.fn().mockResolvedValue(undefined),
       remove: vi.fn().mockResolvedValue(undefined),
     },
+    sync: {
+      get: vi.fn().mockResolvedValue({}),
+      set: vi.fn().mockResolvedValue(undefined),
+    },
   },
   bookmarks: {
     getTree: vi.fn().mockResolvedValue([]),
@@ -41,19 +50,47 @@ export const chromeMock = {
       removeListener: vi.fn(),
     },
     getURL: vi.fn().mockReturnValue('chrome-extension://test/'),
+    onInstalled: {
+      addListener: vi.fn(),
+    },
+    onStartup: {
+      addListener: vi.fn(),
+    },
+    sendMessage: vi.fn().mockImplementation((_message, callback) => {
+      if (typeof callback === 'function') {
+        callback();
+      }
+      return undefined;
+    }),
+    lastError: undefined as chrome.runtime.LastError | undefined,
+  },
+  action: {
+    setPopup: vi.fn(),
+    onClicked: {
+      addListener: vi.fn(),
+    },
+  },
+  commands: {
+    onCommand: {
+      addListener: vi.fn(),
+    },
   },
 };
 
 export function resetChromeMock() {
-  vi.clearAllMocks();
-  // Reset all mock implementations
-  Object.values(chromeMock).forEach((api) => {
-    if (typeof api === 'object' && api !== null) {
-      Object.values(api).forEach((method) => {
-        if (typeof method === 'object' && method !== null && 'mockClear' in method) {
-          (method as { mockClear: () => void }).mockClear();
-        }
+  const clear = (value: unknown) => {
+    if (typeof value === 'function' && 'mockClear' in value) {
+      (value as { mockClear: () => void }).mockClear();
+      return;
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      Object.values(value).forEach((child) => {
+        clear(child);
       });
     }
-  });
+  };
+
+  clear(chromeMock);
+  chromeMock.runtime.lastError = undefined;
 }

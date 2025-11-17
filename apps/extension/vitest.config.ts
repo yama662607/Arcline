@@ -6,14 +6,35 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    // Use happy-dom to avoid the jsdom@27 + parse5@8 ESM/CJS conflict until upstream fixes require/import handling.
     environment: 'happy-dom',
-    environmentMatchGlobs: [['**/*.node.{test,spec}.{ts,tsx}', 'node']],
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['**/node_modules/**', 'tests/floating-ui.spec.ts'],
     passWithNoTests: true,
     css: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        'src/**/*.d.ts',
+        'src/**/*.config.*',
+        'src/vite-env.d.ts',
+        'dist/',
+        'coverage/',
+        '**/*.test.*',
+        '**/*.spec.*',
+      ],
+      thresholds: {
+        global: {
+          branches: 70,
+          functions: 70,
+          lines: 70,
+          statements: 70,
+        },
+      },
+    },
   },
   resolve: {
     alias: {
