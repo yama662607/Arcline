@@ -30,7 +30,7 @@ type CommandHandler = (
 
 const UI_MODE_KEY = 'arclineoMode';
 
-async function broadcastUiMode(mode: UiMode) {
+export async function broadcastUiMode(mode: UiMode) {
   try {
     const tabs = await chrome.tabs.query({});
     await Promise.all(
@@ -181,7 +181,7 @@ const respondAsync = (handler: () => Promise<void>): boolean => {
   return true;
 };
 
-const commandHandlers: Record<string, CommandHandler> = {
+export const commandHandlers: Record<string, CommandHandler> = {
   requestUiMode: (_message, sendResponse) =>
     respondAsync(async () => {
       try {

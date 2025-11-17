@@ -69,7 +69,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid="loading-spinner">
         <div className="animate-pulse">
           <div className="h-4 bg-surface-light rounded w-1/4 mb-4" />
           <div className="space-y-2">
@@ -127,6 +127,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                   }}
                   className="ml-auto text-xs text-slate-500 hover:text-red-400 transition-colors"
                   title="Remove space"
+                  aria-label="Remove space"
                 >
                   ×
                 </button>
@@ -193,7 +194,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
           onClick={() => setIsCreatingSpace(true)}
           className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
         >
-          + New Space
+          Create Space
         </button>
       </div>
 
@@ -214,7 +215,8 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                 <div>
                   <h3 className="font-medium text-white">{space.name}</h3>
                   <p className="text-sm text-slate-400">
-                    {space.pinnedTabs.length} pinned, {space.temporaryTabs.length} temporary
+                    {space.pinnedTabs?.length ?? 0} pinned, {space.temporaryTabs?.length ?? 0}{' '}
+                    temporary
                   </p>
                 </div>
               </div>
@@ -238,6 +240,8 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                       handleRemoveSpace(space.id);
                     }}
                     className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                    title="Remove space"
+                    aria-label="Remove space"
                   >
                     Remove
                   </button>
@@ -266,7 +270,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                   type="text"
                   value={newSpaceName}
                   onChange={(e) => setNewSpaceName(e.target.value)}
-                  placeholder="Enter space name"
+                  placeholder="Space name"
                   className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
                 />
               </div>
