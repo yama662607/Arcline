@@ -2,6 +2,8 @@
 
 import type { TabGroupColor } from '@/shared/chrome-types';
 import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
+import type { SpaceState } from './spaces';
+import { deriveSpaceStateFromSnapshots, loadSpaceState, saveSpaceState } from './spaces';
 
 const TAB_GROUP_ID_NONE = -1;
 const TAB_GROUPS_SUPPORTED = typeof chrome.tabGroups !== 'undefined';
@@ -178,6 +180,166 @@ function buildSnapshotList(
   return spaces;
 }
 
+function indexTabsById(allTabs: chrome.tabs.Tab[]): Map<number, TabEntry> {
+  const tabsById = new Map<number, TabEntry>();
+
+  for (const tab of allTabs) {
+    const entry = mapTab(tab);
+    if (!entry) continue;
+    tabsById.set(entry.id, entry);
+  }
+
+  return tabsById;
+}
+
+function buildSnapshotFromState(
+  state: SpaceState,
+  tabsById: Map<number, TabEntry>,
+  timestamp: number
+): SpaceSnapshot {
+  const pinnedTabs: TabEntry[] = [];
+  const tabs: TabEntry[] = [];
+  const temporaryTabs: TabEntry[] = [];
+
+  const pinnedIds = new Set<number>(state.spaceBookmarks ?? []);
+  const temporaryIds = Array.isArray(state.temporaryTabs) ? state.temporaryTabs : [];
+
+  for (const id of pinnedIds) {
+    const entry = tabsById.get(id);
+    if (!entry) continue;
+    pinnedTabs.push({ ...entry, pinned: true, groupId: state.id });
+  }
+
+  for (const id of temporaryIds) {
+    if (pinnedIds.has(id)) continue;
+    const entry = tabsById.get(id);
+    if (!entry) continue;
+
+    const adjustedEntry: TabEntry = { ...entry, pinned: false, groupId: state.id };
+
+    if (state.id === TAB_GROUP_ID_NONE) {
+      temporaryTabs.push(adjustedEntry);
+    } else {
+      tabs.push(adjustedEntry);
+    }
+  }
+
+  const sampleTab = pinnedTabs[0] ?? tabs[0] ?? temporaryTabs[0];
+  const windowId = sampleTab?.windowId ?? -1;
+
+  return {
+    id: state.id,
+    name: state.name,
+    color: state.color,
+    tabs,
+    pinnedTabs,
+    temporaryTabs,
+    windowId,
+    created_at: timestamp,
+    last_active_at: timestamp,
+  };
+}
+
+function buildSnapshotsFromSpaceState(
+  spaceStates: SpaceState[],
+  allTabs: chrome.tabs.Tab[],
+  timestamp: number
+): SpaceSnapshot[] {
+  const tabsById = indexTabsById(allTabs);
+
+  const snapshots: SpaceSnapshot[] = [];
+
+  for (const state of spaceStates) {
+    snapshots.push(buildSnapshotFromState(state, tabsById, timestamp));
+  }
+
+  snapshots.sort((a, b) => a.id - b.id);
+
+  return snapshots;
+}
+
+async function upsertSpaceStateEntry(entry: SpaceState): Promise<void> {
+  try {
+    const current = await loadSpaceState();
+    const index = current.findIndex((space) => space.id === entry.id);
+
+    if (index === -1) {
+      await saveSpaceState([...current, entry]);
+      return;
+    }
+
+    const next = current.slice();
+    next[index] = { ...next[index], ...entry };
+    await saveSpaceState(next);
+  } catch (error) {
+    console.warn('[Arcline] Failed to update SpaceState entry', error);
+  }
+}
+
+async function removeSpaceFromState(spaceId: number): Promise<void> {
+  try {
+    const current = await loadSpaceState();
+    const filtered = current.filter((space) => space.id !== spaceId);
+    if (filtered.length === current.length) {
+      return;
+    }
+
+    await saveSpaceState(filtered);
+  } catch (error) {
+    console.warn('[Arcline] Failed to remove space from SpaceState', error);
+  }
+}
+
+async function updateTabMembershipInState(
+  tabId: number,
+  spaceId: number,
+  pinned: boolean
+): Promise<void> {
+  try {
+    const current = await loadSpaceState();
+
+    const withTabRemoved = current.map((space) => ({
+      ...space,
+      spaceBookmarks: (space.spaceBookmarks ?? []).filter((id) => id !== tabId),
+      temporaryTabs: (space.temporaryTabs ?? []).filter((id) => id !== tabId),
+    }));
+
+    const existingIndex = withTabRemoved.findIndex((space) => space.id === spaceId);
+
+    if (existingIndex === -1) {
+      const newSpace: SpaceState = {
+        id: spaceId,
+        name: spaceId === TAB_GROUP_ID_NONE ? 'Ungrouped' : 'Untitled',
+        color: 'grey' as TabGroupColor,
+        spaceBookmarks: pinned ? [tabId] : [],
+        temporaryTabs: pinned ? [] : [tabId],
+      };
+
+      await saveSpaceState([...withTabRemoved, newSpace]);
+      return;
+    }
+
+    const target = withTabRemoved[existingIndex];
+    if (!target) {
+      await saveSpaceState(withTabRemoved);
+      return;
+    }
+
+    const updated: SpaceState = {
+      ...target,
+      spaceBookmarks: pinned ? [...target.spaceBookmarks, tabId] : target.spaceBookmarks,
+      temporaryTabs: pinned ? target.temporaryTabs : [...target.temporaryTabs, tabId],
+    };
+
+    const next = withTabRemoved.slice();
+    next[existingIndex] = updated;
+
+    await saveSpaceState(next);
+  } catch (error) {
+    console.warn('[Arcline] Failed to update tab membership in SpaceState', error);
+  }
+}
+
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
   try {
     const { tabGroups, allTabs } = await queryChromeState();
@@ -187,10 +349,36 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
 
     distributeTabs(allTabs, groupMap, ungrouped, globalPinned);
 
-    return buildSnapshotList(groupMap, ungrouped, globalPinned);
+    const snapshots = buildSnapshotList(groupMap, ungrouped, globalPinned);
+
+    // Persist SpaceState derived from the current snapshot so that
+    // other background operations can treat it as the single source of truth.
+    const state = deriveSpaceStateFromSnapshots(snapshots);
+    await saveSpaceState(state);
+
+    return snapshots;
   } catch (error) {
     console.warn('Failed to load spaces snapshot', error);
-    return [];
+    try {
+      const state = await loadSpaceState();
+      if (!state.length) {
+        return [];
+      }
+
+      const allTabs = await chrome.tabs.query({});
+      if (!Array.isArray(allTabs) || allTabs.length === 0) {
+        return [];
+      }
+
+      const timestamp = Date.now();
+      return buildSnapshotsFromSpaceState(state, allTabs, timestamp);
+    } catch (fallbackError) {
+      console.warn(
+        '[Arcline] Failed to build spaces snapshot from stored SpaceState',
+        fallbackError
+      );
+      return [];
+    }
   }
 }
 
@@ -209,24 +397,35 @@ export async function toggleTabPinned(tabId: number, nextPinned?: boolean): Prom
     console.warn('[Arcline] Failed to update global pinned tabs:', error);
   }
 
+  const spaceId = typeof tab.groupId === 'number' ? tab.groupId : TAB_GROUP_ID_NONE;
+  await updateTabMembershipInState(tabId, spaceId, pinned);
+
   await broadcastSpacesSnapshot();
 
   return pinned;
 }
 
 export async function moveTabToSpace(tabId: number, spaceId: number): Promise<number | null> {
+  let result: number | null = null;
+
   if (!TAB_GROUPS_SUPPORTED) {
     await chrome.tabs.ungroup(tabId);
-    return null;
-  }
-
-  if (spaceId === TAB_GROUP_ID_NONE) {
+  } else if (spaceId === TAB_GROUP_ID_NONE) {
     await chrome.tabs.ungroup(tabId);
-    return null;
+  } else {
+    result = await chrome.tabs.group({ groupId: spaceId, tabIds: [tabId] });
   }
 
-  const groupId = await chrome.tabs.group({ groupId: spaceId, tabIds: [tabId] });
-  return groupId;
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    const pinned = Boolean(tab.pinned);
+    await updateTabMembershipInState(tabId, spaceId, pinned);
+  } catch (error) {
+    console.warn('[Arcline] Failed to update SpaceState for moved tab', error);
+  }
+
+  await broadcastSpacesSnapshot();
+  return result;
 }
 
 export async function createSpace(name: string, color?: TabGroupColor): Promise<number> {
@@ -255,6 +454,14 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
     color: color ?? 'blue',
   });
 
+  await upsertSpaceStateEntry({
+    id: groupId,
+    name,
+    color: (color ?? 'blue') as TabGroupColor,
+    spaceBookmarks: [],
+    temporaryTabs: [],
+  });
+
   // Sync new space to bookmarks
   try {
     await syncSpaceToBookmarks(name, []);
@@ -262,11 +469,15 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
     console.warn(`[Arcline] Failed to sync new space "${name}" to bookmarks:`, error);
   }
 
+  await broadcastSpacesSnapshot();
+
   return groupId;
 }
 
 export async function removeSpace(spaceId: number): Promise<void> {
   if (!TAB_GROUPS_SUPPORTED) return;
+
+  await removeSpaceFromState(spaceId);
 
   // Get space name for bookmark cleanup
   const spaces = await getSpacesSnapshot();
@@ -274,7 +485,10 @@ export async function removeSpace(spaceId: number): Promise<void> {
   const spaceName = space?.name;
 
   const tabs = await chrome.tabs.query({ groupId: spaceId });
-  if (!tabs.length) return;
+  if (!tabs.length) {
+    await broadcastSpacesSnapshot();
+    return;
+  }
 
   const tabIds = tabs
     .map((tab) => tab.id)
@@ -292,6 +506,8 @@ export async function removeSpace(spaceId: number): Promise<void> {
       console.warn(`[Arcline] Failed to remove bookmark folder for space "${spaceName}":`, error);
     }
   }
+
+  await broadcastSpacesSnapshot();
 }
 
 export async function broadcastSpacesSnapshot(): Promise<void> {

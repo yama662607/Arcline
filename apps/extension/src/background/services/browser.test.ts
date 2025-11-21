@@ -15,6 +15,12 @@ const mockChrome = {
     group: vi.fn(),
     ungroup: vi.fn(),
   },
+  storage: {
+    local: {
+      get: vi.fn().mockResolvedValue({}),
+      set: vi.fn().mockResolvedValue(undefined),
+    },
+  },
 };
 
 // @ts-expect-error - Mocking global chrome
@@ -343,8 +349,70 @@ describe('getSpacesSnapshot', () => {
     expect(result[0]?.tabs[0]?.id).toBe(11);
   });
 
+  it('should build snapshot from stored SpaceState when Chrome APIs fail', async () => {
+    const storedSpaces = [
+      {
+        id: 1,
+        name: 'Stored',
+        color: 'blue' as TabGroupColor,
+        spaceBookmarks: [11],
+        temporaryTabs: [10],
+        lastTab: 11,
+      },
+    ];
+
+    const mockTabs: chrome.tabs.Tab[] = [
+      {
+        id: 10,
+        title: 'Temp',
+        url: 'https://temp.com',
+        groupId: 1,
+        pinned: false,
+        active: false,
+        windowId: 100,
+        index: 0,
+        highlighted: false,
+        frozen: false,
+        incognito: false,
+        selected: false,
+        discarded: false,
+        autoDiscardable: false,
+      },
+      {
+        id: 11,
+        title: 'Pinned',
+        url: 'https://pinned.com',
+        groupId: 1,
+        pinned: true,
+        active: false,
+        windowId: 100,
+        index: 1,
+        highlighted: false,
+        frozen: false,
+        incognito: false,
+        selected: false,
+        discarded: false,
+        autoDiscardable: false,
+      },
+    ];
+
+    mockChrome.tabGroups.query.mockRejectedValue(new Error('API Error'));
+    mockChrome.storage.local.get.mockResolvedValue({ spaces: storedSpaces });
+    mockChrome.tabs.query.mockResolvedValue(mockTabs);
+
+    const result = await getSpacesSnapshot();
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe(1);
+    expect(result[0]?.name).toBe('Stored');
+    expect(result[0]?.pinnedTabs.map((t) => t.id)).toEqual([11]);
+    expect(result[0]?.tabs.map((t) => t.id)).toEqual([10]);
+  });
+
   it('should handle API errors gracefully', async () => {
     mockChrome.tabGroups.query.mockRejectedValue(new Error('API Error'));
+    mockChrome.storage.local.get.mockResolvedValue({});
+    mockChrome.tabs.query.mockResolvedValue([]);
 
     const result = await getSpacesSnapshot();
 
