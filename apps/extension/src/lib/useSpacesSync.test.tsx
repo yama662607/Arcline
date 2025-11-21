@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useSpacesSync } from './useSpacesSync';
 import { useSpacesStore } from '@/store';
+import { useSpacesSync } from './useSpacesSync';
 
 // Mock Chrome API
 const mockChrome = {
@@ -17,7 +17,7 @@ const mockChrome = {
   },
 } as const;
 
-global.chrome = mockChrome as any;
+global.chrome = mockChrome as unknown as typeof chrome;
 
 vi.mock('@/store', () => ({
   useSpacesStore: vi.fn(),
