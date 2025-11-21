@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSpacesStore } from '@/store';
 import { useSpacesSync } from './useSpacesSync';
 
+vi.mock('@/hooks/use-spaces-query', () => ({
+  useSpacesSnapshot: () => ({ data: [] }),
+}));
+
 // Mock Chrome API
 const mockChrome = {
   runtime: {
