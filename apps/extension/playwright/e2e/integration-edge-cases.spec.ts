@@ -55,7 +55,7 @@ test.describe('Data Persistence', () => {
     await page.getByRole('button', { name: /Spaces/i }).click();
 
     // Create a space
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
     await page.getByPlaceholder('Space name').fill('Persistence Test');
     await page.getByRole('button', { name: /Create/i }).click();
 
@@ -108,7 +108,7 @@ test.describe('Security', () => {
 
   test('should sanitize user input', async ({ page }) => {
     await page.getByRole('button', { name: /Spaces/i }).click();
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
 
     // Try to inject HTML
     const maliciousInput = '<script>alert("xss")</script>';
@@ -124,7 +124,7 @@ test.describe('Security', () => {
 
   test('should handle large inputs gracefully', async ({ page }) => {
     await page.getByRole('button', { name: /Spaces/i }).click();
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
 
     // Try very long input
     const longInput = 'a'.repeat(10000);
@@ -155,7 +155,7 @@ test.describe('Integration Tests', () => {
   test('should integrate spaces and tabs', async ({ page }) => {
     // Create space
     await page.getByRole('button', { name: /Spaces/i }).click();
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
     await page.getByPlaceholder('Space name').fill('Integration Space');
     await page.getByRole('button', { name: /Create/i }).click();
 
@@ -231,7 +231,7 @@ test.describe('Edge Cases', () => {
 
     // Rapidly create and delete spaces
     for (let i = 0; i < 5; i++) {
-      await page.getByRole('button', { name: /Create Space/i }).click();
+      await page.getByRole('button', { name: /\+ New/i }).click();
       await page.getByPlaceholder('Space name').fill(`Space ${i}`);
       await page.getByRole('button', { name: /Create/i }).click();
       await page.waitForTimeout(50);

@@ -42,7 +42,7 @@ test.describe('Keyboard Shortcuts', () => {
 
   test('should escape dialogs with Escape key', async ({ page }) => {
     await page.getByRole('button', { name: /Spaces/i }).click();
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
 
     // Verify dialog is open
     await expect(page.getByPlaceholder('Space name')).toBeVisible();
@@ -88,7 +88,7 @@ test.describe('Accessibility', () => {
     await page.getByRole('button', { name: /Spaces/i }).click();
 
     // Focus create button
-    const createButton = page.getByRole('button', { name: /Create Space/i });
+    const createButton = page.getByRole('button', { name: /\+ New/i });
     await createButton.focus();
 
     // Verify focus is visible
@@ -165,7 +165,7 @@ test.describe('Error Handling', () => {
 
   test('should handle invalid input', async ({ page }) => {
     await page.getByRole('button', { name: /Spaces/i }).click();
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
 
     // Try to create space with empty name
     await page.getByRole('button', { name: /Create/i }).click();
@@ -237,7 +237,7 @@ test.describe('Performance', () => {
 
     // Perform many operations
     for (let i = 0; i < 10; i++) {
-      await page.getByRole('button', { name: /Create Space/i }).click();
+      await page.getByRole('button', { name: /\+ New/i }).click();
       await page.keyboard.press('Escape');
     }
 

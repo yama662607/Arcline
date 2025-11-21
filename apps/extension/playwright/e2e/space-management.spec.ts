@@ -10,7 +10,7 @@ test.describe('Space Management', () => {
     await page.getByRole('button', { name: /Spaces/i }).click();
 
     // Create new space
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
     await page.getByPlaceholder('Space name').fill('Test Space');
     await page.getByRole('button', { name: /Create/i }).click();
 
@@ -30,7 +30,7 @@ test.describe('Space Management', () => {
     await expect(removeButton).toBeDisabled();
 
     // Create additional space first
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
     await page.getByPlaceholder('Space name').fill('Another Space');
     await page.getByRole('button', { name: /Create/i }).click();
 
@@ -58,7 +58,7 @@ test.describe('Space Management', () => {
     await page.getByPlaceholder('Space name').fill('Work');
     await page.getByRole('button', { name: /Create/i }).click();
 
-    await page.getByRole('button', { name: /Create Space/i }).click();
+    await page.getByRole('button', { name: /\+ New/i }).click();
     await page.getByPlaceholder('Space name').fill('Personal');
     await page.getByRole('button', { name: /Create/i }).click();
 
