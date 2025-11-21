@@ -313,53 +313,67 @@ export const commandHandlers: Record<string, CommandHandler> = {
       }
     });
   },
-  getSpacesSnapshot: (message, sendResponse) =>
+  getSpacesSnapshot: (_message, sendResponse) =>
     respondAsync(async () => {
       try {
         const spaces = await getSpacesSnapshot();
-        sendResponse({ id: message.id, data: spaces });
+        sendResponse(spaces);
       } catch (error) {
-        sendResponse({ id: message.id, error: (error as Error).message });
+        sendResponse({ ok: false, error: (error as Error).message });
       }
     }),
-  getSettings: (message, sendResponse) =>
+  getSettings: (_message, sendResponse) =>
     respondAsync(async () => {
       try {
         const settings = await getSettings();
-        sendResponse({ id: message.id, data: settings });
+        sendResponse(settings);
       } catch (error) {
-        sendResponse({ id: message.id, error: (error as Error).message });
+        sendResponse({ ok: false, error: (error as Error).message });
       }
     }),
-  getArchivedTabs: (message, sendResponse) =>
+  getArchivedTabs: (_message, sendResponse) =>
     respondAsync(async () => {
       try {
         const archivedTabs = await getArchivedTabs();
-        sendResponse({ id: message.id, data: archivedTabs });
+        sendResponse(archivedTabs);
       } catch (error) {
-        sendResponse({ id: message.id, error: (error as Error).message });
+        sendResponse({ ok: false, error: (error as Error).message });
       }
     }),
   getBookmarksForSpace: (message, sendResponse) => {
-    const { spaceName } = message as { spaceName?: string };
-    if (typeof spaceName !== 'string') {
-      sendResponse({ id: message.id, error: 'spaceName is required' });
-      return false;
-    }
+    const { spaceId, spaceName } = message as { spaceId?: number; spaceName?: string };
 
     return respondAsync(async () => {
       try {
-        const bookmarks = await getBookmarksForSpace(spaceName);
-        sendResponse({ id: message.id, data: bookmarks });
+        let resolvedName = spaceName;
+
+        if (!resolvedName) {
+          if (typeof spaceId !== 'number') {
+            sendResponse({ ok: false, error: 'spaceId or spaceName is required' });
+            return;
+          }
+
+          const spaces = await getSpacesSnapshot();
+          const targetSpace = spaces.find((space) => space.id === spaceId);
+          if (!targetSpace) {
+            sendResponse({ ok: false, error: `Space with id ${spaceId} not found` });
+            return;
+          }
+
+          resolvedName = targetSpace.name;
+        }
+
+        const bookmarks = await getBookmarksForSpace(resolvedName);
+        sendResponse(bookmarks);
       } catch (error) {
-        sendResponse({ id: message.id, error: (error as Error).message });
+        sendResponse({ ok: false, error: (error as Error).message });
       }
     });
   },
   archiveTab: (message, sendResponse) => {
     const { tabId } = message as { tabId?: number };
     if (typeof tabId !== 'number') {
-      sendResponse({ id: message.id, error: 'tabId is required' });
+      sendResponse({ ok: false, error: 'tabId is required' });
       return false;
     }
 
@@ -367,16 +381,16 @@ export const commandHandlers: Record<string, CommandHandler> = {
       try {
         await archiveTab(tabId);
         await broadcastSpacesSnapshot();
-        sendResponse({ id: message.id, data: null });
+        sendResponse(null);
       } catch (error) {
-        sendResponse({ id: message.id, error: (error as Error).message });
+        sendResponse({ ok: false, error: (error as Error).message });
       }
     });
   },
   restoreArchivedTab: (message, sendResponse) => {
     const { archivedTab } = message as { archivedTab?: ArchivedTab };
     if (!archivedTab) {
-      sendResponse({ id: message.id, error: 'archivedTab is required' });
+      sendResponse({ ok: false, error: 'archivedTab is required' });
       return false;
     }
 
@@ -384,25 +398,25 @@ export const commandHandlers: Record<string, CommandHandler> = {
       try {
         await restoreArchivedTab(archivedTab);
         await broadcastSpacesSnapshot();
-        sendResponse({ id: message.id, data: null });
+        sendResponse(null);
       } catch (error) {
-        sendResponse({ id: message.id, error: (error as Error).message });
+        sendResponse({ ok: false, error: (error as Error).message });
       }
     });
   },
   updateSettings: (message, sendResponse) => {
     const { settings } = message as { settings?: Partial<Settings> };
     if (!settings) {
-      sendResponse({ id: message.id, error: 'settings object is required' });
+      sendResponse({ ok: false, error: 'settings object is required' });
       return false;
     }
 
     return respondAsync(async () => {
       try {
         await updateSettings(settings);
-        sendResponse({ id: message.id, data: null });
+        sendResponse(null);
       } catch (error) {
-        sendResponse({ id: message.id, error: (error as Error).message });
+        sendResponse({ ok: false, error: (error as Error).message });
       }
     });
   },
@@ -464,22 +478,37 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
   return handler(message, sendResponse);
 });
 
-const tabEventHandlers: Array<
-  [chrome.events.Event<(...args: unknown[]) => void> | undefined, () => void]
-> = [
-  [chrome.tabs.onCreated, () => void broadcastSpacesSnapshot()],
-  [chrome.tabs.onUpdated, () => void broadcastSpacesSnapshot()],
-  [chrome.tabs.onMoved, () => void broadcastSpacesSnapshot()],
-  [chrome.tabs.onDetached, () => void broadcastSpacesSnapshot()],
-  [chrome.tabs.onAttached, () => void broadcastSpacesSnapshot()],
-  [chrome.tabs.onRemoved, () => void broadcastSpacesSnapshot()],
-  [chrome.tabs.onActivated, () => void broadcastSpacesSnapshot()],
-  [chrome.windows.onFocusChanged, () => void broadcastSpacesSnapshot()],
-];
+chrome.tabs.onCreated?.addListener(() => {
+  void broadcastSpacesSnapshot();
+});
 
-for (const [event, handler] of tabEventHandlers) {
-  event?.addListener(handler);
-}
+chrome.tabs.onUpdated?.addListener(() => {
+  void broadcastSpacesSnapshot();
+});
+
+chrome.tabs.onMoved?.addListener(() => {
+  void broadcastSpacesSnapshot();
+});
+
+chrome.tabs.onDetached?.addListener(() => {
+  void broadcastSpacesSnapshot();
+});
+
+chrome.tabs.onAttached?.addListener(() => {
+  void broadcastSpacesSnapshot();
+});
+
+chrome.tabs.onRemoved?.addListener(() => {
+  void broadcastSpacesSnapshot();
+});
+
+chrome.tabs.onActivated?.addListener(() => {
+  void broadcastSpacesSnapshot();
+});
+
+chrome.windows.onFocusChanged?.addListener(() => {
+  void broadcastSpacesSnapshot();
+});
 
 if (typeof chrome.tabGroups !== 'undefined') {
   chrome.tabGroups.onCreated?.addListener(() => {
