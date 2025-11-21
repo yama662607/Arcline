@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
 import { queryClient } from '@/lib/query-client';
 import { ServiceWorkerBridge } from '@/lib/service-worker-bridge';
@@ -18,16 +18,9 @@ export function getServiceWorkerBridge(): ServiceWorkerBridge {
 export function useServiceWorkerBridge() {
   const bridgeRef = useRef<ServiceWorkerBridge | null>(null);
 
-  useEffect(() => {
-    // Get or create bridge instance
+  if (!bridgeRef.current) {
     bridgeRef.current = getServiceWorkerBridge();
-
-    // Cleanup on unmount
-    return () => {
-      // Don't destroy the global instance, just clear reference
-      bridgeRef.current = null;
-    };
-  }, []);
+  }
 
   return bridgeRef.current;
 }
