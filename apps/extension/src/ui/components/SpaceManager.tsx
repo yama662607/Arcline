@@ -99,6 +99,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
             type="button"
             onClick={() => setIsCreatingSpace(true)}
             className="text-xs text-slate-400 hover:text-white transition-colors"
+            data-testid="spaces-new-button"
             title="Create new space"
           >
             + New

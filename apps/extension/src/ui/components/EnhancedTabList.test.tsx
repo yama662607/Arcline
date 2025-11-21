@@ -59,7 +59,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useActivateTab>);
 
     vi.mocked(useSpacesSnapshot).mockReturnValue({
       data: [],
@@ -72,7 +72,7 @@ describe('EnhancedTabList', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     renderWithQuery(
       <EnhancedTabList tabs={[]} title="Test Tabs" emptyMessage="No tabs" variant="standalone" />
@@ -95,7 +95,7 @@ describe('EnhancedTabList', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     renderWithQuery(
       <EnhancedTabList
@@ -118,7 +118,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useActivateTab>);
 
     vi.mocked(useSpacesSnapshot).mockReturnValue({
       data: [],
@@ -131,7 +131,7 @@ describe('EnhancedTabList', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     renderWithQuery(
       <EnhancedTabList tabs={[]} title="Test Tabs" emptyMessage="No tabs" variant="standalone" />
@@ -151,7 +151,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useToggleTabPinned>);
 
     vi.mocked(useActivateTab).mockReturnValue({
       mutateAsync: vi.fn(),
@@ -160,7 +160,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useActivateTab>);
 
     vi.mocked(useSpacesSnapshot).mockReturnValue({
       data: [],
@@ -173,7 +173,7 @@ describe('EnhancedTabList', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     renderWithQuery(
       <EnhancedTabList tabs={[]} title="Test Tabs" emptyMessage="No tabs" variant="standalone" />
@@ -193,7 +193,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useCloseTab>);
 
     vi.mocked(useActivateTab).mockReturnValue({
       mutateAsync: vi.fn(),
@@ -202,7 +202,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useActivateTab>);
 
     renderWithQuery(
       <EnhancedTabList tabs={[]} title="Test Tabs" emptyMessage="No tabs" variant="standalone" />
@@ -222,7 +222,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useArchiveTab>);
 
     vi.mocked(useActivateTab).mockReturnValue({
       mutateAsync: vi.fn(),
@@ -231,7 +231,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useActivateTab>);
 
     renderWithQuery(
       <EnhancedTabList tabs={[]} title="Test Tabs" emptyMessage="No tabs" variant="standalone" />
@@ -251,7 +251,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useActivateTab>);
 
     renderWithQuery(
       <EnhancedTabList
@@ -276,7 +276,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useActivateTab>);
 
     renderWithQuery(
       <EnhancedTabList tabs={[]} title="Test Tabs" emptyMessage="No tabs" variant="standalone" />
@@ -295,7 +295,7 @@ describe('EnhancedTabList', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useActivateTab>);
 
     renderWithQuery(
       <EnhancedTabList tabs={[]} title="Test Tabs" emptyMessage="No tabs" variant="standalone" />

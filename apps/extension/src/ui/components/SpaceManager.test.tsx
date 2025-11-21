@@ -71,7 +71,7 @@ describe('SpaceManager', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     vi.mocked(useSpacesStore).mockReturnValue({
       setActiveSpace: vi.fn(),
@@ -95,7 +95,7 @@ describe('SpaceManager', () => {
       status: 'pending',
       fetchStatus: 'fetching',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     renderWithQuery(<SpaceManager />);
 
@@ -111,7 +111,7 @@ describe('SpaceManager', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useCreateSpace>);
 
     vi.mocked(useSpacesSnapshot).mockReturnValue({
       data: [],
@@ -124,7 +124,7 @@ describe('SpaceManager', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     vi.mocked(useSpacesStore).mockReturnValue({
       setActiveSpace: vi.fn(),
@@ -185,7 +185,7 @@ describe('SpaceManager', () => {
       isError: false,
       status: 'idle',
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useRemoveSpace>);
 
     vi.mocked(useSpacesSnapshot).mockReturnValue({
       data: mockSpaces,
@@ -198,7 +198,7 @@ describe('SpaceManager', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     const mockSetActiveSpace = vi.fn();
     vi.mocked(useSpacesStore).mockReturnValue({
@@ -243,7 +243,7 @@ describe('SpaceManager', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     renderWithQuery(<SpaceManager />);
 
