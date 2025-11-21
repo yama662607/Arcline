@@ -253,7 +253,7 @@ export const commandHandlers: Record<string, CommandHandler> = {
       try {
         const groupId = await createSpace(name, color);
         await broadcastSpacesSnapshot();
-        sendResponse({ ok: true, groupId });
+        sendResponse({ ok: true, data: groupId });
       } catch (error) {
         console.error('Failed to create space', error);
         sendResponse({ ok: false, error: (error as Error).message });
@@ -414,8 +414,44 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
   }
 
   const message = rawMessage as Record<string, unknown>;
-  const command = message.command;
 
+  // Handle Bridge messages (method, params, id)
+  if ('method' in message && 'id' in message) {
+    const { method, params, id } = message as {
+      method: string;
+      params?: Record<string, unknown>;
+      id: string;
+    };
+
+    // Find corresponding command handler
+    const handler = commandHandlers[method];
+    if (!handler) {
+      sendResponse({ id, error: `Unknown method: ${method}` });
+      return false;
+    }
+
+    // Call handler with bridge-style response
+    const bridgeHandler: CommandHandler = (msg, respond) => {
+      const wrappedRespond = (response?: unknown) => {
+        if (typeof response === 'object' && response !== null && 'ok' in response) {
+          const result = response as { ok?: boolean; error?: string; data?: unknown };
+          if (result.ok === false) {
+            respond({ id, error: result.error });
+          } else {
+            respond({ id, data: result.data });
+          }
+        } else {
+          respond({ id, data: response });
+        }
+      };
+      return handler(msg ?? {}, wrappedRespond);
+    };
+
+    return bridgeHandler(params || {}, sendResponse);
+  }
+
+  // Handle legacy command messages
+  const command = message.command;
   if (typeof command !== 'string') {
     return false;
   }
