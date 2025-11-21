@@ -12,7 +12,7 @@ import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceManager } from '@/ui/components/SpaceManager';
 import { TabContextMenu } from '@/ui/components/TabContextMenu';
 
-function SidebarApp() {
+function SidebarAppContent() {
   const [activeTab, setActiveTab] = useState<'spaces' | 'archive' | 'settings'>('spaces');
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSpacesSync();
@@ -31,130 +31,134 @@ function SidebarApp() {
 
   if (isCollapsed) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <div className="w-8 h-full bg-surface border-r border-white/10 flex flex-col items-center py-2">
-          <button
-            type="button"
-            onClick={() => setIsCollapsed(false)}
-            className="p-1 text-slate-400 hover:text-white transition-colors"
-            title="Expand Arcline"
+      <div className="w-8 h-full bg-surface border-r border-white/10 flex flex-col items-center py-2">
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(false)}
+          className="p-1 text-slate-400 hover:text-white transition-colors"
+          title="Expand Arcline"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            role="img"
+            aria-hidden="true"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              role="img"
-              aria-hidden="true"
-            >
-              <title>Expand sidebar</title>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </QueryClientProvider>
+            <title>Expand sidebar</title>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
     );
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="w-80 h-full bg-surface border-r border-white/10 flex flex-col text-slate-100">
-        <header className="flex items-center justify-between border-b border-white/10 px-3 py-2 flex-shrink-0">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-slate-400">Arcline</p>
-            <h1 className="text-sm font-semibold text-white">Spaces</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="rounded-md bg-white/10 px-2 py-1 text-xs text-slate-200 transition hover:bg-white/20"
-              onClick={() => setIsCollapsed(true)}
-              title="Collapse sidebar"
-            >
-              ←
-            </button>
-          </div>
-        </header>
-
-        <div className="flex border-b border-white/10 flex-shrink-0">
-          {(['spaces', 'archive', 'settings'] as const).map((tab) => (
-            <button
-              type="button"
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 px-2 py-1 text-xs font-medium transition-colors ${
-                activeTab === tab ? 'text-white bg-white/10' : 'text-slate-400 hover:text-slate-300'
-              }`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+    <div className="w-80 h-full bg-surface border-r border-white/10 flex flex-col text-slate-100">
+      <header className="flex items-center justify-between border-b border-white/10 px-3 py-2 flex-shrink-0">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-slate-400">Arcline</p>
+          <h1 className="text-sm font-semibold text-white">Spaces</h1>
         </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === 'spaces' && (
-            <div className="space-y-3">
-              <SpaceManager variant="floating" />
-
-              {activeSpace && (
-                <div className="space-y-2">
-                  <EnhancedTabList
-                    tabs={activeSpace.pinnedTabs}
-                    title="Pinned"
-                    emptyMessage="No pinned tabs"
-                    variant="floating"
-                    onTabContextMenu={(tab, event) => {
-                      const rect = (event.target as HTMLElement).getBoundingClientRect();
-                      setContextMenu({
-                        tab,
-                        x: rect.left,
-                        y: rect.top,
-                      });
-                    }}
-                  />
-                  <EnhancedTabList
-                    tabs={activeSpace.temporaryTabs}
-                    title="Temporary"
-                    emptyMessage="No temporary tabs"
-                    variant="floating"
-                    onTabContextMenu={(tab, event) => {
-                      const rect = (event.target as HTMLElement).getBoundingClientRect();
-                      setContextMenu({
-                        tab,
-                        x: rect.left,
-                        y: rect.top,
-                      });
-                    }}
-                  />
-                </div>
-              )}
-
-              {!activeSpace && (
-                <div className="px-3 py-6 text-center text-xs text-slate-500">
-                  No spaces available. Create a space to get started.
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'archive' && <ArchiveManager variant="floating" />}
-
-          {activeTab === 'settings' && <SettingsPanel variant="floating" />}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="rounded-md bg-white/10 px-2 py-1 text-xs text-slate-200 transition hover:bg-white/20"
+            onClick={() => setIsCollapsed(true)}
+            title="Collapse sidebar"
+          >
+            ←
+          </button>
         </div>
+      </header>
 
-        <footer className="border-t border-white/10 px-3 py-1 text-[10px] text-slate-400 text-center flex-shrink-0">
-          Content Script Sidebar • Press Ctrl+E to toggle
-        </footer>
-
-        {contextMenu && (
-          <TabContextMenu
-            tab={contextMenu.tab}
-            x={contextMenu.x}
-            y={contextMenu.y}
-            onClose={() => setContextMenu(null)}
-          />
-        )}
+      <div className="flex border-b border-white/10 flex-shrink-0">
+        {(['spaces', 'archive', 'settings'] as const).map((tab) => (
+          <button
+            type="button"
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-2 py-1 text-xs font-medium transition-colors ${
+              activeTab === tab ? 'text-white bg-white/10' : 'text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
       </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'spaces' && (
+          <div className="space-y-3">
+            <SpaceManager variant="floating" />
+
+            {activeSpace && (
+              <div className="space-y-2">
+                <EnhancedTabList
+                  tabs={activeSpace.pinnedTabs}
+                  title="Pinned"
+                  emptyMessage="No pinned tabs"
+                  variant="floating"
+                  onTabContextMenu={(tab, event) => {
+                    const rect = (event.target as HTMLElement).getBoundingClientRect();
+                    setContextMenu({
+                      tab,
+                      x: rect.left,
+                      y: rect.top,
+                    });
+                  }}
+                />
+                <EnhancedTabList
+                  tabs={activeSpace.temporaryTabs}
+                  title="Temporary"
+                  emptyMessage="No temporary tabs"
+                  variant="floating"
+                  onTabContextMenu={(tab, event) => {
+                    const rect = (event.target as HTMLElement).getBoundingClientRect();
+                    setContextMenu({
+                      tab,
+                      x: rect.left,
+                      y: rect.top,
+                    });
+                  }}
+                />
+              </div>
+            )}
+
+            {!activeSpace && (
+              <div className="px-3 py-6 text-center text-xs text-slate-500">
+                No spaces available. Create a space to get started.
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'archive' && <ArchiveManager variant="floating" />}
+
+        {activeTab === 'settings' && <SettingsPanel variant="floating" />}
+      </div>
+
+      <footer className="border-t border-white/10 px-3 py-1 text-[10px] text-slate-400 text-center flex-shrink-0">
+        Content Script Sidebar • Press Ctrl+E to toggle
+      </footer>
+
+      {contextMenu && (
+        <TabContextMenu
+          tab={contextMenu.tab}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SidebarApp() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SidebarAppContent />
     </QueryClientProvider>
   );
 }
