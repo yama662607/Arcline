@@ -1,3 +1,4 @@
+import '@/dev/reactPreamble';
 import { getSidebarManager, initializeSidebar } from './sidebar';
 
 // Initialize sidebar when content script loads

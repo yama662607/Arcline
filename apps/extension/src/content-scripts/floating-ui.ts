@@ -1,6 +1,6 @@
 /// <reference types="chrome" />
 
-export {};
+import '@/dev/reactPreamble';
 
 // Minimal inline utilities to avoid pulling large modules into the bootstrap bundle.
 type UiMode = 'side-panel' | 'popup' | 'floating';
