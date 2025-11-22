@@ -83,17 +83,12 @@ async function initializeUiMode() {
   }
 }
 
-// Log Service Worker initialization
-console.log('[SW] Service Worker starting up...');
-
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('[SW] Extension installed');
   await initializeUiMode();
   await initializeAutoArchive();
 });
 
 chrome.runtime.onStartup?.addListener(async () => {
-  console.log('[SW] Extension startup');
   await initializeUiMode();
   await initializeAutoArchive();
 });
@@ -428,10 +423,7 @@ export const commandHandlers: Record<string, CommandHandler> = {
 };
 
 chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
-  console.log('[SW] Received message:', rawMessage);
-
   if (typeof rawMessage !== 'object' || rawMessage === null) {
-    console.log('[SW] Invalid message format');
     return false;
   }
 
@@ -445,8 +437,6 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
       id: string;
     };
 
-    console.log('[SW] Received Bridge message:', { method, params, id });
-
     // Find corresponding command handler
     const handler = commandHandlers[method];
     if (!handler) {
@@ -458,7 +448,6 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
     // Call handler with bridge-style response
     const bridgeHandler: CommandHandler = (msg, respond) => {
       const wrappedRespond = (response?: unknown) => {
-        console.log('[SW] Sending Bridge response:', { id, response });
         if (typeof response === 'object' && response !== null && 'ok' in response) {
           const result = response as { ok?: boolean; error?: string; data?: unknown };
           if (result.ok === false) {

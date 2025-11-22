@@ -64,8 +64,6 @@ export class ServiceWorkerBridge {
     const id = `bridge_${Date.now()}_${Math.random()}`;
     const fullMessage: BridgeMessage = { ...message, id };
 
-    console.log('[Bridge] Sending message:', fullMessage);
-
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(id);

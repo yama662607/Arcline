@@ -29,6 +29,8 @@ vi.mock('@/store', () => ({
 
 // Mock the store implementation
 const mockStore = {
+  spaces: [] as any[],
+  activeSpaceId: null as any,
   setSpaces: vi.fn(),
   setActiveSpace: vi.fn(),
 } as any;
