@@ -12,7 +12,7 @@ describe('ServiceWorkerBridge', () => {
   beforeEach(() => {
     queryClient = new QueryClient();
     chromeMock.runtime.sendMessage.mockImplementation(
-      (_message: unknown, _callback?: (response?: BridgeResponse) => void) => undefined,
+      (_message: unknown, _callback?: (response?: BridgeResponse) => void) => undefined
     );
     bridge = new ServiceWorkerBridge(queryClient);
     chromeMock.runtime.lastError = undefined;
@@ -28,11 +28,10 @@ describe('ServiceWorkerBridge', () => {
   it('resolves pending requests when the runtime responds', async () => {
     const promise = bridge.getSpacesSnapshot();
 
-    const [sent, callback] = chromeMock.runtime.sendMessage.mock
-      .calls.slice(-1)[0] as [
-        { id: string },
-        (response?: BridgeResponse) => void,
-      ];
+    const [sent, callback] = chromeMock.runtime.sendMessage.mock.calls.slice(-1)[0] as [
+      { id: string },
+      (response?: BridgeResponse) => void,
+    ];
     expect(sent).toBeDefined();
 
     const spaces: SpaceSnapshot[] = [
@@ -104,16 +103,15 @@ describe('ServiceWorkerBridge', () => {
   it('sends mutation payloads for toggleTabPinned', async () => {
     const togglePromise = bridge.toggleTabPinned(42, true);
 
-    const [sent, callback] = chromeMock.runtime.sendMessage.mock
-      .calls.slice(-1)[0] as [
-        {
-          id: string;
-          type: string;
-          method: string;
-          params?: Record<string, unknown>;
-        },
-        (response?: BridgeResponse) => void,
-      ];
+    const [sent, callback] = chromeMock.runtime.sendMessage.mock.calls.slice(-1)[0] as [
+      {
+        id: string;
+        type: string;
+        method: string;
+        params?: Record<string, unknown>;
+      },
+      (response?: BridgeResponse) => void,
+    ];
 
     expect(sent).toMatchObject({
       type: 'mutation',
@@ -129,16 +127,15 @@ describe('ServiceWorkerBridge', () => {
   it('requests bookmarks with parameters via bridge', async () => {
     const bookmarksPromise = bridge.getBookmarksForSpace(7);
 
-    const [sent, callback] = chromeMock.runtime.sendMessage.mock
-      .calls.slice(-1)[0] as [
-        {
-          id: string;
-          type: string;
-          method: string;
-          params?: Record<string, unknown>;
-        },
-        (response?: BridgeResponse) => void,
-      ];
+    const [sent, callback] = chromeMock.runtime.sendMessage.mock.calls.slice(-1)[0] as [
+      {
+        id: string;
+        type: string;
+        method: string;
+        params?: Record<string, unknown>;
+      },
+      (response?: BridgeResponse) => void,
+    ];
 
     expect(sent).toMatchObject({
       type: 'query',
@@ -155,16 +152,15 @@ describe('ServiceWorkerBridge', () => {
   it('sends createSpace mutation with name and color', async () => {
     const createPromise = bridge.createSpace('Test Space', 'red');
 
-    const [sent, callback] = chromeMock.runtime.sendMessage.mock
-      .calls.slice(-1)[0] as [
-        {
-          id: string;
-          type: string;
-          method: string;
-          params?: Record<string, unknown>;
-        },
-        (response?: BridgeResponse) => void,
-      ];
+    const [sent, callback] = chromeMock.runtime.sendMessage.mock.calls.slice(-1)[0] as [
+      {
+        id: string;
+        type: string;
+        method: string;
+        params?: Record<string, unknown>;
+      },
+      (response?: BridgeResponse) => void,
+    ];
 
     expect(sent).toMatchObject({
       type: 'mutation',
@@ -180,16 +176,15 @@ describe('ServiceWorkerBridge', () => {
   it('sends removeSpace mutation with spaceId', async () => {
     const removePromise = bridge.removeSpace(456);
 
-    const [sent, callback] = chromeMock.runtime.sendMessage.mock
-      .calls.slice(-1)[0] as [
-        {
-          id: string;
-          type: string;
-          method: string;
-          params?: Record<string, unknown>;
-        },
-        (response?: BridgeResponse) => void,
-      ];
+    const [sent, callback] = chromeMock.runtime.sendMessage.mock.calls.slice(-1)[0] as [
+      {
+        id: string;
+        type: string;
+        method: string;
+        params?: Record<string, unknown>;
+      },
+      (response?: BridgeResponse) => void,
+    ];
 
     expect(sent).toMatchObject({
       type: 'mutation',
@@ -205,8 +200,10 @@ describe('ServiceWorkerBridge', () => {
   it('rejects on bridge error response for mutations', async () => {
     const badPromise = bridge.toggleTabPinned(999, false);
 
-    const [sent, callback] = chromeMock.runtime.sendMessage.mock
-      .calls.slice(-1)[0] as [{ id: string }, (response?: BridgeResponse) => void];
+    const [sent, callback] = chromeMock.runtime.sendMessage.mock.calls.slice(-1)[0] as [
+      { id: string },
+      (response?: BridgeResponse) => void,
+    ];
 
     callback?.({ id: sent.id, error: 'tab not found' });
 

@@ -31,7 +31,7 @@ export class ServiceWorkerBridge {
     }
   >();
 
-  constructor(private queryClient: QueryClient) { }
+  constructor(private queryClient: QueryClient) {}
 
   // Send message to Service Worker and wait for response
   private async sendMessage(message: Omit<BridgeMessage, 'id'>): Promise<unknown> {
@@ -52,30 +52,27 @@ export class ServiceWorkerBridge {
       this.pendingRequests.set(id, { resolve, reject, timeout });
 
       try {
-        chrome.runtime.sendMessage(
-          fullMessage,
-          (response?: BridgeResponse) => {
-            clearTimeout(timeout);
-            this.pendingRequests.delete(id);
+        chrome.runtime.sendMessage(fullMessage, (response?: BridgeResponse) => {
+          clearTimeout(timeout);
+          this.pendingRequests.delete(id);
 
-            if (chrome.runtime.lastError) {
-              console.error('[Bridge] Send error:', chrome.runtime.lastError);
-              reject(new Error(chrome.runtime.lastError.message));
-              return;
-            }
+          if (chrome.runtime.lastError) {
+            console.error('[Bridge] Send error:', chrome.runtime.lastError);
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
 
-            if (!response) {
-              reject(new Error('Empty bridge response'));
-              return;
-            }
+          if (!response) {
+            reject(new Error('Empty bridge response'));
+            return;
+          }
 
-            if (response.error) {
-              reject(new Error(response.error));
-            } else {
-              resolve(response.data);
-            }
-          },
-        );
+          if (response.error) {
+            reject(new Error(response.error));
+          } else {
+            resolve(response.data);
+          }
+        });
       } catch (error) {
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
