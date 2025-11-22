@@ -1,16 +1,12 @@
 import { expect, test } from '../fixtures';
 import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
-const popupPath = 'popup.html';
-
 test.describe('Popup UI', () => {
-  test.beforeEach(async ({ page, extensionId }) => {
+  test('renders and toggles tabs', async ({ page, extensionId }) => {
     // Add Service Worker Bridge mock before navigating to popup
     await addServiceWorkerBridgeMock(page);
-  });
 
-  test('renders and toggles tabs', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/${popupPath}`);
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
 
     const spacesHeading = page.getByRole('heading', { name: /Spaces/i, level: 1 });
     await expect(spacesHeading).toBeVisible();

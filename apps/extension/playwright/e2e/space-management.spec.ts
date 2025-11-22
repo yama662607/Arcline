@@ -2,14 +2,12 @@ import { expect, test } from '../fixtures';
 import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
 test.describe('Space Management', () => {
-  test.beforeEach(async ({ page, extensionId }) => {
+  test('should create and manage spaces', async ({ page, extensionId }) => {
     // Add Service Worker Bridge mock before navigating to popup
     await addServiceWorkerBridgeMock(page);
 
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
-  });
 
-  test('should create and manage spaces', async ({ page }) => {
     // Navigate to spaces tab
     await page.getByRole('button', { name: /Spaces/i }).click();
 
@@ -28,7 +26,12 @@ test.describe('Space Management', () => {
     await expect(page.getByText('Test Space')).toBeVisible();
   });
 
-  test('should remove spaces with confirmation', async ({ page }) => {
+  test('should remove spaces with confirmation', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+
     // Navigate to spaces tab
     await page.getByRole('button', { name: /Spaces/i }).click();
 
@@ -47,7 +50,12 @@ test.describe('Space Management', () => {
     await expect(page.getByText('Space to Remove')).not.toBeVisible();
   });
 
-  test('should switch between spaces', async ({ page }) => {
+  test('should switch between spaces', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+
     // Navigate to spaces tab
     await page.getByRole('button', { name: /Spaces/i }).click();
 
@@ -66,15 +74,13 @@ test.describe('Space Management', () => {
 });
 
 test.describe('Settings Panel', () => {
-  test.beforeEach(async ({ page, extensionId }) => {
+  test('should toggle auto-archive setting', async ({ page, extensionId }) => {
     // Add Service Worker Bridge mock before navigating to popup
     await addServiceWorkerBridgeMock(page);
 
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
     await page.getByRole('button', { name: /Settings/i }).click();
-  });
 
-  test('should toggle auto-archive setting', async ({ page }) => {
     // Find and toggle auto-archive checkbox
     const autoArchiveCheckbox = page.getByLabel(/Auto-archive tabs/i);
     await expect(autoArchiveCheckbox).toBeVisible();
@@ -91,7 +97,13 @@ test.describe('Settings Panel', () => {
     await expect(autoArchiveCheckbox).not.toBeChecked();
   });
 
-  test('should adjust auto-archive interval', async ({ page }) => {
+  test('should adjust auto-archive interval', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await page.getByRole('button', { name: /Settings/i }).click();
+
     // Find auto-archive checkbox
     const autoArchiveCheckbox = page.getByLabel(/Auto-archive tabs/i);
 
@@ -112,7 +124,13 @@ test.describe('Settings Panel', () => {
     }
   });
 
-  test('should toggle compact mode', async ({ page }) => {
+  test('should toggle compact mode', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await page.getByRole('button', { name: /Settings/i }).click();
+
     // Find and toggle compact mode checkbox
     const compactCheckbox = page.getByLabel(/Compact mode/i);
     await expect(compactCheckbox).toBeVisible();
@@ -126,7 +144,13 @@ test.describe('Settings Panel', () => {
     await expect(compactCheckbox).not.toBeChecked();
   });
 
-  test('should toggle show favicons setting', async ({ page }) => {
+  test('should toggle show favicons setting', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await page.getByRole('button', { name: /Settings/i }).click();
+
     // Find and toggle show favicons checkbox
     const faviconsCheckbox = page.getByLabel(/Show favicons/i);
     await expect(faviconsCheckbox).toBeVisible();
@@ -140,7 +164,13 @@ test.describe('Settings Panel', () => {
     await expect(faviconsCheckbox).not.toBeChecked();
   });
 
-  test('should toggle animations setting', async ({ page }) => {
+  test('should toggle animations setting', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await page.getByRole('button', { name: /Settings/i }).click();
+
     // Find and toggle animations checkbox
     const animationsCheckbox = page.getByLabel(/Animations/i);
     await expect(animationsCheckbox).toBeVisible();
@@ -156,15 +186,13 @@ test.describe('Settings Panel', () => {
 });
 
 test.describe('Tab Operations', () => {
-  test.beforeEach(async ({ page, extensionId }) => {
+  test('should show tab context menu', async ({ page, extensionId }) => {
     // Add Service Worker Bridge mock before navigating to popup
     await addServiceWorkerBridgeMock(page);
 
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
     await page.getByRole('button', { name: /Spaces/i }).click();
-  });
 
-  test('should show tab context menu', async ({ page }) => {
     // Wait for spaces to load
     await expect(page.getByText('Default Space')).toBeVisible();
 
@@ -179,17 +207,24 @@ test.describe('Tab Operations', () => {
 });
 
 test.describe('Archive Management', () => {
-  test.beforeEach(async ({ page, extensionId }) => {
+  test('should display archived tabs', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
     await page.getByRole('button', { name: /Archive/i }).click();
-  });
 
-  test('should display archived tabs', async ({ page }) => {
     // Should show archive count
     await expect(page.getByText(/Archive \(/i)).toBeVisible();
   });
 
-  test('should restore archived tabs', async ({ page }) => {
+  test('should restore archived tabs', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await page.getByRole('button', { name: /Archive/i }).click();
+
     const restoreButton = page.getByLabel(/Restore tab/i).first();
 
     if (await restoreButton.isVisible()) {
@@ -202,7 +237,13 @@ test.describe('Archive Management', () => {
     }
   });
 
-  test('should permanently delete archived tabs', async ({ page }) => {
+  test('should permanently delete archived tabs', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await page.getByRole('button', { name: /Archive/i }).click();
+
     const deleteButton = page.getByLabel(/Delete tab/i).first();
 
     if (await deleteButton.isVisible()) {

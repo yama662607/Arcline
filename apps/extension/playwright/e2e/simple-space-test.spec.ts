@@ -2,14 +2,12 @@ import { expect, test } from '../fixtures';
 import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
 test.describe('Simple Space Creation Test', () => {
-  test.beforeEach(async ({ page, extensionId }) => {
+  test('should create a new space', async ({ page, extensionId }) => {
     // Add Service Worker Bridge mock before navigating to popup
     await addServiceWorkerBridgeMock(page);
 
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
-  });
 
-  test('should create a new space', async ({ page }) => {
     // Wait for the popup to load
     await page.waitForLoadState('networkidle');
 
@@ -54,7 +52,12 @@ test.describe('Simple Space Creation Test', () => {
     await expect(page.getByText('Test Space')).toBeVisible();
   });
 
-  test('should show error for empty space name', async ({ page }) => {
+  test('should show error for empty space name', async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+
     // Wait for the popup to load
     await page.waitForLoadState('networkidle');
 
