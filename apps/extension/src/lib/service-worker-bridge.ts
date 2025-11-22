@@ -31,29 +31,7 @@ export class ServiceWorkerBridge {
     }
   >();
 
-  constructor(private queryClient: QueryClient) {
-    this.setupMessageListener();
-  }
-
-  private setupMessageListener() {
-    if (!hasChromeRuntime()) return;
-
-    chrome.runtime.onMessage.addListener((message: BridgeResponse) => {
-      const { id, data, error } = message;
-      const pending = this.pendingRequests.get(id);
-
-      if (pending) {
-        clearTimeout(pending.timeout);
-        this.pendingRequests.delete(id);
-
-        if (error) {
-          pending.reject(new Error(error));
-        } else {
-          pending.resolve(data);
-        }
-      }
-    });
-  }
+  constructor(private queryClient: QueryClient) { }
 
   // Send message to Service Worker and wait for response
   private async sendMessage(message: Omit<BridgeMessage, 'id'>): Promise<unknown> {
@@ -69,17 +47,40 @@ export class ServiceWorkerBridge {
         this.pendingRequests.delete(id);
         console.error('[Bridge] Request timeout:', message.method);
         reject(new Error(`Bridge request timeout: ${message.method}`));
-      }, 5000); // 5 second timeout
+      }, 5000);
 
       this.pendingRequests.set(id, { resolve, reject, timeout });
 
       try {
-        chrome.runtime.sendMessage(fullMessage);
+        chrome.runtime.sendMessage(
+          fullMessage,
+          (response?: BridgeResponse) => {
+            clearTimeout(timeout);
+            this.pendingRequests.delete(id);
+
+            if (chrome.runtime.lastError) {
+              console.error('[Bridge] Send error:', chrome.runtime.lastError);
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+
+            if (!response) {
+              reject(new Error('Empty bridge response'));
+              return;
+            }
+
+            if (response.error) {
+              reject(new Error(response.error));
+            } else {
+              resolve(response.data);
+            }
+          },
+        );
       } catch (error) {
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
         console.error('[Bridge] Send error:', error);
-        reject(error);
+        reject(error as Error);
       }
     });
   }
