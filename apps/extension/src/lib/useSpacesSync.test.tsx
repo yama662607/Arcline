@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { SpaceSnapshot } from '@/shared/spaces';
 import { useSpacesStore } from '@/store';
 import { useSpacesSync } from './useSpacesSync';
 
@@ -27,13 +28,20 @@ vi.mock('@/store', () => ({
   useSpacesStore: vi.fn(),
 }));
 
+type MockSpacesState = {
+  spaces: SpaceSnapshot[];
+  activeSpaceId: number | null;
+  setSpaces: (spaces: SpaceSnapshot[]) => void;
+  setActiveSpace: (spaceId: number) => void;
+};
+
 // Mock the store implementation
-const mockStore = {
-  spaces: [] as any[],
-  activeSpaceId: null as any,
-  setSpaces: vi.fn(),
-  setActiveSpace: vi.fn(),
-} as any;
+const mockStore: MockSpacesState = {
+  spaces: [],
+  activeSpaceId: null,
+  setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
+  setActiveSpace: vi.fn<(spaceId: number) => void>(),
+};
 
 vi.mocked(useSpacesStore).mockImplementation((selector) => {
   return selector(mockStore);

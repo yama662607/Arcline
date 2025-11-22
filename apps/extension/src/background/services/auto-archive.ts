@@ -26,9 +26,9 @@ export async function setupAutoArchiveAlarm(enabled: boolean, idleMinutes: numbe
         periodInMinutes: delayMinutes,
       });
 
-      console.error(`[Arcline] Auto-archive alarm set: ${idleMinutes} minutes`);
+      console.info(`[Arcline] Auto-archive alarm set: ${idleMinutes} minutes`);
     } else {
-      console.error('[Arcline] Auto-archive alarm disabled');
+      console.info('[Arcline] Auto-archive alarm disabled');
     }
   } catch (error) {
     console.error('[Arcline] Failed to setup auto-archive alarm:', error);
@@ -43,7 +43,7 @@ export async function runAutoArchiveCheck(): Promise<void> {
   try {
     const settings = await getAutoArchiveSettings();
     if (!settings.enabled) {
-      console.error('[Arcline] Auto-archive is disabled');
+      console.info('[Arcline] Auto-archive is disabled');
       return;
     }
 
@@ -53,7 +53,7 @@ export async function runAutoArchiveCheck(): Promise<void> {
     const archivedCount = await archiveInactiveTabs(tabActivity, currentTime, idleThreshold);
 
     if (archivedCount > 0) {
-      console.error(`[Arcline] Auto-archived ${archivedCount} inactive tabs`);
+      console.info(`[Arcline] Auto-archived ${archivedCount} inactive tabs`);
     }
   } catch (error) {
     console.error('[Arcline] Failed to run auto-archive check:', error);
@@ -90,7 +90,7 @@ export async function archiveInactiveTabs(
         try {
           await archiveTab(tab.id);
           archivedCount++;
-          console.error(`[Arcline] Auto-archived tab: ${tab.title} (${tab.url})`);
+          console.info(`[Arcline] Auto-archived tab: ${tab.title} (${tab.url})`);
         } catch (error) {
           console.warn(`[Arcline] Failed to archive tab ${tab.id}:`, error);
         }
@@ -176,7 +176,7 @@ export function setupTabActivityListeners(): void {
     await removeTabLastActivity(tabId);
   });
 
-  console.error('[Arcline] Tab activity listeners initialized');
+  console.info('[Arcline] Tab activity listeners initialized');
 }
 
 /**
@@ -189,7 +189,7 @@ export function setupAlarmListener(): void {
     }
   });
 
-  console.error('[Arcline] Alarm listener initialized');
+  console.info('[Arcline] Alarm listener initialized');
 }
 
 /**
@@ -214,7 +214,7 @@ export async function initializeAutoArchive(): Promise<void> {
     const settings = await getAutoArchiveSettings();
     await setupAutoArchiveAlarm(settings.enabled, settings.idleMinutes);
 
-    console.error('[Arcline] Auto-archive functionality initialized');
+    console.info('[Arcline] Auto-archive functionality initialized');
   } catch (error) {
     console.error('[Arcline] Failed to initialize auto-archive:', error);
   }
