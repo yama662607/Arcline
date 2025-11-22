@@ -522,3 +522,9 @@ if (typeof chrome.tabGroups !== 'undefined') {
     void broadcastSpacesSnapshot();
   });
 }
+
+if (import.meta.env.MODE === 'test') {
+  setInterval(() => {
+    chrome.runtime.getPlatformInfo(() => {});
+  }, 20000);
+}

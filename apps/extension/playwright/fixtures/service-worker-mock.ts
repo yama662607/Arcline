@@ -20,36 +20,42 @@ export interface MockSpace {
 export async function addServiceWorkerBridgeMock(page: Page) {
   await page.addInitScript(() => {
     // Extend window interface for Chrome APIs
+    interface RuntimeOnMessageMock {
+      addListener: (
+        listener: (
+          response: unknown,
+          sender: chrome.runtime.MessageSender,
+          sendResponse: (response?: unknown) => void
+        ) => void
+      ) => void;
+      removeListener: (
+        listener: (
+          response: unknown,
+          sender: chrome.runtime.MessageSender,
+          sendResponse: (response?: unknown) => void
+        ) => void
+      ) => void;
+      hasListeners: () => boolean;
+    }
+
+    interface ChromeRuntimeMock {
+      sendMessage?: (
+        message: {
+          type?: string;
+          method?: string;
+          params?: { spaceId?: number; name?: string; color?: string; pinned?: boolean };
+        },
+        callback?: (response: unknown) => void
+      ) => void;
+      onMessage?: RuntimeOnMessageMock;
+    }
+
+    interface ChromeMock {
+      runtime?: ChromeRuntimeMock;
+    }
+
     interface ExtendedWindow extends Window {
-      chrome?: {
-        runtime?: {
-          sendMessage?: (
-            message: {
-              type?: string;
-              method?: string;
-              params?: { spaceId?: number; name?: string; color?: string; pinned?: boolean };
-            },
-            callback?: (response: unknown) => void
-          ) => void;
-          onMessage?: {
-            addListener: (
-              listener: (
-                response: unknown,
-                sender: chrome.runtime.MessageSender,
-                sendResponse: (response?: unknown) => void
-              ) => void
-            ) => void;
-            removeListener: (
-              listener: (
-                response: unknown,
-                sender: chrome.runtime.MessageSender,
-                sendResponse: (response?: unknown) => void
-              ) => void
-            ) => void;
-            hasListeners: () => boolean;
-          };
-        };
-      };
+      chrome?: ChromeMock;
     }
 
     const extendedWindow = window as ExtendedWindow;
@@ -61,6 +67,11 @@ export async function addServiceWorkerBridgeMock(page: Page) {
 
     if (!extendedWindow.chrome.runtime) {
       extendedWindow.chrome.runtime = {};
+    }
+
+    const chromeRuntime = extendedWindow.chrome.runtime;
+    if (!chromeRuntime) {
+      return;
     }
 
     // Store message listeners and mock state
@@ -82,7 +93,6 @@ export async function addServiceWorkerBridgeMock(page: Page) {
     ];
 
     // Mock chrome.runtime.sendMessage for Service Worker Bridge
-    const chromeRuntime = extendedWindow.chrome.runtime;
     const originalSendMessage = chromeRuntime.sendMessage;
 
     chromeRuntime.sendMessage = (
@@ -240,7 +250,7 @@ export async function addServiceWorkerBridgeMock(page: Page) {
     }
 
     // Mock onMessage to capture listeners
-    chromeRuntime.onMessage = {
+    const runtimeOnMessageMock: RuntimeOnMessageMock = {
       addListener: (
         listener: (
           response: unknown,
@@ -264,5 +274,7 @@ export async function addServiceWorkerBridgeMock(page: Page) {
       },
       hasListeners: () => messageListeners.length > 0,
     };
+
+    chromeRuntime.onMessage = runtimeOnMessageMock;
   });
 }

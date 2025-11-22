@@ -10,6 +10,7 @@ export const extensionDistPath = join(currentDir, '..', '..', 'dist');
 export const EXTENSION_PROTOCOL = 'chrome-extension://';
 export const UI_MODE_KEY = 'arclineoMode';
 export const SERVICE_WORKER_TIMEOUT = 60_000;
+export const TEST_EXTENSION_ID = process.env.ARCLINE_TEST_EXTENSION_ID;
 
 export type UiMode = 'floating' | 'side-panel' | 'popup';
 
@@ -87,6 +88,14 @@ export async function resolveExtensionId(context: BrowserContext): Promise<strin
   throw new Error('Chrome 拡張の service worker が起動せず、拡張 ID を取得できませんでした。');
 }
 
+export async function getExtensionId(context: BrowserContext): Promise<string> {
+  if (TEST_EXTENSION_ID && TEST_EXTENSION_ID.length > 0) {
+    return TEST_EXTENSION_ID;
+  }
+
+  return resolveExtensionId(context);
+}
+
 export function attachServiceWorkerLogging(
   worker: Worker,
   testInfoId: string,
@@ -116,12 +125,22 @@ export function attachServiceWorkerLogging(
     pushAnnotation(entry);
   };
 
-  worker.on('console', consoleListener);
-  worker.on('crash', crashListener);
+  (worker as unknown as { on: (event: string, listener: (...args: unknown[]) => void) => void }).on(
+    'console',
+    consoleListener
+  );
+  (worker as unknown as { on: (event: string, listener: (...args: unknown[]) => void) => void }).on(
+    'close',
+    crashListener
+  );
 
   return () => {
-    worker.off('console', consoleListener);
-    worker.off('crash', crashListener);
+    (
+      worker as unknown as { off: (event: string, listener: (...args: unknown[]) => void) => void }
+    ).off('console', consoleListener);
+    (
+      worker as unknown as { off: (event: string, listener: (...args: unknown[]) => void) => void }
+    ).off('close', crashListener);
   };
 }
 

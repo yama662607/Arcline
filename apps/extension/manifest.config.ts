@@ -2,8 +2,9 @@ import { defineManifest } from '@crxjs/vite-plugin';
 
 const manifest = defineManifest(({ mode }) => {
   const isDev = mode === 'development';
+  const isTest = mode === 'test' || process.env.NODE_ENV === 'test';
 
-  return {
+  const manifestBase = {
     manifest_version: 3,
     name: isDev ? 'Arcline (Dev)' : 'Arcline',
     description: 'Arc ブラウザ風の垂直タブ体験を Atlas / Arc / Chrome で提供する拡張機能',
@@ -74,6 +75,12 @@ const manifest = defineManifest(({ mode }) => {
       },
     ],
   };
+
+  if (isTest && process.env.ARCLINE_TEST_EXTENSION_KEY) {
+    (manifestBase as { key?: string }).key = process.env.ARCLINE_TEST_EXTENSION_KEY;
+  }
+
+  return manifestBase;
 });
 
 export default manifest;

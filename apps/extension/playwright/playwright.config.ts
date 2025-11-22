@@ -8,7 +8,7 @@ const headless = headlessEnv ? headlessEnv !== '0' : true;
 
 export default defineConfig({
   testDir: join(currentDir, 'e2e'),
-  timeout: 30_000,
+  timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: [

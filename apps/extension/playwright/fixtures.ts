@@ -8,8 +8,8 @@ import {
 import {
   attachServiceWorkerLogging,
   ensureUiMode as ensureUiModeInStorage,
+  getExtensionId,
   launchExtensionContext,
-  resolveExtensionId,
   type UiMode,
   waitForExtensionServiceWorker,
 } from './fixtures/extension';
@@ -37,7 +37,7 @@ export const test = base.extend<{
     }
   },
   extensionId: async ({ context }, use) => {
-    const id = await resolveExtensionId(context);
+    const id = await getExtensionId(context);
     await use(id);
   },
   serviceWorker: async ({ context }, use, testInfo) => {
