@@ -1,6 +1,12 @@
 import { expect, test } from '../fixtures';
+import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
 test.describe('Floating UI integration', () => {
+  test.beforeEach(async ({ page }) => {
+    // Add Service Worker Bridge mock for floating UI
+    await addServiceWorkerBridgeMock(page);
+  });
+
   test('hotzone hover opens floating panel', async ({ page }) => {
     await page.goto('https://example.com/', { waitUntil: 'domcontentloaded' });
 

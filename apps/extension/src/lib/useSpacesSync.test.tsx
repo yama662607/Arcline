@@ -27,6 +27,16 @@ vi.mock('@/store', () => ({
   useSpacesStore: vi.fn(),
 }));
 
+// Mock the store implementation
+const mockStore = {
+  setSpaces: vi.fn(),
+  setActiveSpace: vi.fn(),
+} as any;
+
+vi.mocked(useSpacesStore).mockImplementation((selector) => {
+  return selector(mockStore);
+});
+
 describe('useSpacesSync', () => {
   let queryClient: QueryClient;
 
@@ -49,25 +59,11 @@ describe('useSpacesSync', () => {
   };
 
   it('should render without errors', () => {
-    const mockSetSpaces = vi.fn();
-    const mockSetActiveSpace = vi.fn();
-    vi.mocked(useSpacesStore).mockReturnValue({
-      setSpaces: mockSetSpaces,
-      setActiveSpace: mockSetActiveSpace,
-    });
-
     renderWithQuery(<TestComponent />);
     expect(screen.getByTestId('test-component')).toBeInTheDocument();
   });
 
   it('should cleanup listeners on unmount', () => {
-    const mockSetSpaces = vi.fn();
-    const mockSetActiveSpace = vi.fn();
-    vi.mocked(useSpacesStore).mockReturnValue({
-      setSpaces: mockSetSpaces,
-      setActiveSpace: mockSetActiveSpace,
-    });
-
     const { unmount } = renderWithQuery(<TestComponent />);
 
     // Component should unmount without errors

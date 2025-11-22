@@ -1,7 +1,11 @@
 import { expect, test } from '../fixtures';
+import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
 test.describe('Keyboard Shortcuts', () => {
   test.beforeEach(async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
   });
 

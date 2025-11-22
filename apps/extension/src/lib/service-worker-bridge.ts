@@ -64,9 +64,12 @@ export class ServiceWorkerBridge {
     const id = `bridge_${Date.now()}_${Math.random()}`;
     const fullMessage: BridgeMessage = { ...message, id };
 
+    console.log('[Bridge] Sending message:', fullMessage);
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(id);
+        console.error('[Bridge] Request timeout:', message.method);
         reject(new Error(`Bridge request timeout: ${message.method}`));
       }, 5000); // 5 second timeout
 
@@ -77,6 +80,7 @@ export class ServiceWorkerBridge {
       } catch (error) {
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
+        console.error('[Bridge] Send error:', error);
         reject(error);
       }
     });

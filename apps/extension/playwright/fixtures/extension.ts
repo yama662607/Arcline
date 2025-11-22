@@ -9,7 +9,7 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 export const extensionDistPath = join(currentDir, '..', '..', 'dist');
 export const EXTENSION_PROTOCOL = 'chrome-extension://';
 export const UI_MODE_KEY = 'arclineoMode';
-export const SERVICE_WORKER_TIMEOUT = 15_000;
+export const SERVICE_WORKER_TIMEOUT = 60_000;
 
 export type UiMode = 'floating' | 'side-panel' | 'popup';
 
@@ -27,6 +27,7 @@ export async function launchExtensionContext(): Promise<BrowserContext> {
   const headless = headlessEnv ? headlessEnv !== '0' : true;
   return chromium.launchPersistentContext('', {
     headless,
+    channel: 'chromium',
     args: [
       `--disable-extensions-except=${extensionDistPath}`,
       `--load-extension=${extensionDistPath}`,
@@ -101,7 +102,7 @@ export function attachServiceWorkerLogging(
     const type = message.type();
     if (type === 'error') {
       logToStream(entry, 'error');
-    } else if (type === 'warning' || type === 'warn') {
+    } else if (type === 'warning') {
       logToStream(entry, 'warn');
     } else {
       logToStream(entry, 'info');

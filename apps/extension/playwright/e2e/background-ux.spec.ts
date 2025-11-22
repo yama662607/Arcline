@@ -1,6 +1,12 @@
 import { expect, test } from '../fixtures';
+import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
 test.describe('Background Service Worker Integration', () => {
+  test.beforeEach(async ({ page }) => {
+    // Add Service Worker Bridge mock for background integration tests
+    await addServiceWorkerBridgeMock(page);
+  });
+
   test('syncs UI mode preference and reflects in UI shell', async ({ extensionId, page }) => {
     await page.goto(`chrome-extension://${extensionId}/index.html`, {
       waitUntil: 'domcontentloaded',
@@ -15,7 +21,7 @@ test.describe('Background Service Worker Integration', () => {
         (
           globalThis as { __requestUiModeCallback?: (mode: string) => void }
         ).__requestUiModeCallback = resolve;
-        chrome.runtime.sendMessage({ command: 'requestUiMode' }, () => {});
+        chrome.runtime.sendMessage({ command: 'requestUiMode' }, () => { });
       });
     });
 
@@ -163,7 +169,7 @@ test.describe('Background Service Worker Integration', () => {
     });
 
     await page.evaluate(() => {
-      chrome.runtime.sendMessage({ command: 'requestSpacesSnapshot' }, () => {});
+      chrome.runtime.sendMessage({ command: 'requestSpacesSnapshot' }, () => { });
     });
 
     await expect(spacesUpdatedPromise).resolves.toBe(true);

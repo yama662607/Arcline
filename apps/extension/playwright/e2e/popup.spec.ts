@@ -1,8 +1,14 @@
 import { expect, test } from '../fixtures';
+import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
 const popupPath = 'popup.html';
 
 test.describe('Popup UI', () => {
+  test.beforeEach(async ({ page, extensionId }) => {
+    // Add Service Worker Bridge mock before navigating to popup
+    await addServiceWorkerBridgeMock(page);
+  });
+
   test('renders and toggles tabs', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/${popupPath}`);
 
