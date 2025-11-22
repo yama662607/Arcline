@@ -143,7 +143,7 @@ const FloatingUiRoot = forwardRef<
           <span
             className="absolute inset-y-0 left-0 w-full rounded-r transition-all duration-200"
             style={{
-              opacity: open || pinned ? 0.65 : 0,
+              opacity: 0,
               background: 'linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.1))',
               transform: pinned ? 'scaleY(1.02)' : 'scaleY(1)',
             }}
@@ -158,7 +158,8 @@ const FloatingUiRoot = forwardRef<
             <motion.aside
               key="arcline-floating-panel"
               data-testid="arcline-floating-panel"
-              className="ml-2 flex h-full flex-1"
+              className="-ml-4 flex h-full flex-1"
+              style={{ marginLeft: '-2px', marginTop: '4px', marginBottom: '4px' }}
               initial={{ x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '-102%', opacity: 0 }}
@@ -166,7 +167,10 @@ const FloatingUiRoot = forwardRef<
               onPointerEnter={cancelClose}
               onPointerLeave={scheduleClose}
             >
-              <div className="flex h-full w-[320px] flex-col overflow-hidden rounded-r-2xl border border-white/10 bg-slate-950/95 shadow-xl shadow-black/50 backdrop-blur">
+              <div
+                className="flex w-[320px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 shadow-xl shadow-black/50 backdrop-blur"
+                style={{ borderRadius: '16px', height: 'calc(100vh - 8px)' }}
+              >
                 <Suspense
                   fallback={
                     <div className="flex h-full items-center justify-center text-sm text-slate-300">
