@@ -19,8 +19,8 @@ test.describe('Space Management', () => {
     // Verify space appears in list
     await expect(page.getByText('Test Space')).toBeVisible();
 
-    // Switch to the new space
-    await page.getByText('Test Space').click();
+    // Switch to the new space using role=button
+    await page.locator('div[role="button"]', { hasText: 'Test Space' }).click();
 
     // Verify space is now active (check if Switch button is visible for active space)
     await expect(page.getByText('Test Space')).toBeVisible();
@@ -41,9 +41,9 @@ test.describe('Space Management', () => {
     await page.getByRole('button', { name: /Create/i }).click();
     await expect(page.getByText('Space to Remove')).toBeVisible();
 
-    // Remove the space - use more specific selector
-    const spaceToRemove = page.getByText('Space to Remove');
-    const removeButton = spaceToRemove.locator('..').getByLabel('Remove space');
+    // Remove the space - use more specific selector for div[role="button"]
+    const spaceToRemove = page.locator('div[role="button"]', { hasText: 'Space to Remove' });
+    const removeButton = spaceToRemove.getByLabel('Remove space');
     await removeButton.click();
 
     // Verify space is removed (should not be visible anymore)
@@ -64,11 +64,11 @@ test.describe('Space Management', () => {
     await page.getByPlaceholder('Space name').fill('Second Space');
     await page.getByRole('button', { name: /Create/i }).click();
 
-    // Switch between spaces
-    await page.getByText('Default Space').click();
+    // Switch between spaces using role=button
+    await page.locator('div[role="button"]', { hasText: 'Default Space' }).click();
     await expect(page.getByText('Default Space')).toBeVisible();
 
-    await page.getByText('Second Space').click();
+    await page.locator('div[role="button"]', { hasText: 'Second Space' }).click();
     await expect(page.getByText('Second Space')).toBeVisible();
   });
 });
@@ -197,7 +197,7 @@ test.describe('Tab Operations', () => {
     await expect(page.getByText('Default Space')).toBeVisible();
 
     // Right-click on a space to show context menu (if implemented)
-    const spaceButton = page.getByText('Default Space');
+    const spaceButton = page.locator('div[role="button"]', { hasText: 'Default Space' });
     await expect(spaceButton).toBeVisible();
 
     // Basic interaction test - the space should be clickable
