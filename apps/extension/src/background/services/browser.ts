@@ -525,7 +525,49 @@ export async function closeTab(tabId: number): Promise<void> {
 }
 
 export async function activateTab(tabId: number): Promise<void> {
-  await chrome.tabs.update(tabId, { active: true });
+  // Atlasブラウザデバッグ用ログ
+  const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
+  const browserInfo = {
+    userAgent: navigator.userAgent,
+    isAtlas,
+    tabId,
+    timestamp: new Date().toISOString(),
+  };
+
+  console.log('[Arcline] 🚀 activateTab called with:', browserInfo);
+
+  try {
+    // タブの存在確認
+    const tab = await chrome.tabs.get(tabId);
+    console.log('[Arcline] 📋 Tab found:', {
+      id: tab.id,
+      title: tab.title,
+      url: tab.url,
+      active: tab.active,
+      windowId: tab.windowId,
+    });
+
+    // アクティベート実行
+    console.log('[Arcline] ⚡ Executing chrome.tabs.update...');
+    await chrome.tabs.update(tabId, { active: true });
+
+    // 結果確認
+    const updatedTab = await chrome.tabs.get(tabId);
+    console.log('[Arcline] ✅ Tab activated successfully:', {
+      id: updatedTab.id,
+      active: updatedTab.active,
+      lastActive: updatedTab.lastAccessed,
+    });
+  } catch (error) {
+    console.error('[Arcline] ❌ activateTab failed:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : 'No stack available',
+      browserInfo,
+      chromeRuntimeAvailable: !!chrome.runtime,
+      chromeTabsAvailable: !!chrome.tabs,
+    });
+    throw error;
+  }
 }
 
 // Settings management

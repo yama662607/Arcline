@@ -4,6 +4,9 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "a11y": {
+        "useSemanticElements": "off"
+      },
       "complexity": {
         "noExcessiveCognitiveComplexity": "warn",
         "noExtraBooleanCast": "error"
@@ -21,7 +24,7 @@
         "noConsole": {
           "level": "warn",
           "options": {
-            "allow": ["warn", "error", "info", "debug"]
+            "allow": ["warn", "error", "info", "debug", "log"]
           }
         },
         "noDebugger": "error"

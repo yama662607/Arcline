@@ -35,17 +35,38 @@ export class ServiceWorkerBridge {
 
   // Send message to Service Worker and wait for response
   private async sendMessage(message: Omit<BridgeMessage, 'id'>): Promise<unknown> {
+    const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
+
     if (!hasChromeRuntime()) {
+      console.error('[Arcline] ❌ Chrome runtime not available:', {
+        isAtlas,
+        userAgent: navigator.userAgent,
+        message,
+      });
       throw new Error('Chrome runtime not available');
     }
 
     const id = `bridge_${Date.now()}_${Math.random()}`;
     const fullMessage: BridgeMessage = { ...message, id };
 
+    console.log('[Arcline] 📤 Sending bridge message:', {
+      id,
+      type: message.type,
+      method: message.method,
+      params: message.params,
+      isAtlas,
+      timestamp: new Date().toISOString(),
+    });
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(id);
-        console.error('[Bridge] Request timeout:', message.method);
+        console.error('[Arcline] ⏰ Bridge request timeout:', {
+          method: message.method,
+          id,
+          isAtlas,
+          timeoutMs: 5000,
+        });
         reject(new Error(`Bridge request timeout: ${message.method}`));
       }, 5000);
 
@@ -56,28 +77,64 @@ export class ServiceWorkerBridge {
           clearTimeout(timeout);
           this.pendingRequests.delete(id);
 
+          console.log('[Arcline] 📥 Bridge response received:', {
+            id,
+            method: message.method,
+            hasResponse: !!response,
+            hasError: !!response?.error,
+            hasData: !!response?.data,
+            isAtlas,
+            timestamp: new Date().toISOString(),
+          });
+
           if (chrome.runtime.lastError) {
-            console.error('[Bridge] Send error:', chrome.runtime.lastError);
+            console.error('[Arcline] ❌ Bridge send error:', {
+              error: chrome.runtime.lastError.message,
+              method: message.method,
+              id,
+              isAtlas,
+            });
             reject(new Error(chrome.runtime.lastError.message));
             return;
           }
 
           if (!response) {
+            console.error('[Arcline] ❌ Empty bridge response:', {
+              method: message.method,
+              id,
+              isAtlas,
+            });
             reject(new Error('Empty bridge response'));
             return;
           }
 
           if (response.error) {
+            console.error('[Arcline] ❌ Bridge response error:', {
+              error: response.error,
+              method: message.method,
+              id,
+              isAtlas,
+            });
             reject(new Error(response.error));
           } else {
+            console.log('[Arcline] ✅ Bridge response success:', {
+              method: message.method,
+              id,
+              isAtlas,
+            });
             resolve(response.data);
           }
         });
       } catch (error) {
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
-        console.error('[Bridge] Send error:', error);
-        reject(error as Error);
+        console.error('[Arcline] ❌ Bridge send exception:', {
+          error: error instanceof Error ? error.message : String(error),
+          method: message.method,
+          id,
+          isAtlas,
+        });
+        reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
   }
@@ -154,6 +211,14 @@ export class ServiceWorkerBridge {
   }
 
   async activateTab(tabId: number): Promise<void> {
+    const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
+    console.log('[Arcline] 🌉 Bridge activateTab called:', {
+      tabId,
+      isAtlas,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+    });
+
     return this.sendMessage({
       type: 'mutation',
       method: 'activateTab',

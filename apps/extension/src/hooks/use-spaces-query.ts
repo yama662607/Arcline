@@ -129,8 +129,38 @@ export function useActivateTab() {
 
   return useMutation<void, Error, number>({
     mutationFn: async (tabId: number) => {
-      if (!bridge) throw new Error('Service Worker bridge not available');
-      await bridge.activateTab(tabId);
+      const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
+      console.log('[Arcline] 🎯 useActivateTab mutation called:', {
+        tabId,
+        isAtlas,
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+      });
+
+      if (!bridge) {
+        console.error('[Arcline] ❌ Service Worker bridge not available:', {
+          tabId,
+          isAtlas,
+        });
+        throw new Error('Service Worker bridge not available');
+      }
+
+      try {
+        console.log('[Arcline] 🔄 Calling bridge.activateTab...');
+        await bridge.activateTab(tabId);
+        console.log('[Arcline] ✅ useActivateTab completed successfully:', {
+          tabId,
+          isAtlas,
+        });
+      } catch (error) {
+        console.error('[Arcline] ❌ useActivateTab failed:', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : 'No stack available',
+          tabId,
+          isAtlas,
+        });
+        throw error instanceof Error ? error : new Error(String(error));
+      }
     },
     // Don't invalidate on activate as it doesn't change spaces data
   });

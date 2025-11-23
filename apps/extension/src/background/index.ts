@@ -298,18 +298,36 @@ export const commandHandlers: Record<string, CommandHandler> = {
   },
   activateTab: (message, sendResponse) => {
     const { tabId } = message as { tabId?: number };
+    const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
+
+    console.log('[Arcline] 🎯 activateTab handler called:', {
+      tabId,
+      isAtlas,
+      userAgent: navigator.userAgent,
+      message,
+      timestamp: new Date().toISOString(),
+    });
+
     if (typeof tabId !== 'number') {
+      console.error('[Arcline] ❌ Invalid tabId:', tabId);
       sendResponse({ ok: false, error: 'tabId is required' });
       return false;
     }
 
     return respondAsync(async () => {
       try {
+        console.log('[Arcline] 🔄 Calling activateTab function...');
         await activateTab(tabId);
+        console.log('[Arcline] ✅ activateTab completed successfully');
         sendResponse({ ok: true });
       } catch (error) {
-        console.error('Failed to activate tab', error);
-        sendResponse({ ok: false, error: (error as Error).message });
+        console.error('[Arcline] ❌ activateTab handler failed:', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : 'No stack available',
+          tabId,
+          isAtlas,
+        });
+        sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) });
       }
     });
   },
