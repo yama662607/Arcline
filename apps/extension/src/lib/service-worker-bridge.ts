@@ -269,6 +269,27 @@ export class ServiceWorkerBridge {
       queryKey: queryKeys.archivedTabs,
       queryFn: () => this.getArchivedTabs(),
     });
+
+    // Listen for spacesSnapshot broadcasts from Service Worker
+    if (hasChromeRuntime()) {
+      chrome.runtime.onMessage.addListener((message: unknown) => {
+        if (
+          typeof message === 'object' &&
+          message !== null &&
+          'command' in message &&
+          (message as { command?: string }).command === 'spacesSnapshot' &&
+          'spaces' in message
+        ) {
+          const { spaces } = message as { spaces: SpaceSnapshot[] };
+          this.updateSpacesCache(spaces);
+        }
+      });
+    }
+  }
+
+  // Update spaces cache directly (used when receiving broadcast from Service Worker)
+  updateSpacesCache(spaces: SpaceSnapshot[]) {
+    this.queryClient.setQueryData(queryKeys.spacesSnapshot, spaces);
   }
 
   // Cleanup method

@@ -163,14 +163,23 @@ async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
   }
 }
 
-async function openFloatingUiOnTab(tabId: number): Promise<void> {
+async function openFloatingUiOnTab(tabId: number, spaces: SpaceSnapshot[]): Promise<void> {
   try {
-    chrome.tabs.sendMessage(tabId, { command: 'openFloatingUiInstantly' }, () => {
-      // コンテンツスクリプトがまだ準備できていない場合は無視
+    // まずスペースデータを送信してReact Queryのキャッシュを更新
+    chrome.tabs.sendMessage(tabId, { command: 'spacesSnapshot', spaces }, () => {
       if (chrome.runtime.lastError) {
-        // Silent fail - content script may not be ready yet
+        // Silent fail
       }
     });
+
+    // 少し遅延してからFloating UIを開く（データが先に到着するように）
+    setTimeout(() => {
+      chrome.tabs.sendMessage(tabId, { command: 'openFloatingUiInstantly' }, () => {
+        if (chrome.runtime.lastError) {
+          // Silent fail - content script may not be ready yet
+        }
+      });
+    }, 50);
   } catch {
     // Silent fail
   }
@@ -189,8 +198,11 @@ export async function navigateSpace(direction: SwipeDirection): Promise<boolean>
 
   await focusWindowIfNeeded(target.tab.windowId);
 
-  // 移動先タブでFloating UIを即座に開く（アニメーションなし）
-  await openFloatingUiOnTab(target.tab.id);
+  // スペースデータを取得して移動先タブに送信
+  const spaces = await getSpacesSnapshot();
+
+  // 移動先タブでFloating UIを即座に開く（スペースデータ付き）
+  await openFloatingUiOnTab(target.tab.id, spaces);
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(target.space.id);

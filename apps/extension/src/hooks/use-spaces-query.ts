@@ -13,6 +13,8 @@ export function useSpacesSnapshot() {
     queryFn: () => bridge?.getSpacesSnapshot(),
     staleTime: 1000 * 30, // 30 seconds
     refetchInterval: 1000 * 60, // 1 minute
+    retry: 3, // タブ移動時の一時的な通信エラーに対応
+    retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 3000),
   });
 }
 
