@@ -14,6 +14,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
   const [newSpaceColor, setNewSpaceColor] = useState<TabGroupColor>('blue');
 
   const { data: spaces = [], isLoading, error } = useSpacesSnapshot();
+
   const createSpaceMutation = useCreateSpace();
   const removeSpaceMutation = useRemoveSpace();
   const { setActiveSpace } = useSpacesStore();

@@ -4,7 +4,7 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
 } from 'react';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import {
   useActivateTab,
@@ -41,6 +41,62 @@ function safeHostname(url: string): string {
   }
 }
 
+function useTabRowHandlers(
+  tab: TabEntry,
+  onSelect: (tab: TabEntry) => void,
+  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => void,
+  onDragStart?: (event: ReactDragEvent<HTMLButtonElement>, tab: TabEntry) => void,
+  onDragOver?: (event: ReactDragEvent<HTMLButtonElement>) => void,
+  onDrop?: (event: ReactDragEvent<HTMLButtonElement>, targetTab: TabEntry) => void
+) {
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault();
+        onSelect(tab);
+      }
+    },
+    [onSelect, tab]
+  );
+
+  const handleContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      onContextMenu?.(tab, event);
+    },
+    [onContextMenu, tab]
+  );
+
+  const handleDragStart = useCallback(
+    (event: ReactDragEvent<HTMLButtonElement>) => {
+      onDragStart?.(event, tab);
+    },
+    [onDragStart, tab]
+  );
+
+  const handleDragOver = useCallback(
+    (event: ReactDragEvent<HTMLButtonElement>) => {
+      onDragOver?.(event);
+    },
+    [onDragOver]
+  );
+
+  const handleDrop = useCallback(
+    (event: ReactDragEvent<HTMLButtonElement>) => {
+      onDrop?.(event, tab);
+    },
+    [onDrop, tab]
+  );
+
+  return {
+    handleKeyDown,
+    handleContextMenu,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+  };
+}
+
 function TabRow({
   tab,
   compact,
@@ -56,10 +112,13 @@ function TabRow({
   onDragOver,
   onDrop,
 }: TabRowProps) {
+  const { handleKeyDown, handleContextMenu, handleDragStart, handleDragOver, handleDrop } =
+    useTabRowHandlers(tab, onSelect, onContextMenu, onDragStart, onDragOver, onDrop);
+
   const containerClasses = [
     variant === 'floating'
-      ? `group flex items-center gap-2 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded hover:bg-surface-light transition-colors`
-      : `group flex items-center gap-3 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light transition-colors border-b border-surface-light/50`,
+      ? `group flex items-center gap-2 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded hover:bg-surface-light transition-colors overflow-x-hidden`
+      : `group flex items-center gap-3 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light transition-colors border-b border-surface-light/50 overflow-x-hidden`,
     tab.active ? 'bg-surface-light' : '',
     isDragged ? 'opacity-50' : '',
   ]
@@ -74,33 +133,12 @@ function TabRow({
         type="button"
         className="flex flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         onClick={() => onSelect(tab)}
-        onKeyDown={(event: ReactKeyboardEvent<HTMLButtonElement>) => {
-          if (event.key === ' ' || event.key === 'Enter') {
-            // Space already activates button but we prevent scroll bounce
-            event.preventDefault();
-            onSelect(tab);
-          }
-        }}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          onContextMenu?.(tab, event);
-        }}
+        onKeyDown={handleKeyDown}
+        onContextMenu={handleContextMenu}
         draggable={Boolean(onDragStart)}
-        onDragStart={
-          onDragStart
-            ? (event) => {
-                onDragStart(event, tab);
-              }
-            : undefined
-        }
-        onDragOver={onDragOver}
-        onDrop={
-          onDrop
-            ? (event) => {
-                onDrop(event, tab);
-              }
-            : undefined
-        }
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         <div className="flex-shrink-0">
           {showFavicons && tab.favIconUrl ? (
@@ -120,9 +158,14 @@ function TabRow({
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="text-sm text-slate-200 truncate">{tab.title}</div>
-          <div className="text-xs text-slate-500 truncate">
+        <div className="flex-1 min-w-0 max-w-0">
+          <div className="text-sm text-slate-200 truncate" title={tab.title}>
+            {tab.title}
+          </div>
+          <div
+            className="text-xs text-slate-500 truncate"
+            title={tab.url ? safeHostname(tab.url) : ''}
+          >
             {tab.url ? safeHostname(tab.url) : ''}
           </div>
         </div>
@@ -263,7 +306,7 @@ export function EnhancedTabList({
         {tabs.length === 0 ? (
           <div className="px-3 py-4 text-center text-xs text-slate-500">{emptyMessage}</div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-1 overflow-x-hidden">
             {tabs.map((tab) => (
               <TabRow
                 key={tab.id}
@@ -337,7 +380,7 @@ export function EnhancedTabList({
               </div>
               <div
                 ref={parentRef}
-                className="border border-surface-light rounded-lg overflow-hidden"
+                className="border border-surface-light rounded-lg overflow-hidden overflow-x-hidden"
                 style={{ height: Math.min(regularTabs.length * (compact ? 32 : 40), 400) }}
               >
                 <div

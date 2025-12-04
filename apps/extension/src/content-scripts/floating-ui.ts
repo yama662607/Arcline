@@ -118,7 +118,7 @@ function ensureBootstrapHotzone() {
   window.__arclineFloatingReady = true;
 }
 
-async function startFloatingUi() {
+async function startFloatingUi(options?: { instant?: boolean }) {
   if (!hostElement || !shadowRoot) return;
   if (!mountPromise) {
     mountPromise = import('../floating/mount').catch((error) => {
@@ -131,7 +131,11 @@ async function startFloatingUi() {
   const module = await mountPromise;
   if (!module) return;
   if (floatingInstance) {
-    floatingInstance.openFromHover();
+    if (options?.instant) {
+      floatingInstance.openInstantly();
+    } else {
+      floatingInstance.openFromHover();
+    }
     return;
   }
 
@@ -150,7 +154,11 @@ async function startFloatingUi() {
       return null;
     });
 
-  floatingInstance?.openFromHover();
+  if (options?.instant) {
+    floatingInstance?.openInstantly();
+  } else {
+    floatingInstance?.openFromHover();
+  }
 }
 
 function teardownFloatingUi() {
@@ -195,6 +203,13 @@ function handleRuntimeMessage(message: unknown) {
     ensureHost();
     ensureBootstrapHotzone();
     void startFloatingUi();
+  }
+
+  // タブ移動時に即座に開く（アニメーションなし）
+  if (payload.command === 'openFloatingUiInstantly') {
+    ensureHost();
+    ensureBootstrapHotzone();
+    void startFloatingUi({ instant: true });
   }
 }
 

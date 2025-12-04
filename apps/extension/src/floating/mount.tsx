@@ -16,6 +16,7 @@ const FloatingApp = React.lazy(() => import('./FloatingApp'));
 
 export interface FloatingUiInstance {
   openFromHover(): void;
+  openInstantly(): void;
   destroy(): void;
 }
 
@@ -27,6 +28,7 @@ interface MountOptions {
 
 interface FloatingUiHandle {
   openFromHover(): void;
+  openInstantly(): void;
   destroy(): void;
 }
 
@@ -46,6 +48,7 @@ const FloatingUiRoot = forwardRef<
 >(({ host, onBootstrapReady }, ref) => {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [skipAnimation, setSkipAnimation] = useState(false);
   const closeTimer = useRef<number | null>(null);
 
   const clearCloseTimer = useCallback(() => {
@@ -72,7 +75,15 @@ const FloatingUiRoot = forwardRef<
     () => ({
       openFromHover() {
         cancelClose();
+        setSkipAnimation(false);
         setOpen(true);
+      },
+      openInstantly() {
+        cancelClose();
+        setSkipAnimation(true);
+        setOpen(true);
+        // Reset animation flag after a short delay
+        requestAnimationFrame(() => setSkipAnimation(false));
       },
       destroy() {
         cancelClose();
@@ -160,10 +171,14 @@ const FloatingUiRoot = forwardRef<
               data-testid="arcline-floating-panel"
               className="-ml-4 flex h-full flex-1"
               style={{ marginLeft: '-2px', marginTop: '4px', marginBottom: '4px' }}
-              initial={{ x: '-100%', opacity: 0 }}
+              initial={skipAnimation ? false : { x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '-102%', opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.5 }}
+              transition={
+                skipAnimation
+                  ? { duration: 0 }
+                  : { type: 'spring', stiffness: 420, damping: 38, mass: 0.5 }
+              }
               onPointerEnter={cancelClose}
               onPointerLeave={scheduleClose}
             >
@@ -224,6 +239,9 @@ export async function mountFloatingUi({
   return {
     openFromHover() {
       rootRef.current?.openFromHover();
+    },
+    openInstantly() {
+      rootRef.current?.openInstantly();
     },
     destroy() {
       rootRef.current?.destroy();

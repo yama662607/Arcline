@@ -67,7 +67,7 @@ function PinnedTabRow({
   return (
     <button
       type="button"
-      className={`group relative flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-2 transition-all hover:bg-blue-100/50 hover:shadow-sm w-full text-left ${
+      className={`group relative flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-2 transition-all hover:bg-blue-100/50 hover:shadow-sm w-full text-left overflow-x-hidden ${
         variant === 'floating' ? 'mb-1' : 'mb-2'
       }`}
       onClick={() => onSelect(tab)}
@@ -93,11 +93,18 @@ function PinnedTabRow({
       )}
 
       {/* Tab content */}
-      <div className="min-w-0 flex-1">
-        <span className="truncate text-sm font-medium text-gray-900">
+      <div className="min-w-0 flex-1 max-w-0">
+        <span
+          className="truncate text-sm font-medium text-gray-900"
+          title={compact ? hostname : tab.title}
+        >
           {compact ? hostname : tab.title}
         </span>
-        {!compact && <div className="truncate text-xs text-gray-500">{hostname}</div>}
+        {!compact && (
+          <div className="truncate text-xs text-gray-500" title={hostname}>
+            {hostname}
+          </div>
+        )}
       </div>
 
       {/* Actions */}
@@ -147,7 +154,7 @@ export function GlobalPinnedTabs({
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-700 border-b border-blue-200">
         <Pin className="h-3 w-3" />
@@ -157,8 +164,8 @@ export function GlobalPinnedTabs({
         </span>
       </div>
 
-      {/* Pinned tabs list */}
-      <div className="px-1 py-1">
+      {/* Tabs */}
+      <div className="space-y-1">
         {tabs.map((tab) => (
           <PinnedTabRow
             key={tab.id}
