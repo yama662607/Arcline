@@ -117,8 +117,8 @@ function TabRow({
 
   const containerClasses = [
     variant === 'floating'
-      ? `group relative flex items-center gap-2 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded hover:bg-surface-light transition-colors overflow-x-hidden`
-      : `group relative flex items-center gap-3 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light transition-colors border-b border-surface-light/50 overflow-x-hidden`,
+      ? `group relative flex items-center gap-2 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded hover:bg-surface-light transition-colors`
+      : `group relative flex items-center gap-3 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light transition-colors border-b border-surface-light/50`,
     tab.active ? 'bg-surface-light' : '',
     isDragged ? 'opacity-50' : '',
   ]
@@ -171,7 +171,7 @@ function TabRow({
         </div>
       </button>
 
-      <div className="absolute right-2 flex items-center gap-1 bg-surface-light/95 backdrop-blur-sm rounded px-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-slate-900 rounded px-1.5 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 z-10">
         <button
           type="button"
           onClick={(event) => onPinToggle(event, tab)}
