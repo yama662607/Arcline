@@ -158,7 +158,7 @@ function TabRow({
           )}
         </div>
 
-        <div className="flex-1 min-w-0 max-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <div className="text-sm text-slate-200 truncate" title={tab.title}>
             {tab.title}
           </div>
