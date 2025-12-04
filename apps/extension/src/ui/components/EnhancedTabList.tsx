@@ -131,7 +131,7 @@ function TabRow({
     <div className={containerClasses}>
       <button
         type="button"
-        className="flex flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        className="flex flex-1 min-w-0 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         onClick={() => onSelect(tab)}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
