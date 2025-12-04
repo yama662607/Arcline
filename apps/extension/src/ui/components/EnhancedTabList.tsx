@@ -129,9 +129,8 @@ function TabRow({
 
   return (
     <div className={containerClasses}>
-      <button
-        type="button"
-        className="flex flex-1 min-w-0 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+      <div
+        className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         onClick={() => onSelect(tab)}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
@@ -139,6 +138,8 @@ function TabRow({
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        tabIndex={0}
+        role="button"
       >
         <div className="flex-shrink-0">
           {showFavicons && tab.favIconUrl ? (
@@ -202,7 +203,7 @@ function TabRow({
             </button>
           </div>
         </div>
-      </button>
+      </div>
     </div>
   );
 }
