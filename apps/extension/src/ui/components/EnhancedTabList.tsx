@@ -158,7 +158,7 @@ function TabRow({
           )}
         </div>
 
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-hidden relative">
           <div className="text-sm text-slate-200 truncate" title={tab.title}>
             {tab.title}
           </div>
@@ -168,41 +168,41 @@ function TabRow({
           >
             {tab.url ? safeHostname(tab.url) : ''}
           </div>
+
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-surface-light rounded px-1.5 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 z-10">
+            <button
+              type="button"
+              onClick={(event) => onPinToggle(event, tab)}
+              className={`p-1 rounded ${actionButtonTextClass} ${
+                tab.pinned
+                  ? 'text-yellow-400 hover:text-yellow-300'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+              title={tab.pinned ? 'Unpin' : 'Pin'}
+            >
+              📌
+            </button>
+
+            <button
+              type="button"
+              onClick={(event) => onArchive(event, tab)}
+              className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-blue-400`}
+              title="Archive"
+            >
+              📦
+            </button>
+
+            <button
+              type="button"
+              onClick={(event) => onClose(event, tab)}
+              className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-red-400`}
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       </button>
-
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-surface-light rounded px-1.5 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 z-10">
-        <button
-          type="button"
-          onClick={(event) => onPinToggle(event, tab)}
-          className={`p-1 rounded ${actionButtonTextClass} ${
-            tab.pinned
-              ? 'text-yellow-400 hover:text-yellow-300'
-              : 'text-slate-500 hover:text-slate-300'
-          }`}
-          title={tab.pinned ? 'Unpin' : 'Pin'}
-        >
-          📌
-        </button>
-
-        <button
-          type="button"
-          onClick={(event) => onArchive(event, tab)}
-          className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-blue-400`}
-          title="Archive"
-        >
-          📦
-        </button>
-
-        <button
-          type="button"
-          onClick={(event) => onClose(event, tab)}
-          className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-red-400`}
-          title="Close"
-        >
-          ✕
-        </button>
-      </div>
     </div>
   );
 }
