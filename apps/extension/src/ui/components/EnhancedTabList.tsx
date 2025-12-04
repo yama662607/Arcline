@@ -24,13 +24,13 @@ interface TabRowProps {
   isDragged: boolean;
   showFavicons: boolean;
   onSelect: (tab: TabEntry) => void;
-  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void;
   onPinToggle: (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
   onArchive: (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
   onClose: (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
-  onDragStart?: (event: ReactDragEvent<HTMLElement>, tab: TabEntry) => void;
-  onDragOver?: (event: ReactDragEvent<HTMLElement>) => void;
-  onDrop?: (event: ReactDragEvent<HTMLElement>, tab: TabEntry) => void;
+  onDragStart?: (event: ReactDragEvent<HTMLDivElement>, tab: TabEntry) => void;
+  onDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onDrop?: (event: ReactDragEvent<HTMLDivElement>, tab: TabEntry) => void;
 }
 
 function safeHostname(url: string): string {
@@ -44,13 +44,13 @@ function safeHostname(url: string): string {
 function useTabRowHandlers(
   tab: TabEntry,
   onSelect: (tab: TabEntry) => void,
-  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => void,
-  onDragStart?: (event: ReactDragEvent<HTMLButtonElement>, tab: TabEntry) => void,
-  onDragOver?: (event: ReactDragEvent<HTMLButtonElement>) => void,
-  onDrop?: (event: ReactDragEvent<HTMLButtonElement>, targetTab: TabEntry) => void
+  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void,
+  onDragStart?: (event: ReactDragEvent<HTMLDivElement>, tab: TabEntry) => void,
+  onDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void,
+  onDrop?: (event: ReactDragEvent<HTMLDivElement>, targetTab: TabEntry) => void
 ) {
   const handleKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
         onSelect(tab);
@@ -60,7 +60,7 @@ function useTabRowHandlers(
   );
 
   const handleContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
+    (event: ReactMouseEvent<HTMLDivElement>) => {
       event.preventDefault();
       onContextMenu?.(tab, event);
     },
@@ -68,21 +68,21 @@ function useTabRowHandlers(
   );
 
   const handleDragStart = useCallback(
-    (event: ReactDragEvent<HTMLButtonElement>) => {
+    (event: ReactDragEvent<HTMLDivElement>) => {
       onDragStart?.(event, tab);
     },
     [onDragStart, tab]
   );
 
   const handleDragOver = useCallback(
-    (event: ReactDragEvent<HTMLButtonElement>) => {
+    (event: ReactDragEvent<HTMLDivElement>) => {
       onDragOver?.(event);
     },
     [onDragOver]
   );
 
   const handleDrop = useCallback(
-    (event: ReactDragEvent<HTMLButtonElement>) => {
+    (event: ReactDragEvent<HTMLDivElement>) => {
       onDrop?.(event, tab);
     },
     [onDrop, tab]
@@ -213,7 +213,7 @@ interface EnhancedTabListProps {
   title: string;
   emptyMessage: string;
   variant?: 'standalone' | 'floating';
-  onTabContextMenu?: (tab: TabEntry, event: React.MouseEvent<HTMLButtonElement>) => void;
+  onTabContextMenu?: (tab: TabEntry, event: React.MouseEvent<HTMLDivElement>) => void;
   showFavicons?: boolean;
   compact?: boolean;
 }

@@ -10,7 +10,7 @@ interface GlobalPinnedTabsProps {
   compact: boolean;
   showFavicons: boolean;
   variant: 'standalone' | 'floating';
-  onTabContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onTabContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void;
 }
 
 function safeHostname(url: string): string {
@@ -35,13 +35,13 @@ function PinnedTabRow({
   variant: 'standalone' | 'floating';
   showFavicons: boolean;
   onSelect: (tab: TabEntry) => void;
-  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void;
   onPinToggle: (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
 }) {
   const hostname = useMemo(() => safeHostname(tab.url), [tab.url]);
 
   const handleContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
+    (event: ReactMouseEvent<HTMLDivElement>) => {
       onContextMenu?.(tab, event);
     },
     [onContextMenu, tab]
@@ -55,7 +55,7 @@ function PinnedTabRow({
   );
 
   const handleKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         onSelect(tab);
@@ -65,14 +65,15 @@ function PinnedTabRow({
   );
 
   return (
-    <button
-      type="button"
-      className={`group relative flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-2 transition-all hover:bg-blue-100/50 hover:shadow-sm w-full text-left overflow-x-hidden ${
+    <div
+      className={`group relative flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-2 transition-all hover:bg-blue-100/50 hover:shadow-sm w-full text-left overflow-x-hidden cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
         variant === 'floating' ? 'mb-1' : 'mb-2'
       }`}
       onClick={() => onSelect(tab)}
       onContextMenu={handleContextMenu}
       onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="button"
     >
       {/* Pin icon indicator */}
       <div className="flex items-center justify-center">
@@ -118,7 +119,7 @@ function PinnedTabRow({
           <PinOff className="h-3 w-3" />
         </button>
       </div>
-    </button>
+    </div>
   );
 }
 
