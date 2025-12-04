@@ -171,7 +171,7 @@ function TabRow({
         </div>
       </button>
 
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-slate-900 rounded px-1.5 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 z-10">
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-surface-light rounded px-1.5 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 z-10">
         <button
           type="button"
           onClick={(event) => onPinToggle(event, tab)}
