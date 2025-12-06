@@ -31,4 +31,5 @@ export const queryKeys = {
   archivedTabs: ['archivedTabs'] as const,
   bookmarks: (spaceId: number) => ['bookmarks', spaceId] as const,
   tabActivity: () => ['tabActivity'] as const,
+  favorites: ['favorites'] as const,
 } as const;

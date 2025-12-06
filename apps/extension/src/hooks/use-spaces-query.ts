@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import type { FavoriteTab } from '@/background/services/favorites';
 import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
 import { queryKeys } from '@/lib/query-client';
-import type { ArchivedTab, Settings, SpaceCreateRequest } from '@/shared/types';
+import type { ArchivedTab, Settings, SpaceCreateRequest, TabEntry } from '@/shared/types';
 
 // Query hooks
 export function useSpacesSnapshot() {
@@ -46,6 +47,16 @@ export function useBookmarksForSpace(spaceId: number) {
     queryFn: () => bridge?.getBookmarksForSpace(spaceId),
     enabled: !!spaceId,
     staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+export function useFavorites() {
+  const bridge = useServiceWorkerBridge();
+
+  return useQuery({
+    queryKey: queryKeys.favorites,
+    queryFn: () => bridge?.getFavorites(),
+    staleTime: 1000 * 30, // 30 seconds
   });
 }
 
@@ -211,6 +222,66 @@ export function useUpdateSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings });
+    },
+  });
+}
+
+export function useAddToFavorites() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, TabEntry>({
+    mutationFn: async (tab: TabEntry) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.addToFavorites(tab);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites });
+    },
+  });
+}
+
+export function useRemoveFromFavorites() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, string>({
+    mutationFn: async (url: string) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.removeFromFavorites(url);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites });
+    },
+  });
+}
+
+export function useToggleFavorite() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<boolean, Error, TabEntry>({
+    mutationFn: async (tab: TabEntry) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      return await bridge.toggleFavorite(tab);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites });
+    },
+  });
+}
+
+export function useReorderFavorites() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, FavoriteTab[]>({
+    mutationFn: async (favorites: FavoriteTab[]) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.reorderFavorites(favorites);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites });
     },
   });
 }
