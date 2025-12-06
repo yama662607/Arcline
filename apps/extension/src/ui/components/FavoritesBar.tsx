@@ -1,9 +1,28 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Star, X } from 'lucide-react';
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { useActivateTab, useToggleTabPinned } from '@/hooks/use-spaces-query';
+import {
+  useAddToFavorites,
+  useRemoveFromFavorites,
+  useToggleTabPinned,
+} from '@/hooks/use-spaces-query';
+import { ServiceWorkerBridge } from '@/lib/service-worker-bridge';
 import type { TabEntry } from '@/shared/types';
+import { getDragData, setDragData } from '@/ui/hooks/use-tab-drag-drop';
+
+/**
+ * Calculate optimal icon size based on number of favorites
+ * Max grid: 4 columns × 3 rows = 12 items
+ * Inspired by Arcify's implementation
+ */
+function calculateIconSize(count: number): { size: number; cols: number; rows: number } {
+  if (count === 0) return { size: 40, cols: 0, rows: 0 };
+  if (count <= 4) return { size: 48, cols: count, rows: 1 }; // 1 row
+  if (count <= 8) return { size: 44, cols: 4, rows: 2 }; // 2 rows
+  return { size: 40, cols: 4, rows: 3 }; // 3 rows (max 12 items)
+}
 
 interface FavoritesBarProps {
   pinnedTabs: TabEntry[];
@@ -12,11 +31,13 @@ interface FavoritesBarProps {
 
 function FaviconItem({
   tab,
+  size,
   onSelect,
   onRemove,
   onContextMenu,
 }: {
   tab: TabEntry;
+  size: number;
   onSelect: (tab: TabEntry) => void;
   onRemove: (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void;
@@ -25,10 +46,9 @@ function FaviconItem({
 
   const handleDragStart = useCallback(
     (e: ReactDragEvent<HTMLDivElement>) => {
+      console.log('[FavoritesBar] DragStart from favorite:', tab.title);
       setIsDragging(true);
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', tab.id.toString());
-      e.dataTransfer.setData('application/x-arcline-tab', JSON.stringify(tab));
+      setDragData(e, tab, 'favorite');
     },
     [tab]
   );
@@ -55,11 +75,14 @@ function FaviconItem({
     [onSelect, tab]
   );
 
+  const iconSize = Math.floor(size * 0.5); // Icon is 50% of container
+
   return (
     <div
-      className={`group relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 transition-all hover:bg-amber-500/20 hover:shadow-sm ${
+      className={`group relative flex flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 transition-all hover:bg-amber-500/20 hover:shadow-sm ${
         isDragging ? 'opacity-50' : ''
       }`}
+      style={{ width: `${size}px`, height: `${size}px` }}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -75,14 +98,18 @@ function FaviconItem({
         <img
           src={tab.favIconUrl}
           alt=""
-          className="h-5 w-5 rounded-sm"
+          className="rounded-sm"
+          style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.style.display = 'none';
           }}
         />
       ) : (
-        <Star className="h-4 w-4 text-amber-600" />
+        <Star
+          style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
+          className="text-amber-600"
+        />
       )}
 
       {/* Remove button (visible on hover) */}
@@ -124,33 +151,47 @@ function Placeholder({ onClose }: { onClose?: () => void }) {
 }
 
 export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps) {
-  const { mutate: activateTab } = useActivateTab();
+  const queryClient = useQueryClient();
+  const bridge = useMemo(() => new ServiceWorkerBridge(queryClient), [queryClient]);
+  const { mutate: addToFavorites } = useAddToFavorites();
+  const { mutate: removeFromFavorites } = useRemoveFromFavorites();
   const { mutate: toggleTabPinned } = useToggleTabPinned();
   const [isDragOver, setIsDragOver] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(true);
 
-  // Debug: Log pinned tabs
-  console.log('[FavoritesBar] Pinned tabs:', pinnedTabs.length, pinnedTabs);
+  // Calculate optimal icon size based on number of favorites
+  const {
+    size: iconSize,
+    cols,
+    rows,
+  } = useMemo(() => calculateIconSize(pinnedTabs.length), [pinnedTabs.length]);
 
   const handleSelectTab = useCallback(
-    (tab: TabEntry) => {
-      activateTab(tab.id);
+    async (tab: TabEntry) => {
+      // For favorites, use Service Worker Bridge to open URL
+      try {
+        await bridge.openUrlInTab(tab.url);
+      } catch (error) {
+        console.error('[FavoritesBar] Failed to open favorite:', error);
+      }
     },
-    [activateTab]
+    [bridge]
   );
 
   const handleRemoveTab = useCallback(
     (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      toggleTabPinned({ tabId: tab.id, pinned: false });
+      removeFromFavorites(tab.url);
     },
-    [toggleTabPinned]
+    [removeFromFavorites]
   );
 
   const handleDragOver = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     setIsDragOver(true);
+    console.log('[FavoritesBar] DragOver event triggered');
   }, []);
 
   const handleDragLeave = useCallback(() => {
@@ -160,21 +201,39 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
   const handleDrop = useCallback(
     (e: ReactDragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      e.stopPropagation();
       setIsDragOver(false);
 
-      try {
-        const tabData = e.dataTransfer.getData('application/x-arcline-tab');
-        if (tabData) {
-          const tab = JSON.parse(tabData) as TabEntry;
-          if (!tab.pinned) {
-            toggleTabPinned({ tabId: tab.id, pinned: true });
-          }
-        }
-      } catch (error) {
-        console.error('[FavoritesBar] Failed to parse dropped tab data:', error);
+      console.log('[FavoritesBar] Drop event triggered');
+      console.log('[FavoritesBar] Available data types:', e.dataTransfer.types);
+
+      const dragData = getDragData(e);
+      if (!dragData) {
+        console.warn('[FavoritesBar] No valid drag data found');
+        return;
       }
+
+      const { tab, source } = dragData;
+      console.log('[FavoritesBar] Drop from source:', source, 'tab:', tab.title);
+
+      // すでにFavoriteからのドラッグは無視（自分自身への移動）
+      if (source === 'favorite') {
+        console.log('[FavoritesBar] Ignoring drop from favorite (same source)');
+        return;
+      }
+
+      // Favoriteに追加
+      addToFavorites(tab);
+
+      // 移動元から削除
+      if (source === 'pinned') {
+        // Pinnedからの移動: ピン留めを解除
+        console.log('[FavoritesBar] Unpinning tab:', tab.id);
+        toggleTabPinned({ tabId: tab.id, pinned: false });
+      }
+      // Temporaryからの移動は特に削除処理不要（Favoriteに追加されるだけ）
     },
-    [toggleTabPinned]
+    [addToFavorites, toggleTabPinned]
   );
 
   const handleClosePlaceholder = useCallback(() => {
@@ -214,11 +273,18 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
             お気に入りはありません
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div
+            className="grid gap-2"
+            style={{
+              gridTemplateColumns: `repeat(${cols}, ${iconSize}px)`,
+              gridTemplateRows: `repeat(${rows}, ${iconSize}px)`,
+            }}
+          >
             {pinnedTabs.map((tab) => (
               <FaviconItem
                 key={tab.id}
                 tab={tab}
+                size={iconSize}
                 onSelect={handleSelectTab}
                 onRemove={handleRemoveTab}
                 onContextMenu={onTabContextMenu}
