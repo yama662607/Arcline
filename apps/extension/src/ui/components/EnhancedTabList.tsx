@@ -11,11 +11,13 @@ import {
   useArchiveTab,
   useCloseTab,
   useMoveTabToSpace,
+  useRemoveFromFavorites,
   useSpacesSnapshot,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
 import type { TabEntry } from '@/shared/types';
 import { GlobalPinnedTabs } from '@/ui/components/GlobalPinnedTabs';
+import { getDragData, setDragData } from '@/ui/hooks/use-tab-drag-drop';
 
 interface TabRowProps {
   tab: TabEntry;
@@ -231,6 +233,7 @@ export function EnhancedTabList({
   compact = false,
 }: EnhancedTabListProps) {
   const [draggedTab, setDraggedTab] = useState<TabEntry | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const { data: spaces = [] } = useSpacesSnapshot();
@@ -239,6 +242,7 @@ export function EnhancedTabList({
   const closeTabMutation = useCloseTab();
   const activateTabMutation = useActivateTab();
   const archiveTabMutation = useArchiveTab();
+  const { mutate: removeFromFavorites } = useRemoveFromFavorites();
 
   // Separate pinned tabs from regular tabs
   const pinnedTabs = tabs.filter((tab) => tab.pinned);
@@ -271,9 +275,9 @@ export function EnhancedTabList({
   };
 
   const handleDragStart = (e: React.DragEvent, tab: TabEntry) => {
+    console.log('[EnhancedTabList] DragStart from temporary:', tab.title);
     setDraggedTab(tab);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', tab.id.toString());
+    setDragData(e as ReactDragEvent<HTMLDivElement>, tab, 'temporary');
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -298,9 +302,62 @@ export function EnhancedTabList({
     setDraggedTab(null);
   };
 
+  // ドロップゾーン用のハンドラー（Temporary領域へのドロップ）
+  const handleZoneDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setIsDragOver(true);
+  };
+
+  const handleZoneDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleZoneDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const dragData = getDragData(e as ReactDragEvent<HTMLDivElement>);
+    if (!dragData) {
+      console.warn('[EnhancedTabList] No valid drag data found');
+      return;
+    }
+
+    const { tab, source } = dragData;
+    console.log('[EnhancedTabList] Drop from source:', source, 'tab:', tab.title);
+
+    // すでにTemporaryからのドラッグは無視（自分自身への移動）
+    if (source === 'temporary') {
+      console.log('[EnhancedTabList] Ignoring drop from temporary (same source)');
+      return;
+    }
+
+    // 移動元から削除
+    if (source === 'pinned') {
+      // Pinnedからの移動: ピン留めを解除
+      console.log('[EnhancedTabList] Unpinning tab:', tab.id);
+      togglePinMutation.mutate({ tabId: tab.id, pinned: false });
+    } else if (source === 'favorite') {
+      // Favoriteからの移動: お気に入りから削除
+      console.log('[EnhancedTabList] Removing from favorites:', tab.url);
+      removeFromFavorites(tab.url);
+    }
+  };
+
   if (variant === 'floating') {
     return (
-      <div className="space-y-2">
+      <div
+        className={`space-y-2 rounded-lg transition-colors ${
+          isDragOver ? 'bg-slate-500/20 ring-2 ring-slate-500/50' : ''
+        }`}
+        onDragOver={handleZoneDragOver}
+        onDragLeave={handleZoneDragLeave}
+        onDrop={handleZoneDrop}
+        role="region"
+        aria-label="Temporary tabs drop zone"
+      >
         <div className="px-3 py-2">
           <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             {title} ({tabs.length})
@@ -308,7 +365,9 @@ export function EnhancedTabList({
         </div>
 
         {tabs.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-slate-500">{emptyMessage}</div>
+          <div className="px-3 py-4 text-center text-xs text-slate-500 border-2 border-dashed border-slate-600 rounded-lg">
+            {emptyMessage}
+          </div>
         ) : (
           <div className="space-y-1 overflow-x-hidden">
             {tabs.map((tab) => (
