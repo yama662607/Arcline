@@ -24,15 +24,25 @@ function AppContent() {
     [spaces, activeSpaceId]
   );
   const allPinnedTabs = useMemo(() => {
+    console.log('[App] Spaces:', spaces.length, spaces);
     const pinnedTabsMap = new Map<number, TabEntry>();
     for (const space of spaces) {
+      console.log(
+        '[App] Space:',
+        space.name,
+        'pinnedTabs:',
+        space.pinnedTabs.length,
+        space.pinnedTabs
+      );
       for (const tab of space.pinnedTabs) {
         if (!pinnedTabsMap.has(tab.id)) {
           pinnedTabsMap.set(tab.id, tab);
         }
       }
     }
-    return Array.from(pinnedTabsMap.values());
+    const result = Array.from(pinnedTabsMap.values());
+    console.log('[App] All pinned tabs:', result.length, result);
+    return result;
   }, [spaces]);
   const [contextMenu, setContextMenu] = useState<{
     tab: TabEntry;
