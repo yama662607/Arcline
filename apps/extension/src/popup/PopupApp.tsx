@@ -7,6 +7,7 @@ import type { TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
+import { FavoritesBar } from '@/ui/components/FavoritesBar';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceManager } from '@/ui/components/SpaceManager';
 import { TabContextMenu } from '@/ui/components/TabContextMenu';
@@ -21,6 +22,17 @@ function PopupAppContent() {
     () => spaces.find((space) => space.id === activeSpaceId) ?? null,
     [spaces, activeSpaceId]
   );
+  const allPinnedTabs = useMemo(() => {
+    const pinnedTabsMap = new Map<number, TabEntry>();
+    for (const space of spaces) {
+      for (const tab of space.pinnedTabs) {
+        if (!pinnedTabsMap.has(tab.id)) {
+          pinnedTabsMap.set(tab.id, tab);
+        }
+      }
+    }
+    return Array.from(pinnedTabsMap.values());
+  }, [spaces]);
   const [contextMenu, setContextMenu] = useState<{
     tab: TabEntry;
     x: number;
@@ -63,6 +75,17 @@ function PopupAppContent() {
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'spaces' && (
           <div className="space-y-3">
+            <FavoritesBar
+              pinnedTabs={allPinnedTabs}
+              onTabContextMenu={(tab, event) => {
+                const rect = (event.target as HTMLElement).getBoundingClientRect();
+                setContextMenu({
+                  tab,
+                  x: rect.left,
+                  y: rect.top,
+                });
+              }}
+            />
             <SpaceManager variant="floating" />
 
             {activeSpace && (

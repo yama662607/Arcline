@@ -58,7 +58,18 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
           onClose();
         }}
       >
-        <span>{tab.pinned ? 'Unpin' : 'Pin'}</span>
+        <span>{tab.pinned ? 'Remove from Favorites' : 'Add to Favorites'}</span>
+      </button>
+      <div className="my-1 h-px bg-white/10" />
+      <button
+        type="button"
+        className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10 text-xs text-slate-400"
+        onClick={() => {
+          toggleTabPinned(tab.id).catch((error) => console.warn(error));
+          onClose();
+        }}
+      >
+        <span>{tab.pinned ? 'Unpin from Space' : 'Pin in Space'}</span>
       </button>
       <button
         type="button"

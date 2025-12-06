@@ -117,8 +117,8 @@ function TabRow({
 
   const containerClasses = [
     variant === 'floating'
-      ? `group relative flex items-center gap-2 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded hover:bg-surface-light transition-colors`
-      : `group relative flex items-center gap-3 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light transition-colors border-b border-surface-light/50`,
+      ? `group relative flex items-center gap-0 px-4 ${compact ? 'py-1.5' : 'py-2'} rounded hover:bg-surface-light`
+      : `group relative flex items-center gap-0 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light border-b border-surface-light/50`,
     tab.active ? 'bg-surface-light' : '',
     isDragged ? 'opacity-50' : '',
   ]
@@ -126,11 +126,12 @@ function TabRow({
     .join(' ');
 
   const actionButtonTextClass = variant === 'floating' ? 'text-xs' : 'text-sm';
+  const actionContainerBgClass = 'bg-surface-light';
 
   return (
     <div className={containerClasses}>
       <div
-        className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface pr-2"
         onClick={() => onSelect(tab)}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
@@ -159,7 +160,7 @@ function TabRow({
           )}
         </div>
 
-        <div className="flex-1 min-w-0 overflow-hidden relative">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <div className="text-sm text-slate-200 truncate" title={tab.title}>
             {tab.title}
           </div>
@@ -169,40 +170,42 @@ function TabRow({
           >
             {tab.url ? safeHostname(tab.url) : ''}
           </div>
-
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-surface-light rounded px-1.5 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 z-10">
-            <button
-              type="button"
-              onClick={(event) => onPinToggle(event, tab)}
-              className={`p-1 rounded ${actionButtonTextClass} ${
-                tab.pinned
-                  ? 'text-yellow-400 hover:text-yellow-300'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-              title={tab.pinned ? 'Unpin' : 'Pin'}
-            >
-              📌
-            </button>
-
-            <button
-              type="button"
-              onClick={(event) => onArchive(event, tab)}
-              className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-blue-400`}
-              title="Archive"
-            >
-              📦
-            </button>
-
-            <button
-              type="button"
-              onClick={(event) => onClose(event, tab)}
-              className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-red-400`}
-              title="Close"
-            >
-              ✕
-            </button>
-          </div>
         </div>
+      </div>
+
+      <div
+        className={`flex items-center gap-1 rounded overflow-hidden justify-end ml-0 flex-shrink-0 max-w-0 opacity-0 pointer-events-none px-0 py-0 whitespace-nowrap group-hover:max-w-[120px] group-hover:opacity-100 group-hover:pointer-events-auto group-hover:px-1 group-hover:py-0.5 group-hover:ml-2 ${actionContainerBgClass}`}
+      >
+        <button
+          type="button"
+          onClick={(event) => onPinToggle(event, tab)}
+          className={`p-1 rounded ${actionButtonTextClass} ${
+            tab.pinned
+              ? 'text-yellow-400 hover:text-yellow-300'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+          title={tab.pinned ? 'Unpin' : 'Pin'}
+        >
+          📌
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => onArchive(event, tab)}
+          className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-blue-400`}
+          title="Archive"
+        >
+          📦
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => onClose(event, tab)}
+          className={`p-1 rounded ${actionButtonTextClass} text-slate-500 hover:text-red-400`}
+          title="Close"
+        >
+          ✕
+        </button>
       </div>
     </div>
   );

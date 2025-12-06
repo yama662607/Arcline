@@ -9,6 +9,7 @@ import type { TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
+import { FavoritesBar } from '@/ui/components/FavoritesBar';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceManager } from '@/ui/components/SpaceManager';
 import { TabContextMenu } from '@/ui/components/TabContextMenu';
@@ -22,6 +23,17 @@ function AppContent() {
     () => spaces.find((space) => space.id === activeSpaceId) ?? null,
     [spaces, activeSpaceId]
   );
+  const allPinnedTabs = useMemo(() => {
+    const pinnedTabsMap = new Map<number, TabEntry>();
+    for (const space of spaces) {
+      for (const tab of space.pinnedTabs) {
+        if (!pinnedTabsMap.has(tab.id)) {
+          pinnedTabsMap.set(tab.id, tab);
+        }
+      }
+    }
+    return Array.from(pinnedTabsMap.values());
+  }, [spaces]);
   const [contextMenu, setContextMenu] = useState<{
     tab: TabEntry;
     x: number;
@@ -90,6 +102,14 @@ function AppContent() {
             <div className="p-4">
               {activeTab === 'spaces' && (
                 <div className="space-y-6">
+                  <FavoritesBar
+                    pinnedTabs={allPinnedTabs}
+                    onTabContextMenu={(tab, event) => {
+                      const x = Math.min(event.clientX, window.innerWidth - 220);
+                      const y = Math.min(event.clientY, window.innerHeight - 160);
+                      setContextMenu({ tab, x, y });
+                    }}
+                  />
                   <SpaceManager variant="standalone" />
 
                   {activeSpace && (
