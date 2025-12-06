@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
+import { useFavorites } from '@/hooks/use-spaces-query';
 import { queryClient } from '@/lib/query-client';
 import type { UiMode } from '@/lib/ui-mode';
 import { requestUiMode } from '@/lib/ui-mode';
@@ -23,27 +24,24 @@ function AppContent() {
     () => spaces.find((space) => space.id === activeSpaceId) ?? null,
     [spaces, activeSpaceId]
   );
-  const allPinnedTabs = useMemo(() => {
-    console.log('[App] Spaces:', spaces.length, spaces);
-    const pinnedTabsMap = new Map<number, TabEntry>();
-    for (const space of spaces) {
-      console.log(
-        '[App] Space:',
-        space.name,
-        'pinnedTabs:',
-        space.pinnedTabs.length,
-        space.pinnedTabs
-      );
-      for (const tab of space.pinnedTabs) {
-        if (!pinnedTabsMap.has(tab.id)) {
-          pinnedTabsMap.set(tab.id, tab);
-        }
-      }
-    }
-    const result = Array.from(pinnedTabsMap.values());
-    console.log('[App] All pinned tabs:', result.length, result);
-    return result;
-  }, [spaces]);
+
+  // Fetch favorites from storage
+  const { data: favorites } = useFavorites();
+
+  // Convert FavoriteTab[] to TabEntry[] for FavoritesBar
+  const favoriteTabs: TabEntry[] = useMemo(() => {
+    if (!favorites) return [];
+    return favorites.map((fav, index) => ({
+      id: index, // Use index as temporary ID since favorites don't have persistent tab IDs
+      url: fav.url,
+      title: fav.title,
+      favIconUrl: fav.favIconUrl,
+      pinned: false,
+      active: false,
+      windowId: 0,
+      groupId: -1,
+    }));
+  }, [favorites]);
   const [contextMenu, setContextMenu] = useState<{
     tab: TabEntry;
     x: number;
@@ -113,7 +111,7 @@ function AppContent() {
               {activeTab === 'spaces' && (
                 <div className="space-y-6">
                   <FavoritesBar
-                    pinnedTabs={allPinnedTabs}
+                    pinnedTabs={favoriteTabs}
                     onTabContextMenu={(tab, event) => {
                       const x = Math.min(event.clientX, window.innerWidth - 220);
                       const y = Math.min(event.clientY, window.innerHeight - 160);

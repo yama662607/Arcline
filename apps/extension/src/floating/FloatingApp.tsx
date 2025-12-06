@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
+import { useFavorites } from '@/hooks/use-spaces-query';
 import { queryClient } from '@/lib/query-client';
 import { useSpacesSync } from '@/lib/useSpacesSync';
 import type { TabEntry } from '@/shared/types';
@@ -28,27 +29,24 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
     () => spaces.find((space) => space.id === activeSpaceId) ?? null,
     [spaces, activeSpaceId]
   );
-  const allPinnedTabs = useMemo(() => {
-    console.log('[FloatingApp] Spaces:', spaces.length, spaces);
-    const pinnedTabsMap = new Map<number, TabEntry>();
-    for (const space of spaces) {
-      console.log(
-        '[FloatingApp] Space:',
-        space.name,
-        'pinnedTabs:',
-        space.pinnedTabs.length,
-        space.pinnedTabs
-      );
-      for (const tab of space.pinnedTabs) {
-        if (!pinnedTabsMap.has(tab.id)) {
-          pinnedTabsMap.set(tab.id, tab);
-        }
-      }
-    }
-    const result = Array.from(pinnedTabsMap.values());
-    console.log('[FloatingApp] All pinned tabs:', result.length, result);
-    return result;
-  }, [spaces]);
+
+  // Fetch favorites from storage
+  const { data: favorites } = useFavorites();
+
+  // Convert FavoriteTab[] to TabEntry[] for FavoritesBar
+  const favoriteTabs: TabEntry[] = useMemo(() => {
+    if (!favorites) return [];
+    return favorites.map((fav, index) => ({
+      id: index, // Use index as temporary ID since favorites don't have persistent tab IDs
+      url: fav.url,
+      title: fav.title,
+      favIconUrl: fav.favIconUrl,
+      pinned: false,
+      active: false,
+      windowId: 0,
+      groupId: -1,
+    }));
+  }, [favorites]);
   const [contextMenu, setContextMenu] = useState<{
     tab: TabEntry;
     x: number;
@@ -103,14 +101,11 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
         {activeTab === 'spaces' && (
           <div className="space-y-4">
             <FavoritesBar
-              pinnedTabs={allPinnedTabs}
+              pinnedTabs={favoriteTabs}
               onTabContextMenu={(tab, event) => {
-                const rect = (event.target as HTMLElement).getBoundingClientRect();
-                setContextMenu({
-                  tab,
-                  x: rect.left,
-                  y: rect.top,
-                });
+                const x = Math.min(event.clientX, window.innerWidth - 220);
+                const y = Math.min(event.clientY, window.innerHeight - 160);
+                setContextMenu({ tab, x, y });
               }}
             />
             <SpaceManager variant="floating" />
