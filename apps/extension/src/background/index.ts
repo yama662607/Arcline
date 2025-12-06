@@ -18,6 +18,13 @@ import {
   toggleTabPinned,
   updateSettings,
 } from './services/browser';
+import {
+  addToFavorites,
+  getFavorites,
+  removeFromFavorites,
+  reorderFavorites,
+  toggleFavorite,
+} from './services/favorites';
 import { initializeGestureDetection, subscribeToSwipe } from './services/gestures';
 import { navigateSpace } from './services/space-navigation';
 
@@ -435,6 +442,102 @@ export const commandHandlers: Record<string, CommandHandler> = {
         sendResponse(null);
       } catch (error) {
         sendResponse({ ok: false, error: (error as Error).message });
+      }
+    });
+  },
+  // Favorites management
+  getFavorites: (_message, sendResponse) =>
+    respondAsync(async () => {
+      try {
+        const favorites = await getFavorites();
+        sendResponse(favorites);
+      } catch (error) {
+        sendResponse({ ok: false, error: (error as Error).message });
+      }
+    }),
+  addToFavorites: (message, sendResponse) => {
+    const { tab } = message as { tab?: unknown };
+    if (!tab) {
+      sendResponse({ ok: false, error: 'tab is required' });
+      return false;
+    }
+
+    return respondAsync(async () => {
+      try {
+        await addToFavorites(tab as any);
+        sendResponse(null);
+      } catch (error) {
+        sendResponse({ ok: false, error: (error as Error).message });
+      }
+    });
+  },
+  removeFromFavorites: (message, sendResponse) => {
+    const { url } = message as { url?: string };
+    if (!url) {
+      sendResponse({ ok: false, error: 'url is required' });
+      return false;
+    }
+
+    return respondAsync(async () => {
+      try {
+        await removeFromFavorites(url);
+        sendResponse(null);
+      } catch (error) {
+        sendResponse({ ok: false, error: (error as Error).message });
+      }
+    });
+  },
+  toggleFavorite: (message, sendResponse) => {
+    const { tab } = message as { tab?: unknown };
+    if (!tab) {
+      sendResponse({ ok: false, error: 'tab is required' });
+      return false;
+    }
+
+    return respondAsync(async () => {
+      try {
+        const isFavorite = await toggleFavorite(tab as any);
+        sendResponse(isFavorite);
+      } catch (error) {
+        sendResponse({ ok: false, error: (error as Error).message });
+      }
+    });
+  },
+  reorderFavorites: (message, sendResponse) => {
+    const { favorites } = message as { favorites?: unknown };
+
+    return respondAsync(async () => {
+      try {
+        await reorderFavorites(favorites as any);
+        sendResponse(null);
+      } catch (error) {
+        sendResponse({ error: error instanceof Error ? error.message : String(error) });
+      }
+    });
+  },
+  openUrlInTab: (message, sendResponse) => {
+    const { url } = message as { url?: string };
+
+    if (!url) {
+      sendResponse({ error: 'URL is required' });
+      return false;
+    }
+
+    return respondAsync(async () => {
+      try {
+        // Check if tab with URL already exists
+        const tabs = await chrome.tabs.query({ url });
+        if (tabs.length > 0 && tabs[0]?.id) {
+          // Tab exists, activate it
+          await chrome.tabs.update(tabs[0].id, { active: true });
+          await chrome.windows.update(tabs[0].windowId, { focused: true });
+        } else {
+          // Tab doesn't exist, create it
+          await chrome.tabs.create({ url, active: true });
+        }
+        sendResponse(null);
+      } catch (error) {
+        sendResponse({ error: error instanceof Error ? error.message : String(error) });
       }
     });
   },

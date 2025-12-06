@@ -1,6 +1,7 @@
 /// <reference types="chrome" />
 
 import type { QueryClient } from '@tanstack/react-query';
+import type { FavoriteTab } from '@/background/services/favorites';
 import type { OptionalTabGroupColor } from '@/shared/chrome-types';
 import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 import { queryKeys } from './query-client';
@@ -169,6 +170,13 @@ export class ServiceWorkerBridge {
     }) as Promise<TabEntry[]>;
   }
 
+  async getFavorites(): Promise<FavoriteTab[]> {
+    return this.sendMessage({
+      type: 'query',
+      method: 'getFavorites',
+    }) as Promise<FavoriteTab[]>;
+  }
+
   // Mutation methods
   async toggleTabPinned(tabId: number, pinned?: boolean): Promise<boolean> {
     return this.sendMessage({
@@ -247,6 +255,46 @@ export class ServiceWorkerBridge {
       type: 'mutation',
       method: 'updateSettings',
       params: { settings },
+    }) as Promise<void>;
+  }
+
+  async openUrlInTab(url: string): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'openUrlInTab',
+      params: { url },
+    }) as Promise<void>;
+  }
+
+  async addToFavorites(tab: TabEntry): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'addToFavorites',
+      params: { tab },
+    }) as Promise<void>;
+  }
+
+  async removeFromFavorites(url: string): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'removeFromFavorites',
+      params: { url },
+    }) as Promise<void>;
+  }
+
+  async toggleFavorite(tab: TabEntry): Promise<boolean> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'toggleFavorite',
+      params: { tab },
+    }) as Promise<boolean>;
+  }
+
+  async reorderFavorites(favorites: FavoriteTab[]): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'reorderFavorites',
+      params: { favorites },
     }) as Promise<void>;
   }
 
