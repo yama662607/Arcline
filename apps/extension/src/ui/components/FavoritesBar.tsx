@@ -57,7 +57,7 @@ function FaviconItem({
 
   return (
     <div
-      className={`group relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-amber-200 bg-amber-50/50 transition-all hover:bg-amber-100 hover:shadow-sm ${
+      className={`group relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 transition-all hover:bg-amber-500/20 hover:shadow-sm ${
         isDragging ? 'opacity-50' : ''
       }`}
       draggable
@@ -103,20 +103,20 @@ function FaviconItem({
 
 function Placeholder({ onClose }: { onClose?: () => void }) {
   return (
-    <div className="relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/30 p-4 text-center">
+    <div className="relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-500/30 bg-amber-500/5 p-4 text-center">
       {onClose && (
         <button
           type="button"
-          className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+          className="absolute right-2 top-2 text-slate-500 hover:text-slate-300"
           onClick={onClose}
           title="閉じる"
         >
           <X className="h-4 w-4" />
         </button>
       )}
-      <Star className="mb-2 h-6 w-6 text-amber-500" />
-      <div className="text-sm font-medium text-amber-700">Drag to add Favorites</div>
-      <div className="mt-1 text-xs text-amber-600">
+      <Star className="mb-2 h-6 w-6 text-amber-400" />
+      <div className="text-sm font-medium text-amber-300">Drag to add Favorites</div>
+      <div className="mt-1 text-xs text-amber-400/70">
         Favorites keep your most used sites close across all spaces
       </div>
     </div>
@@ -128,6 +128,9 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
   const { mutate: toggleTabPinned } = useToggleTabPinned();
   const [isDragOver, setIsDragOver] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(true);
+
+  // Debug: Log pinned tabs
+  console.log('[FavoritesBar] Pinned tabs:', pinnedTabs.length, pinnedTabs);
 
   const handleSelectTab = useCallback(
     (tab: TabEntry) => {
@@ -181,13 +184,13 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
   const showPlaceholderUI = pinnedTabs.length === 0 && showPlaceholder;
 
   return (
-    <div className="border-b border-gray-200 bg-white px-3 py-2">
+    <div className="border-b border-white/10 bg-surface px-3 py-2">
       {/* Header */}
-      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-amber-700">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-amber-400">
         <Star className="h-3 w-3" />
         <span>Favorites</span>
         {pinnedTabs.length > 0 && (
-          <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+          <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
             {pinnedTabs.length}
           </span>
         )}
@@ -196,7 +199,7 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
       {/* Content */}
       <div
         className={`min-h-[3rem] rounded-lg transition-colors ${
-          isDragOver ? 'bg-amber-100/50 ring-2 ring-amber-300' : ''
+          isDragOver ? 'bg-amber-500/20 ring-2 ring-amber-500/50' : ''
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -207,7 +210,7 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
         {showPlaceholderUI ? (
           <Placeholder onClose={handleClosePlaceholder} />
         ) : pinnedTabs.length === 0 ? (
-          <div className="flex h-12 items-center justify-center text-xs text-gray-400">
+          <div className="flex h-12 items-center justify-center text-xs text-slate-500">
             お気に入りはありません
           </div>
         ) : (
