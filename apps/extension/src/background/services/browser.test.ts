@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TabGroupColor } from '@/shared/chrome-types';
-import { getSpacesSnapshot } from './browser';
+import { getSpacesSnapshot, getActiveTabEntry, reloadTab } from './browser';
 
 // Mock Chrome APIs
 const mockChrome = {
@@ -14,6 +14,7 @@ const mockChrome = {
     remove: vi.fn(),
     group: vi.fn(),
     ungroup: vi.fn(),
+    reload: vi.fn(),
   },
   storage: {
     local: {
@@ -417,5 +418,151 @@ describe('getSpacesSnapshot', () => {
     const result = await getSpacesSnapshot();
 
     expect(result).toEqual([]);
+  });
+});
+
+describe('getActiveTabEntry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should return active tab entry when active tab exists', async () => {
+    const mockActiveTab: chrome.tabs.Tab = {
+      id: 42,
+      title: 'Active Tab',
+      url: 'https://example.com',
+      groupId: -1,
+      pinned: false,
+      active: true,
+      windowId: 100,
+      index: 0,
+      highlighted: false,
+      frozen: false,
+      incognito: false,
+      selected: false,
+      discarded: false,
+      autoDiscardable: false,
+    };
+
+    mockChrome.tabs.query.mockResolvedValue([mockActiveTab]);
+
+    const result = await getActiveTabEntry();
+
+    expect(mockChrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(result).toMatchObject({
+      id: 42,
+      title: 'Active Tab',
+      url: 'https://example.com',
+      pinned: false,
+      active: true,
+    });
+  });
+
+  it('should return null when no active tab exists', async () => {
+    mockChrome.tabs.query.mockResolvedValue([]);
+
+    const result = await getActiveTabEntry();
+
+    expect(mockChrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(result).toBeNull();
+  });
+
+  it('should handle undefined tab ID gracefully', async () => {
+    const mockActiveTab: chrome.tabs.Tab = {
+      id: undefined as unknown as number,
+      title: 'Active Tab',
+      url: 'https://example.com',
+      groupId: -1,
+      pinned: false,
+      active: true,
+      windowId: 100,
+      index: 0,
+      highlighted: false,
+      frozen: false,
+      incognito: false,
+      selected: false,
+      discarded: false,
+      autoDiscardable: false,
+    };
+
+    mockChrome.tabs.query.mockResolvedValue([mockActiveTab]);
+
+    const result = await getActiveTabEntry();
+
+    expect(result).toBeNull();
+  });
+});
+
+describe('reloadTab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should reload specific tab when tabId is provided', async () => {
+    await reloadTab(42);
+
+    expect(mockChrome.tabs.reload).toHaveBeenCalledWith(42);
+    expect(mockChrome.tabs.query).not.toHaveBeenCalled();
+  });
+
+  it('should reload active tab when no tabId is provided', async () => {
+    const mockActiveTab: chrome.tabs.Tab = {
+      id: 99,
+      title: 'Active Tab',
+      url: 'https://example.com',
+      groupId: -1,
+      pinned: false,
+      active: true,
+      windowId: 100,
+      index: 0,
+      highlighted: false,
+      frozen: false,
+      incognito: false,
+      selected: false,
+      discarded: false,
+      autoDiscardable: false,
+    };
+
+    mockChrome.tabs.query.mockResolvedValue([mockActiveTab]);
+
+    await reloadTab();
+
+    expect(mockChrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(mockChrome.tabs.reload).toHaveBeenCalledWith(99);
+  });
+
+  it('should not reload when no active tab exists and no tabId provided', async () => {
+    mockChrome.tabs.query.mockResolvedValue([]);
+
+    await reloadTab();
+
+    expect(mockChrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(mockChrome.tabs.reload).not.toHaveBeenCalled();
+  });
+
+  it('should handle tabId undefined gracefully', async () => {
+    const mockActiveTab: chrome.tabs.Tab = {
+      id: undefined as unknown as number,
+      title: 'Active Tab',
+      url: 'https://example.com',
+      groupId: -1,
+      pinned: false,
+      active: true,
+      windowId: 100,
+      index: 0,
+      highlighted: false,
+      frozen: false,
+      incognito: false,
+      selected: false,
+      discarded: false,
+      autoDiscardable: false,
+    };
+
+    mockChrome.tabs.query.mockResolvedValue([mockActiveTab]);
+
+    await reloadTab();
+
+    expect(mockChrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(mockChrome.tabs.reload).not.toHaveBeenCalled();
   });
 });
