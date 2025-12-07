@@ -1,6 +1,6 @@
 /// <reference types="chrome" />
 import type { UiMode } from '@/lib/ui-mode';
-import type { ArchivedTab, Settings, SpaceCreateRequest } from '@/shared/types';
+import type { ArchivedTab, Settings, SpaceCreateRequest, TabEntry } from '@/shared/types';
 import { initializeAutoArchive } from './services/auto-archive';
 import {
   activateTab,
@@ -8,11 +8,13 @@ import {
   broadcastSpacesSnapshot,
   closeTab,
   createSpace,
+  getActiveTabEntry,
   getArchivedTabs,
   getBookmarksForSpace,
   getSettings,
   getSpacesSnapshot,
   moveTabToSpace,
+  reloadTab,
   removeSpace,
   restoreArchivedTab,
   toggleTabPinned,
@@ -20,6 +22,7 @@ import {
 } from './services/browser';
 import {
   addToFavorites,
+  type FavoriteTab,
   getFavorites,
   removeFromFavorites,
   reorderFavorites,
@@ -34,6 +37,36 @@ type CommandHandler = (
   message: Record<string, unknown>,
   sendResponse: RuntimeSendResponse
 ) => boolean;
+
+function isTabEntry(value: unknown): value is TabEntry {
+  if (!value || typeof value !== 'object') return false;
+
+  const candidate = value as Partial<TabEntry>;
+
+  return (
+    typeof candidate.id === 'number' &&
+    typeof candidate.url === 'string' &&
+    typeof candidate.title === 'string' &&
+    typeof candidate.windowId === 'number' &&
+    typeof candidate.groupId === 'number' &&
+    typeof candidate.pinned === 'boolean' &&
+    typeof candidate.active === 'boolean'
+  );
+}
+
+function isFavoriteTabArray(value: unknown): value is FavoriteTab[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (fav) =>
+        fav &&
+        typeof fav === 'object' &&
+        typeof fav.url === 'string' &&
+        typeof fav.title === 'string' &&
+        typeof (fav as FavoriteTab).addedAt === 'number'
+    )
+  );
+}
 
 const UI_MODE_KEY = 'arclineoMode';
 
@@ -213,6 +246,16 @@ export const commandHandlers: Record<string, CommandHandler> = {
         sendResponse({ command: 'spacesSnapshot', spaces: [] });
       }
     }),
+  getActiveTab: (_message, sendResponse) =>
+    respondAsync(async () => {
+      try {
+        const tab = await getActiveTabEntry();
+        sendResponse({ ok: true, data: tab });
+      } catch (error) {
+        console.error('Failed to fetch active tab', error);
+        sendResponse({ ok: false, error: (error as Error).message });
+      }
+    }),
   toggleTabPinned: (message, sendResponse) => {
     const { tabId, pinned } = message as { tabId?: number; pinned?: boolean };
     if (typeof tabId !== 'number') {
@@ -338,6 +381,19 @@ export const commandHandlers: Record<string, CommandHandler> = {
       }
     });
   },
+  reloadTab: (message, sendResponse) => {
+    const { tabId } = message as { tabId?: number };
+
+    return respondAsync(async () => {
+      try {
+        await reloadTab(tabId);
+        sendResponse({ ok: true });
+      } catch (error) {
+        console.error('Failed to reload tab', error);
+        sendResponse({ ok: false, error: (error as Error).message });
+      }
+    });
+  },
   getSpacesSnapshot: (_message, sendResponse) =>
     respondAsync(async () => {
       try {
@@ -457,14 +513,14 @@ export const commandHandlers: Record<string, CommandHandler> = {
     }),
   addToFavorites: (message, sendResponse) => {
     const { tab } = message as { tab?: unknown };
-    if (!tab) {
+    if (!isTabEntry(tab)) {
       sendResponse({ ok: false, error: 'tab is required' });
       return false;
     }
 
     return respondAsync(async () => {
       try {
-        await addToFavorites(tab as any);
+        await addToFavorites(tab);
         sendResponse(null);
       } catch (error) {
         sendResponse({ ok: false, error: (error as Error).message });
@@ -489,14 +545,14 @@ export const commandHandlers: Record<string, CommandHandler> = {
   },
   toggleFavorite: (message, sendResponse) => {
     const { tab } = message as { tab?: unknown };
-    if (!tab) {
+    if (!isTabEntry(tab)) {
       sendResponse({ ok: false, error: 'tab is required' });
       return false;
     }
 
     return respondAsync(async () => {
       try {
-        const isFavorite = await toggleFavorite(tab as any);
+        const isFavorite = await toggleFavorite(tab);
         sendResponse(isFavorite);
       } catch (error) {
         sendResponse({ ok: false, error: (error as Error).message });
@@ -506,9 +562,14 @@ export const commandHandlers: Record<string, CommandHandler> = {
   reorderFavorites: (message, sendResponse) => {
     const { favorites } = message as { favorites?: unknown };
 
+    if (!isFavoriteTabArray(favorites)) {
+      sendResponse({ ok: false, error: 'favorites array is required' });
+      return false;
+    }
+
     return respondAsync(async () => {
       try {
-        await reorderFavorites(favorites as any);
+        await reorderFavorites(favorites);
         sendResponse(null);
       } catch (error) {
         sendResponse({ error: error instanceof Error ? error.message : String(error) });

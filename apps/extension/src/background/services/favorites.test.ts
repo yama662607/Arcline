@@ -28,7 +28,7 @@ global.chrome = {
       }),
     },
   },
-} as any;
+} as unknown as typeof chrome;
 
 const createMockTab = (id: number, url: string, title: string): TabEntry => ({
   id,

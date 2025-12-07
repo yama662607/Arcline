@@ -192,6 +192,11 @@ function indexTabsById(allTabs: chrome.tabs.Tab[]): Map<number, TabEntry> {
   return tabsById;
 }
 
+export async function getActiveTabEntry(): Promise<TabEntry | null> {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return activeTab ? mapTab(activeTab) : null;
+}
+
 function buildSnapshotFromState(
   state: SpaceState,
   tabsById: Map<number, TabEntry>,
@@ -512,6 +517,18 @@ export async function broadcastSpacesSnapshot(): Promise<void> {
 
 export async function closeTab(tabId: number): Promise<void> {
   await chrome.tabs.remove(tabId);
+}
+
+export async function reloadTab(tabId?: number): Promise<void> {
+  if (typeof tabId === 'number') {
+    await chrome.tabs.reload(tabId);
+    return;
+  }
+
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (activeTab?.id) {
+    await chrome.tabs.reload(activeTab.id);
+  }
 }
 
 export async function activateTab(tabId: number): Promise<void> {

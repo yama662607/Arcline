@@ -60,6 +60,18 @@ export function useFavorites() {
   });
 }
 
+export function useActiveTab() {
+  const bridge = useServiceWorkerBridge();
+
+  return useQuery({
+    queryKey: queryKeys.activeTab,
+    queryFn: () => bridge?.getActiveTab(),
+    staleTime: 1000 * 10, // keep fresh for current window view
+    refetchInterval: 1000 * 30,
+    enabled: Boolean(bridge),
+  });
+}
+
 // Mutation hooks
 export function useToggleTabPinned() {
   const bridge = useServiceWorkerBridge();
@@ -252,6 +264,21 @@ export function useRemoveFromFavorites() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.favorites });
+    },
+  });
+}
+
+export function useReloadActiveTab() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, number | undefined>({
+    mutationFn: async (tabId?: number) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.reloadTab(tabId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.activeTab });
     },
   });
 }
