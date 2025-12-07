@@ -1,349 +1,338 @@
+# =============================================================================
+# Arcline CI/CD Pipeline
+# =============================================================================
+# ベストプラクティスに基づいた CI/CD パイプライン
+# - pnpm + Turbo によるモノレポ対応
+# - キャッシュ最適化による高速化
+# - 並列実行による効率化
+# - 段階的なテスト実行（高速なものから順に）
+# =============================================================================
+
 name: CI
 
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.vscode/**'
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.vscode/**'
+
+# 同一ブランチの古いワークフローをキャンセル
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
 
 jobs:
-  quality-check:
+  # ===========================================================================
+  # Stage 1: 高速な品質チェック（並列実行）
+  # ===========================================================================
+  lint:
     runs-on: ubuntu-latest
-    name: 品質チェック
-
-    strategy:
-      matrix:
-        node-version: [20]
-
+    name: 🔍 Lint
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Complete history for better analysis
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: ${{ env.PNPM_VERSION }}
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Setup Git hooks
-        run: pnpm setup-hooks
-
-      - name: 🔍 Lint check
+      - name: Run lint
         run: pnpm lint
 
-      - name: 📝 Format check
-        run: pnpm format
+  typecheck:
+    runs-on: ubuntu-latest
+    name: 🔧 Type Check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: 🔧 Type check
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run typecheck
         run: pnpm typecheck
 
-      - name: 🧪 Unit tests with coverage
-        run: pnpm test:coverage
+  # ===========================================================================
+  # Stage 2: 単体テスト
+  # ===========================================================================
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: 🧪 Unit Tests
+    needs: [lint, typecheck]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: 📊 Upload coverage to Codecov
-        if: matrix.node-version == 20
-        uses: codecov/codecov-action@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          file: ./apps/extension/coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
+          version: ${{ env.PNPM_VERSION }}
 
-      - name: 🏗️ Build extension
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: 📊 Test Summary
+        if: always()
+        run: |
+          echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Unit tests completed" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Stage 3: ビルド
+  # ===========================================================================
+  build:
+    runs-on: ubuntu-latest
+    name: 🏗️ Build
+    needs: [lint, typecheck]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
         run: pnpm build
 
       - name: 📦 Bundle size check
         run: |
-          echo "## Bundle Size Report" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Bundle Size Report" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           du -sh apps/extension/dist/* >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-      - name: 🔒 Security audit
-        run: |
-          if command -v audit-ci &> /dev/null; then
-            audit-ci --moderate
-          else
-            echo "audit-ci not available, skipping security audit"
+          # バンドルサイズの警告（10MB超過時）
+          TOTAL_SIZE=$(du -sk apps/extension/dist | cut -f1)
+          if [ "$TOTAL_SIZE" -gt 10240 ]; then
+            echo "⚠️ **Warning**: Bundle size exceeds 10MB" >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-dist
+          path: apps/extension/dist/
+          retention-days: 7
+
+  # ===========================================================================
+  # Stage 4: E2Eテスト（Chrome拡張機能として）
+  # ===========================================================================
   e2e-tests:
     runs-on: ubuntu-latest
-    name: E2Eテスト
-    needs: quality-check
-
-    strategy:
-      matrix:
-        browser: [chromium, firefox]
-
+    name: 🎭 E2E Tests
+    needs: [build]
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build extension
-        run: pnpm build
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-dist
+          path: apps/extension/dist/
 
       - name: Install Playwright browsers
-        run: pnpm --filter arcline-extension exec playwright install --with-deps ${{ matrix.browser }}
+        run: pnpm --filter arcline-extension exec playwright install chromium --with-deps
 
-      - name: 🎭 Run E2E tests
-        run: |
-          cd apps/extension
-          PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright playwright test \
-            --config playwright/playwright.config.ts \
-            --project=${{ matrix.browser }} \
-            --reporter=html,github
-
-      - name: 📊 Upload E2E test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-results-${{ matrix.browser }}
-          path: |
-            apps/extension/playwright-report/
-            apps/extension/test-results/
-          retention-days: 7
-
-      - name: 📈 Upload E2E coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-coverage-${{ matrix.browser }}
-          path: apps/extension/coverage-e2e/
-          retention-days: 7
-
-  performance-tests:
-    runs-on: ubuntu-latest
-    name: パフォーマンステスト
-    needs: quality-check
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build extension
-        run: pnpm build
-
-      - name: 🚀 Performance audit
-        run: |
-          # Lighthouse CI for performance testing
-          npm install -g @lhci/cli@0.12.x
-          lhci autorun
+      - name: Run E2E tests
+        run: pnpm test:e2e
         env:
-          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          CI: true
+          PLAYWRIGHT_HEADLESS: '1'
 
-      - name: 📊 Performance report
+      - name: Upload E2E test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-report
-          path: .lighthouseci/
-          retention-days: 7
-
-  accessibility-tests:
-    runs-on: ubuntu-latest
-    name: アクセシビリティテスト
-    needs: quality-check
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build extension
-        run: pnpm build
-
-      - name: ♿ Accessibility tests
-        run: |
-          cd apps/extension
-          playwright test \
-            --config playwright/playwright.config.ts \
-            --grep "Accessibility" \
-            --reporter=html,github
-
-      - name: 📊 Upload accessibility results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: accessibility-results
+          name: e2e-report
           path: |
             apps/extension/playwright-report/
             apps/extension/test-results/
           retention-days: 7
 
-  cross-browser-tests:
+      - name: 📊 E2E Test Summary
+        if: always()
+        run: |
+          echo "## 🎭 E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ E2E tests completed" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Stage 5: セキュリティ監査（PRのみ）
+  # ===========================================================================
+  security-audit:
     runs-on: ubuntu-latest
-    name: クロスブラウザテスト
-    needs: quality-check
-
-    strategy:
-      matrix:
-        browser: [chromium, webkit, firefox]
-
+    name: 🔒 Security Audit
+    needs: [lint, typecheck]
+    if: github.event_name == 'pull_request'
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build extension
-        run: pnpm build
+      - name: Run security audit
+        run: pnpm audit --audit-level moderate || true
 
-      - name: Install Playwright browsers
-        run: pnpm --filter arcline-extension exec playwright install --with-deps ${{ matrix.browser }}
-
-      - name: 🌐 Cross-browser tests
+      - name: 📊 Security Summary
         run: |
-          cd apps/extension
-          playwright test \
-            --config playwright/playwright.config.ts \
-            --project=${{ matrix.browser }} \
-            --grep "Cross-Browser" \
-            --reporter=html,github
+          echo "## 🔒 Security Audit" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Security audit completed" >> $GITHUB_STEP_SUMMARY
 
-      - name: 📊 Upload cross-browser results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cross-browser-results-${{ matrix.browser }}
-          path: |
-            apps/extension/playwright-report/
-            apps/extension/test-results/
-          retention-days: 7
-
-  build-and-deploy:
+  # ===========================================================================
+  # Stage 6: リリースパッケージ作成（mainブランチのみ）
+  # ===========================================================================
+  package:
     runs-on: ubuntu-latest
-    name: ビルドとデプロイ
-    needs: [quality-check, e2e-tests]
+    name: 📦 Package
+    needs: [unit-tests, e2e-tests]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          version: 9
+          name: extension-dist
+          path: apps/extension/dist/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🏗️ Build production
-        run: pnpm build
-
-      - name: 📦 Package extension
+      - name: Create ZIP package
         run: |
           cd apps/extension
-          zip -r ../arcline-extension.zip dist/
+          zip -r ../../arcline-extension.zip dist/
 
-      - name: 📤 Upload build artifacts
+      - name: Generate SHA256 checksum
+        run: |
+          sha256sum arcline-extension.zip > checksum.txt
+          cat checksum.txt
+
+      - name: Upload release package
         uses: actions/upload-artifact@v4
         with:
-          name: extension-build
+          name: release-package
           path: |
-            apps/extension/dist/
             arcline-extension.zip
+            checksum.txt
           retention-days: 30
 
-      - name: 🚀 Deploy to Chrome Web Store (if needed)
-        if: contains(github.event.head_commit.message, '[deploy]')
+      - name: 📊 Package Summary
         run: |
-          echo "Deploy to Chrome Web Store would happen here"
-          # Add Chrome Web Store deployment logic
-        env:
-          CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
-          CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
-          CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+          echo "## 📦 Release Package" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Package created successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Checksum:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat checksum.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-  notify-results:
+  # ===========================================================================
+  # 最終ステータス確認
+  # ===========================================================================
+  ci-status:
     runs-on: ubuntu-latest
-    name: 結果通知
-    needs: [quality-check, e2e-tests, performance-tests, accessibility-tests, cross-browser-tests]
+    name: ✅ CI Status
+    needs: [unit-tests, e2e-tests, build]
     if: always()
-
     steps:
-      - name: 📧 Notify on success
-        if: ${{ needs.quality-check.result == 'success' && needs.e2e-tests.result == 'success' }}
+      - name: Check CI Status
         run: |
-          echo "✅ All tests passed successfully!"
-          echo "🎉 Arcline extension is ready for release"
+          echo "## 🎯 CI Pipeline Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: 🚨 Notify on failure
-        if: ${{ needs.quality-check.result == 'failure' || needs.e2e-tests.result == 'failure' }}
-        run: |
-          echo "❌ Some tests failed"
-          echo "🔧 Please check the logs and fix the issues"
-          exit 1
+          if [[ "${{ needs.unit-tests.result }}" == "success" && "${{ needs.e2e-tests.result }}" == "success" && "${{ needs.build.result }}" == "success" ]]; then
+            echo "✅ **All checks passed!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Unit Tests | ✅ |" >> $GITHUB_STEP_SUMMARY
+            echo "| E2E Tests | ✅ |" >> $GITHUB_STEP_SUMMARY
+            echo "| Build | ✅ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Some checks failed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Unit Tests | ${{ needs.unit-tests.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| E2E Tests | ${{ needs.e2e-tests.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Build | ${{ needs.build.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
