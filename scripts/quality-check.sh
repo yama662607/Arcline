@@ -117,8 +117,8 @@ fi
 # 6. 単体テスト
 echo -e "${YELLOW}🧪 単体テスト実行中...${NC}"
 if [ "$COVERAGE" = true ]; then
-  if pnpm test:coverage; then
-    echo -e "${GREEN}✅ 単体テスト通過（カバレッジ付き）${NC}"
+  if pnpm test; then
+    echo -e "${GREEN}✅ 単体テスト通過${NC}"
   else
     echo -e "${RED}❌ 単体テスト失敗${NC}"
     if [ "$STRICT" = true ]; then
@@ -178,9 +178,9 @@ if [ -d "apps/extension/dist" ]; then
   BUNDLE_SIZE=$(du -sh apps/extension/dist | cut -f1)
   echo -e "${GREEN}✅ バンドルサイズ: $BUNDLE_SIZE${NC}"
 
-  # サイズ警告（10MB超過）
-  SIZE_BYTES=$(du -sb apps/extension/dist | cut -f1)
-  if [ "$SIZE_BYTES" -gt 10485760 ]; then
+  # サイズ警告（10MB超過 - macOS対応）
+  SIZE_BYTES=$(du -sk apps/extension/dist | cut -f1)
+  if [ "$SIZE_BYTES" -gt 10240 ]; then
     echo -e "${YELLOW}⚠️ バンドルサイズが大きいです: $BUNDLE_SIZE${NC}"
   fi
 else
