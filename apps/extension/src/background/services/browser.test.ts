@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TabGroupColor } from '@/shared/chrome-types';
-import { getSpacesSnapshot } from './browser';
+import { getSpacesSnapshot, reloadTab } from './browser';
 
 // Mock Chrome APIs
 const mockChrome = {
@@ -14,6 +14,7 @@ const mockChrome = {
     remove: vi.fn(),
     group: vi.fn(),
     ungroup: vi.fn(),
+    reload: vi.fn(),
   },
   storage: {
     local: {
@@ -417,5 +418,96 @@ describe('getSpacesSnapshot', () => {
     const result = await getSpacesSnapshot();
 
     expect(result).toEqual([]);
+  });
+});
+
+describe('reloadTab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should reload tab when explicit tabId is provided', async () => {
+    const tabId = 42;
+    mockChrome.tabs.reload.mockResolvedValue(undefined);
+
+    await reloadTab(tabId);
+
+    expect(mockChrome.tabs.reload).toHaveBeenCalledWith(tabId);
+    expect(mockChrome.tabs.reload).toHaveBeenCalledTimes(1);
+    expect(mockChrome.tabs.query).not.toHaveBeenCalled();
+  });
+
+  it('should reload active tab when no tabId is provided', async () => {
+    const activeTab = {
+      id: 123,
+      title: 'Active Tab',
+      url: 'https://example.com',
+      active: true,
+      windowId: 100,
+      index: 0,
+      highlighted: true,
+      pinned: false,
+      incognito: false,
+      selected: true,
+      discarded: false,
+      autoDiscardable: true,
+      groupId: -1,
+      frozen: false,
+    };
+
+    mockChrome.tabs.query.mockResolvedValue([activeTab]);
+    mockChrome.tabs.reload.mockResolvedValue(undefined);
+
+    await reloadTab();
+
+    expect(mockChrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(mockChrome.tabs.reload).toHaveBeenCalledWith(123);
+    expect(mockChrome.tabs.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not reload when no tabId provided and active tab has no ID', async () => {
+    const activeTab = {
+      id: undefined,
+      title: 'Active Tab',
+      url: 'https://example.com',
+      active: true,
+      windowId: 100,
+      index: 0,
+      highlighted: true,
+      pinned: false,
+      incognito: false,
+      selected: true,
+      discarded: false,
+      autoDiscardable: true,
+      groupId: -1,
+      frozen: false,
+    };
+
+    mockChrome.tabs.query.mockResolvedValue([activeTab]);
+    mockChrome.tabs.reload.mockResolvedValue(undefined);
+
+    await reloadTab();
+
+    expect(mockChrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(mockChrome.tabs.reload).not.toHaveBeenCalled();
+  });
+
+  it('should not reload when no tabId provided and no active tab found', async () => {
+    mockChrome.tabs.query.mockResolvedValue([]);
+    mockChrome.tabs.reload.mockResolvedValue(undefined);
+
+    await reloadTab();
+
+    expect(mockChrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(mockChrome.tabs.reload).not.toHaveBeenCalled();
+  });
+
+  it('should handle tabId of 0 as valid explicit tabId', async () => {
+    mockChrome.tabs.reload.mockResolvedValue(undefined);
+
+    await reloadTab(0);
+
+    expect(mockChrome.tabs.reload).toHaveBeenCalledWith(0);
+    expect(mockChrome.tabs.query).not.toHaveBeenCalled();
   });
 });
