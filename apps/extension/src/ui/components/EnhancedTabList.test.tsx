@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { EnhancedTabList } from './EnhancedTabList';
-import type { TabEntry } from '@/shared/types';
 import { useSpacesSnapshot } from '@/hooks/use-spaces-query';
+import type { TabEntry } from '@/shared/types';
+import { EnhancedTabList } from './EnhancedTabList';
 
 // Mock ResizeObserver
 class MockResizeObserver {
@@ -61,15 +61,11 @@ describe('EnhancedTabList', () => {
     vi.mocked(useSpacesSnapshot).mockReturnValue({
       data: { spaces: [], currentSpaceId: 1 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     expect(() => {
       renderWithQuery(
-        <EnhancedTabList
-          tabs={[]}
-          title="Test Tabs"
-          emptyMessage="No tabs available"
-        />
+        <EnhancedTabList tabs={[]} title="Test Tabs" emptyMessage="No tabs available" />
       );
     }).not.toThrow();
   });
@@ -78,16 +74,12 @@ describe('EnhancedTabList', () => {
     vi.mocked(useSpacesSnapshot).mockReturnValue({
       data: { spaces: [], currentSpaceId: 1 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof useSpacesSnapshot>);
 
     const mockTabs = [createMockTab(1, 'https://example.com', 'Example')];
 
     renderWithQuery(
-      <EnhancedTabList
-        tabs={mockTabs}
-        title="Test Tabs"
-        emptyMessage="No tabs available"
-      />
+      <EnhancedTabList tabs={mockTabs} title="Test Tabs" emptyMessage="No tabs available" />
     );
 
     expect(screen.getByRole('heading', { name: /test tabs/i })).toBeInTheDocument();
