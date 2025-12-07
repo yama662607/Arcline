@@ -15,6 +15,9 @@ vi.mock('@/hooks/use-spaces-query', () => ({
   useRemoveFromFavorites: () => ({
     mutate: vi.fn(),
   }),
+  useToggleTabPinned: () => ({
+    mutate: vi.fn(),
+  }),
 }));
 
 const createMockTab = (id: number, url: string, title: string): TabEntry => ({
