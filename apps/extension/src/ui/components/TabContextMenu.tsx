@@ -1,6 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
-import { activateTab, closeTab, toggleTabPinned } from '@/lib/tabs';
+import {
+  useActivateTab,
+  useCloseTab,
+  useFavorites,
+  useToggleFavorite,
+  useToggleTabPinned,
+} from '@/hooks/use-spaces-query';
 import type { TabEntry } from '@/shared/types';
 
 interface TabContextMenuProps {
@@ -11,6 +17,17 @@ interface TabContextMenuProps {
 }
 
 export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
+  const { data: favorites } = useFavorites();
+  const { mutateAsync: togglePinned } = useToggleTabPinned();
+  const { mutateAsync: toggleFavorite } = useToggleFavorite();
+  const { mutateAsync: activate } = useActivateTab();
+  const { mutateAsync: close } = useCloseTab();
+
+  const isFavorite = useMemo(
+    () => favorites?.some((fav) => fav.url === tab.url),
+    [favorites, tab.url]
+  );
+
   useEffect(() => {
     const handler = (event: MouseEvent | KeyboardEvent) => {
       if ((event as KeyboardEvent).key === 'Escape') {
@@ -44,7 +61,7 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
         type="button"
         className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10"
         onClick={() => {
-          activateTab(tab.id).catch((error) => console.warn(error));
+          activate(tab.id).catch((error) => console.warn(error));
           onClose();
         }}
       >
@@ -54,18 +71,20 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
         type="button"
         className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10"
         onClick={() => {
-          toggleTabPinned(tab.id).catch((error) => console.warn(error));
+          toggleFavorite(tab).catch((error) => console.warn(error));
           onClose();
         }}
       >
-        <span>{tab.pinned ? 'Remove from Favorites' : 'Add to Favorites'}</span>
+        <span>{isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}</span>
       </button>
       <div className="my-1 h-px bg-white/10" />
       <button
         type="button"
         className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10 text-xs text-slate-400"
         onClick={() => {
-          toggleTabPinned(tab.id).catch((error) => console.warn(error));
+          togglePinned({ tabId: tab.id, pinned: !tab.pinned }).catch((error) =>
+            console.warn(error)
+          );
           onClose();
         }}
       >
@@ -75,7 +94,7 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
         type="button"
         className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10 text-red-400"
         onClick={() => {
-          closeTab(tab.id).catch((error) => console.warn(error));
+          close(tab.id).catch((error) => console.warn(error));
           onClose();
         }}
       >

@@ -8,6 +8,7 @@ import { requestUiMode } from '@/lib/ui-mode';
 import { useSpacesSync } from '@/lib/useSpacesSync';
 import type { TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
+import { ActiveTabHeader } from '@/ui/components/ActiveTabHeader';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
 import { FavoritesBar } from '@/ui/components/FavoritesBar';
@@ -80,6 +81,8 @@ function AppContent() {
             for reference.
           </p>
         </header>
+
+        <ActiveTabHeader />
 
         <section className="space-y-4">
           <div className="flex items-center justify-between">

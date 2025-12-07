@@ -177,6 +177,13 @@ export class ServiceWorkerBridge {
     }) as Promise<FavoriteTab[]>;
   }
 
+  async getActiveTab(): Promise<TabEntry | null> {
+    return this.sendMessage({
+      type: 'query',
+      method: 'getActiveTab',
+    }) as Promise<TabEntry | null>;
+  }
+
   // Mutation methods
   async toggleTabPinned(tabId: number, pinned?: boolean): Promise<boolean> {
     return this.sendMessage({
@@ -238,6 +245,14 @@ export class ServiceWorkerBridge {
     return this.sendMessage({
       type: 'mutation',
       method: 'archiveTab',
+      params: { tabId },
+    }) as Promise<void>;
+  }
+
+  async reloadTab(tabId?: number): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'reloadTab',
       params: { tabId },
     }) as Promise<void>;
   }
