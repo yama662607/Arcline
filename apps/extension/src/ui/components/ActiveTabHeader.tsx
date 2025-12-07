@@ -33,8 +33,12 @@ export function ActiveTabHeader() {
 
   const handleReload = useCallback(async () => {
     if (!activeTab?.id) return;
-    await reload(activeTab.id);
-    await refetch();
+    try {
+      await reload(activeTab.id);
+      await refetch();
+    } catch (error) {
+      console.warn('[Arcline] Failed to reload tab', error);
+    }
   }, [activeTab?.id, refetch, reload]);
 
   useEffect(() => {
