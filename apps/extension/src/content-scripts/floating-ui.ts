@@ -40,7 +40,8 @@ function ensureHost() {
   element.style.top = '0';
   element.style.left = '0';
   element.style.height = '100vh';
-  element.style.width = '300px';
+  element.style.width = '8px';
+  element.style.transition = 'none'; // Disable CSS transitions to avoid animation conflicts
   element.style.zIndex = '2147483646';
   element.style.pointerEvents = 'auto';
   document.documentElement.append(element);
