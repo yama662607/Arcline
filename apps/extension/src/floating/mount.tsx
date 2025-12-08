@@ -105,13 +105,14 @@ const FloatingUiRoot = forwardRef<
     host.style.top = '0';
     host.style.left = '0';
     host.style.height = '100vh';
-    // Change width instantly (no transition) based on open/pinned state
-    // This avoids double animation with Framer Motion's slide animation
-    host.style.width = open || pinned ? '300px' : '8px';
-    host.style.transition = 'none'; // Disable CSS transitions
+    // Keep width at 8px (hotzone width) and use overflow: visible
+    // This prevents the host from expanding and causing visual artifacts
+    host.style.width = '8px';
+    host.style.overflow = 'visible';
+    host.style.transition = 'none';
     host.style.zIndex = '2147483646';
     host.style.pointerEvents = 'auto';
-  }, [host, open, pinned]);
+  }, [host]);
 
   return (
     <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[300px]">
