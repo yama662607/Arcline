@@ -17,7 +17,10 @@ import {
 } from '@/hooks/use-spaces-query';
 import type { TabEntry } from '@/shared/types';
 import { GlobalPinnedTabs } from '@/ui/components/GlobalPinnedTabs';
+import type { DragData, TabSource } from '@/ui/hooks/use-tab-drag-drop';
 import { getDragData, setDragData } from '@/ui/hooks/use-tab-drag-drop';
+
+export type FloatingListContext = 'pinned' | 'temporary';
 
 interface TabRowProps {
   tab: TabEntry;
@@ -33,6 +36,7 @@ interface TabRowProps {
   onDragStart?: (event: ReactDragEvent<HTMLDivElement>, tab: TabEntry) => void;
   onDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void;
   onDrop?: (event: ReactDragEvent<HTMLDivElement>, tab: TabEntry) => void;
+  onDragEnd?: () => void;
 }
 
 function safeHostname(url: string): string {
@@ -49,7 +53,8 @@ function useTabRowHandlers(
   onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void,
   onDragStart?: (event: ReactDragEvent<HTMLDivElement>, tab: TabEntry) => void,
   onDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void,
-  onDrop?: (event: ReactDragEvent<HTMLDivElement>, targetTab: TabEntry) => void
+  onDrop?: (event: ReactDragEvent<HTMLDivElement>, targetTab: TabEntry) => void,
+  onDragEnd?: () => void
 ) {
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -90,12 +95,17 @@ function useTabRowHandlers(
     [onDrop, tab]
   );
 
+  const handleDragEnd = useCallback(() => {
+    onDragEnd?.();
+  }, [onDragEnd]);
+
   return {
     handleKeyDown,
     handleContextMenu,
     handleDragStart,
     handleDragOver,
     handleDrop,
+    handleDragEnd,
   };
 }
 
@@ -113,9 +123,16 @@ function TabRow({
   onDragStart,
   onDragOver,
   onDrop,
+  onDragEnd,
 }: TabRowProps) {
-  const { handleKeyDown, handleContextMenu, handleDragStart, handleDragOver, handleDrop } =
-    useTabRowHandlers(tab, onSelect, onContextMenu, onDragStart, onDragOver, onDrop);
+  const {
+    handleKeyDown,
+    handleContextMenu,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+    handleDragEnd,
+  } = useTabRowHandlers(tab, onSelect, onContextMenu, onDragStart, onDragOver, onDrop, onDragEnd);
 
   const containerClasses = [
     variant === 'floating'
@@ -130,6 +147,17 @@ function TabRow({
   const actionButtonTextClass = variant === 'floating' ? 'text-xs' : 'text-sm';
   const actionContainerBgClass = 'bg-surface-light';
 
+  const dragHandleProps =
+    variant === 'floating'
+      ? {
+          draggable: true,
+          onDragStart: handleDragStart,
+          onDragOver: handleDragOver,
+          onDrop: handleDrop,
+          onDragEnd: handleDragEnd,
+        }
+      : {};
+
   return (
     <div className={containerClasses}>
       <div
@@ -137,10 +165,7 @@ function TabRow({
         onClick={() => onSelect(tab)}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
-        draggable={Boolean(onDragStart)}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
+        {...dragHandleProps}
         tabIndex={0}
         role="button"
       >
@@ -221,6 +246,7 @@ interface EnhancedTabListProps {
   onTabContextMenu?: (tab: TabEntry, event: React.MouseEvent<HTMLDivElement>) => void;
   showFavicons?: boolean;
   compact?: boolean;
+  floatingContext?: FloatingListContext;
 }
 
 export function EnhancedTabList({
@@ -231,6 +257,7 @@ export function EnhancedTabList({
   onTabContextMenu,
   showFavicons = true,
   compact = false,
+  floatingContext,
 }: EnhancedTabListProps) {
   const [draggedTab, setDraggedTab] = useState<TabEntry | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -274,10 +301,61 @@ export function EnhancedTabList({
     archiveTabMutation.mutate(tab.id);
   };
 
+  const isFloatingVariant = variant === 'floating';
+  const floatingTarget: FloatingListContext = floatingContext ?? 'temporary';
+  const dragSource: TabSource = isFloatingVariant ? floatingTarget : 'temporary';
+
+  const applyTemporaryDropEffects = (source: TabSource, tab: TabEntry) => {
+    if (source === 'temporary') {
+      console.log('[EnhancedTabList] Ignoring drop from temporary (same source)');
+      return;
+    }
+
+    if (source === 'pinned') {
+      console.log('[EnhancedTabList] Unpinning tab:', tab.id);
+      togglePinMutation.mutate({ tabId: tab.id, pinned: false });
+      return;
+    }
+
+    console.log('[EnhancedTabList] Removing from favorites:', tab.url);
+    removeFromFavorites(tab.url);
+  };
+
+  const applyPinnedDropEffects = (source: TabSource, tab: TabEntry) => {
+    if (source === 'pinned') {
+      console.log('[EnhancedTabList] Ignoring drop from pinned (same source)');
+      return;
+    }
+
+    console.log('[EnhancedTabList] Pinning tab via floating drop zone:', tab.id);
+    togglePinMutation.mutate({ tabId: tab.id, pinned: true });
+
+    if (source === 'favorite') {
+      console.log('[EnhancedTabList] Removing from favorites after pin:', tab.url);
+      removeFromFavorites(tab.url);
+    }
+  };
+
+  const handleFloatingDrop = (dragData: DragData) => {
+    const { tab, source } = dragData;
+    console.log('[EnhancedTabList] Drop from source:', source, 'tab:', tab.title);
+
+    if (floatingTarget === 'temporary') {
+      applyTemporaryDropEffects(source, tab);
+      return;
+    }
+
+    applyPinnedDropEffects(source, tab);
+  };
+
   const handleDragStart = (e: React.DragEvent, tab: TabEntry) => {
-    console.log('[EnhancedTabList] DragStart from temporary:', tab.title);
+    console.log(`[EnhancedTabList] DragStart from ${dragSource}:`, tab.title);
     setDraggedTab(tab);
-    setDragData(e as ReactDragEvent<HTMLDivElement>, tab, 'temporary');
+    setDragData(e as ReactDragEvent<HTMLDivElement>, tab, dragSource);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTab(null);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -325,28 +403,18 @@ export function EnhancedTabList({
       return;
     }
 
-    const { tab, source } = dragData;
-    console.log('[EnhancedTabList] Drop from source:', source, 'tab:', tab.title);
-
-    // すでにTemporaryからのドラッグは無視（自分自身への移動）
-    if (source === 'temporary') {
-      console.log('[EnhancedTabList] Ignoring drop from temporary (same source)');
+    if (!isFloatingVariant) {
       return;
     }
 
-    // 移動元から削除
-    if (source === 'pinned') {
-      // Pinnedからの移動: ピン留めを解除
-      console.log('[EnhancedTabList] Unpinning tab:', tab.id);
-      togglePinMutation.mutate({ tabId: tab.id, pinned: false });
-    } else if (source === 'favorite') {
-      // Favoriteからの移動: お気に入りから削除
-      console.log('[EnhancedTabList] Removing from favorites:', tab.url);
-      removeFromFavorites(tab.url);
-    }
+    handleFloatingDrop(dragData);
+    setDraggedTab(null);
   };
 
-  if (variant === 'floating') {
+  if (isFloatingVariant) {
+    const dropZoneAriaLabel =
+      floatingTarget === 'pinned' ? 'Pinned tabs drop zone' : 'Temporary tabs drop zone';
+
     return (
       <div
         className={`space-y-2 rounded-lg transition-colors ${
@@ -356,7 +424,7 @@ export function EnhancedTabList({
         onDragLeave={handleZoneDragLeave}
         onDrop={handleZoneDrop}
         role="region"
-        aria-label="Temporary tabs drop zone"
+        aria-label={dropZoneAriaLabel}
       >
         <div className="px-3 py-2">
           <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -386,6 +454,7 @@ export function EnhancedTabList({
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
               />
             ))}
           </div>

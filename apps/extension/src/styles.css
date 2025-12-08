@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+:root {
+  font-size: 14px;
+}
+
 @theme {
   --color-background: #0f172a;
   --color-foreground: #f1f5f9;
@@ -25,9 +29,11 @@
   --color-surface-light: #1e293b;
 }
 
+:host,
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
+  font-size: 14px;
   font-feature-settings:
     "rlig" 1,
     "calt" 1;

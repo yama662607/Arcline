@@ -14,7 +14,6 @@ const manifest = defineManifest(({ mode }) => {
       default_icon: {
         '128': 'icons/icon-128.png',
       },
-      default_popup: 'popup.html',
     },
     icons: {
       '16': 'icons/icon-128.png',
@@ -70,7 +69,7 @@ const manifest = defineManifest(({ mode }) => {
     },
     web_accessible_resources: [
       {
-        resources: ['index.html', 'popup.html', 'options.html', 'assets/*', 'icons/*'],
+        resources: ['index.html', 'options.html', 'popup.html', 'assets/*', 'icons/*'],
         matches: ['<all_urls>'],
       },
     ],

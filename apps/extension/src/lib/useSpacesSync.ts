@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { useSpacesSnapshot } from '@/hooks/use-spaces-query';
+import { queryClient, queryKeys } from '@/lib/query-client';
 import type { ActiveSpaceChangedMessage } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { hasChromeRuntime } from './utils';
@@ -22,6 +23,7 @@ export function useSpacesSync() {
   useEffect(() => {
     if (!spaces) return;
     setSpaces(spaces);
+    queryClient.invalidateQueries({ queryKey: queryKeys.activeTab });
   }, [spaces, setSpaces]);
 
   useEffect(() => {

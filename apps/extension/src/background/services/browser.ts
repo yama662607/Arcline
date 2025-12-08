@@ -583,7 +583,7 @@ export async function getSettings(): Promise<Settings> {
     defaultSpaceName: 'Home',
     autoArchiveEnabled: false,
     autoArchiveIdleMinutes: 30,
-    uiMode: 'side-panel',
+    uiMode: 'floating',
     showFavicons: true,
     compactMode: false,
     enableAnimations: true,

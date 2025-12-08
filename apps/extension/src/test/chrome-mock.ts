@@ -38,6 +38,10 @@ export const chromeMock = {
       get: vi.fn().mockResolvedValue({}),
       set: vi.fn().mockResolvedValue(undefined),
     },
+    onChanged: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    },
   },
   bookmarks: {
     getTree: vi.fn().mockResolvedValue([]),

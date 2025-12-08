@@ -105,13 +105,13 @@ const FloatingUiRoot = forwardRef<
     host.style.top = '0';
     host.style.left = '0';
     host.style.height = '100vh';
-    host.style.width = open || pinned ? '332px' : '12px';
+    host.style.width = open || pinned ? '300px' : '8px';
     host.style.zIndex = '2147483646';
     host.style.pointerEvents = 'auto';
   }, [host, open, pinned]);
 
   return (
-    <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[332px]">
+    <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[300px]">
       <div
         aria-hidden="true"
         className="pointer-events-auto absolute inset-y-0 left-0 w-[2px] z-10"
@@ -125,7 +125,7 @@ const FloatingUiRoot = forwardRef<
         <button
           data-testid="arcline-floating-hotzone"
           type="button"
-          className="relative flex w-[12px] flex-col items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent transition-all active:scale-95"
+          className="relative flex w-[8px] flex-col items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent transition-all active:scale-95"
           onPointerEnter={() => {
             cancelClose();
             setOpen(true);
@@ -178,8 +178,8 @@ const FloatingUiRoot = forwardRef<
             <motion.aside
               key="arcline-floating-panel"
               data-testid="arcline-floating-panel"
-              className="-ml-4 flex h-full flex-1"
-              style={{ marginLeft: '-2px', marginTop: '8px', marginBottom: '8px' }}
+              className="flex h-full flex-1"
+              style={{ marginLeft: '0px', marginTop: '4px', marginBottom: '4px' }}
               initial={skipAnimation ? false : { x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '-102%', opacity: 0 }}
@@ -192,7 +192,7 @@ const FloatingUiRoot = forwardRef<
               onPointerLeave={scheduleClose}
             >
               <div
-                className="relative flex w-[320px] flex-col overflow-hidden rounded-2xl border border-white/10 ring-1 ring-white/15 bg-slate-950/95 shadow-xl shadow-black/50 backdrop-blur"
+                className="relative flex w-[288px] flex-col overflow-hidden rounded-2xl border border-white/10 ring-1 ring-white/15 bg-slate-950/95 shadow-xl shadow-black/50 backdrop-blur"
                 style={{ borderRadius: '16px', height: 'calc(100vh - 8px)' }}
               >
                 <div

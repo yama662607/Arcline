@@ -168,12 +168,11 @@ export class SidebarManager {
   private container: HTMLDivElement | null = null;
   private root: Root | null = null;
   private isVisible = false;
+  private isInitialized = false;
 
-  constructor() {
-    this.createContainer();
-  }
+  private ensureInitialized() {
+    if (this.isInitialized) return;
 
-  private createContainer() {
     // Create shadow DOM container
     this.container = document.createElement('div');
     this.container.id = 'arcline-sidebar-container';
@@ -215,10 +214,15 @@ export class SidebarManager {
 
     // Create React root
     this.root = createRoot(reactContainer);
+    this.isInitialized = true;
   }
 
   show() {
-    if (!this.root || this.isVisible) return;
+    if (this.isVisible) return;
+
+    this.ensureInitialized();
+
+    if (!this.root) return;
 
     this.root.render(<SidebarApp />);
     this.isVisible = true;
@@ -257,6 +261,7 @@ export class SidebarManager {
       this.container = null;
     }
     this.root = null;
+    this.isInitialized = false;
   }
 }
 
@@ -265,10 +270,16 @@ let sidebarManager: SidebarManager | null = null;
 
 // Initialize sidebar
 export function initializeSidebar() {
-  if (sidebarManager) {
-    sidebarManager.destroy();
-  }
+  destroySidebar();
   sidebarManager = new SidebarManager();
+}
+
+export function destroySidebar() {
+  if (!sidebarManager) {
+    return;
+  }
+  sidebarManager.destroy();
+  sidebarManager = null;
 }
 
 // Export for use in content scripts

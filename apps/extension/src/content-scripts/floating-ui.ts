@@ -2,10 +2,8 @@
 
 import '@/dev/reactPreamble';
 
-// Minimal inline utilities to avoid pulling large modules into the bootstrap bundle.
-type UiMode = 'side-panel' | 'popup' | 'floating';
+import { hasChromeRuntime, requestUiMode, type UiMode } from './shared-utils';
 
-const DEFAULT_UI_MODE: UiMode = 'floating';
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
 let hostElement: HTMLElement | null = null;
@@ -21,49 +19,6 @@ declare global {
   interface Window {
     __arclineFloatingReady?: boolean;
   }
-}
-
-function hasChromeRuntime(): boolean {
-  return (
-    typeof chrome !== 'undefined' &&
-    !!chrome.runtime &&
-    typeof chrome.runtime.sendMessage === 'function'
-  );
-}
-
-function requestUiMode(timeoutMs = 1500): Promise<UiMode> {
-  if (!hasChromeRuntime()) {
-    return Promise.resolve(DEFAULT_UI_MODE);
-  }
-
-  return new Promise<UiMode>((resolve) => {
-    let settled = false;
-
-    const cleanup = (mode: UiMode) => {
-      if (settled) return;
-      settled = true;
-      resolve(mode);
-    };
-
-    const timer = window.setTimeout(() => {
-      cleanup(DEFAULT_UI_MODE);
-    }, timeoutMs);
-
-    try {
-      chrome.runtime.sendMessage({ command: 'requestUiMode' }, (response?: { mode?: UiMode }) => {
-        window.clearTimeout(timer);
-        if (chrome.runtime.lastError) {
-          cleanup(DEFAULT_UI_MODE);
-          return;
-        }
-        cleanup((response?.mode as UiMode | undefined) ?? DEFAULT_UI_MODE);
-      });
-    } catch (error) {
-      console.warn('[Arcline] requestUiMode failed', error);
-      window.clearTimeout(timer);
-      cleanup(DEFAULT_UI_MODE);
-    }
-  });
 }
 
 function ensureHost() {
@@ -228,7 +183,7 @@ async function initialize() {
   if (window.top !== window) return;
   if (!hasChromeRuntime()) return;
 
-  const mode = await requestUiMode().catch(() => 'side-panel' as const);
+  const mode = await requestUiMode().catch(() => 'floating' as const);
   applyUiMode(mode);
 
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);

@@ -4,9 +4,9 @@ import { hasChromeRuntime } from './utils';
 
 export type UiMode = 'side-panel' | 'popup' | 'floating';
 
-const DEFAULT_MODE: UiMode = 'side-panel';
+const DEFAULT_MODE: UiMode = 'floating';
 
-export async function requestUiMode(timeoutMs = 500): Promise<UiMode> {
+export async function requestUiMode(timeoutMs = 1000): Promise<UiMode> {
   if (!hasChromeRuntime()) {
     return DEFAULT_MODE;
   }

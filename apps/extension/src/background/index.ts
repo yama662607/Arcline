@@ -70,6 +70,68 @@ function isFavoriteTabArray(value: unknown): value is FavoriteTab[] {
 
 const UI_MODE_KEY = 'arclineoMode';
 
+let currentUiMode: UiMode | null = null;
+
+function isSidePanelSupported(): boolean {
+  return typeof chrome.sidePanel !== 'undefined' && typeof chrome.sidePanel.open === 'function';
+}
+
+function getPreferredUiMode(settings: Settings): UiMode {
+  return (settings.uiMode as UiMode | undefined) ?? 'floating';
+}
+
+async function resolveUiMode(): Promise<UiMode> {
+  const settings = await getSettings();
+  const preference = getPreferredUiMode(settings);
+  if (preference === 'side-panel') {
+    if (!isSidePanelSupported()) {
+      console.warn(
+        '[Arcline] Side Panel preference requested but chrome.sidePanel is unavailable; falling back to floating UI'
+      );
+      return 'floating';
+    }
+    return 'side-panel';
+  }
+  if (preference === 'popup') {
+    return 'popup';
+  }
+  return preference;
+}
+
+async function configureSidePanelBehavior(enabled: boolean): Promise<void> {
+  if (!chrome.sidePanel || typeof chrome.sidePanel.setPanelBehavior !== 'function') {
+    return;
+  }
+
+  try {
+    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: enabled });
+  } catch (error) {
+    console.warn('[Arcline] Failed to configure side panel behavior', error);
+  }
+}
+
+async function closeSidePanel(): Promise<void> {
+  const panel = chrome.sidePanel as { close?: () => Promise<void> } | undefined;
+  if (!panel || typeof panel.close !== 'function') {
+    return;
+  }
+
+  try {
+    await panel.close();
+  } catch (error) {
+    console.warn('[Arcline] Failed to close side panel', error);
+  }
+}
+
+async function refreshUiMode(): Promise<void> {
+  const nextMode = await resolveUiMode();
+  if (currentUiMode === nextMode) {
+    await configureSidePanelBehavior(nextMode === 'side-panel');
+    return;
+  }
+  await applyUiMode(nextMode);
+}
+
 export async function broadcastUiMode(mode: UiMode) {
   try {
     const tabs = await chrome.tabs.query({});
@@ -94,33 +156,31 @@ export async function broadcastUiMode(mode: UiMode) {
 }
 
 async function applyUiMode(mode: UiMode) {
-  if (mode === 'side-panel') {
-    // Empty string clears the popup so onClicked still fires.
-    chrome.action.setPopup({ popup: '' });
-  } else {
-    chrome.action.setPopup({ popup: 'index.html' });
+  chrome.action.setPopup({ popup: '' });
+
+  if (mode !== 'side-panel') {
+    await closeSidePanel();
   }
+
+  currentUiMode = mode;
+
+  await configureSidePanelBehavior(mode === 'side-panel');
 
   await chrome.storage.local.set({ [UI_MODE_KEY]: mode });
   await broadcastUiMode(mode);
 }
 
 async function detectUiMode(): Promise<UiMode> {
-  const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
-  if (isAtlas) {
-    console.info('[Arcline] Atlas browser detected: forcing floating mode');
+  const preferredMode = await resolveUiMode();
+  const atlas = /\bAtlas\b/i.test(navigator.userAgent);
+  if (atlas && preferredMode === 'side-panel') {
+    console.info('[Arcline] Atlas browser detected; keeping preferred side-panel UI mode');
   }
-  return 'floating';
+  return preferredMode;
 }
 
 async function initializeUiMode() {
-  const mode = await detectUiMode();
-  await applyUiMode(mode);
-
-  if (mode === 'side-panel') {
-  } else if (mode === 'popup') {
-  } else {
-  }
+  await refreshUiMode();
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -148,26 +208,65 @@ subscribeToSwipe(async ({ direction }) => {
   }
 });
 
-// Handle action clicks manually (always floating for now)
-chrome.action.onClicked.addListener(async (tab) => {
-  const tabId = tab.id;
+async function resolveHostTabId(tabId?: number): Promise<number | undefined> {
+  if (typeof tabId === 'number') {
+    return tabId;
+  }
 
-  const showFloatingUi = async () => {
-    await applyUiMode('floating');
-    if (typeof tabId === 'number') {
-      try {
-        chrome.tabs.sendMessage(tabId, { command: 'openFloatingUi' }, () => {
-          if (chrome.runtime.lastError) {
-            console.warn('[Arcline] Floating message failed, ensure content script is ready');
-          }
-        });
-      } catch (error) {
-        console.warn('[Arcline] Failed to request floating UI open', error);
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return activeTab?.id;
+}
+
+async function openFloatingUi(tabId?: number, instant = false): Promise<void> {
+  const targetTabId = await resolveHostTabId(tabId);
+  if (typeof targetTabId !== 'number') {
+    return;
+  }
+
+  const command = instant ? 'openFloatingUiInstantly' : 'openFloatingUi';
+  try {
+    chrome.tabs.sendMessage(targetTabId, { command }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('[Arcline] Floating message failed', chrome.runtime.lastError.message);
       }
-    }
-  };
+    });
+  } catch (error) {
+    console.warn('[Arcline] Failed to request floating UI open', error);
+  }
+}
 
-  await showFloatingUi();
+async function openSidePanel(tabId?: number): Promise<void> {
+  if (isSidePanelSupported()) {
+    try {
+      await chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+      return;
+    } catch (error) {
+      console.warn(
+        '[Arcline] Side panel open failed; falling back to sidebar content script',
+        error
+      );
+    }
+  }
+
+  const targetTabId = await resolveHostTabId(tabId);
+  if (typeof targetTabId !== 'number') {
+    return;
+  }
+
+  const success = await sendSidebarCommand(targetTabId, 'showSidebar');
+  if (!success) {
+    console.warn('[Arcline] Failed to show sidebar via content script');
+  }
+}
+
+chrome.action.onClicked.addListener(async (tab) => {
+  const mode = currentUiMode ?? 'floating';
+  if (mode === 'side-panel' || mode === 'popup') {
+    await openSidePanel(tab.id);
+    return;
+  }
+
+  await openFloatingUi(tab.id);
 });
 
 const handleQuickPinToggle = async () => {
@@ -197,10 +296,20 @@ const handleToggleSidePanel = async () => {
     return;
   }
 
-  const toggled = await trySendSidebarToggle(activeTab.id);
-  if (toggled) {
+  const mode = currentUiMode ?? 'floating';
+  if (mode === 'side-panel') {
+    const toggled = await trySendSidebarToggle(activeTab.id);
+    if (toggled) {
+      return;
+    }
+  }
+
+  if (mode === 'floating') {
+    await openFloatingUi(activeTab.id, true);
     return;
   }
+
+  await openSidePanel(activeTab.id);
 };
 
 chrome.commands.onCommand.addListener(async (command) => {
@@ -227,9 +336,11 @@ export const commandHandlers: Record<string, CommandHandler> = {
       try {
         const result = await chrome.storage.local.get(UI_MODE_KEY);
         const fallbackMode = await detectUiMode();
+        const storedMode = (result[UI_MODE_KEY] as UiMode) ?? fallbackMode;
+        const modeToSend = currentUiMode ?? storedMode;
         sendResponse({
           command: 'currentUiMode',
-          mode: (result[UI_MODE_KEY] as UiMode) ?? fallbackMode,
+          mode: modeToSend,
         });
       } catch (error) {
         console.error('Failed to respond with UI mode', error);
@@ -704,6 +815,12 @@ if (typeof chrome.tabGroups !== 'undefined') {
     void broadcastSpacesSnapshot();
   });
 }
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync' && 'uiMode' in changes) {
+    void refreshUiMode();
+  }
+});
 
 if (import.meta.env.MODE === 'test') {
   setInterval(() => {

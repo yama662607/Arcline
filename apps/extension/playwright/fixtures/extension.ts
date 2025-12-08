@@ -164,6 +164,7 @@ export async function ensureUiMode(worker: Worker, mode: UiMode = 'floating') {
     async ({ key, value }) => {
       await chrome.storage.local.clear();
       await chrome.storage.local.set({ [key]: value });
+      await chrome.storage.sync?.set?.({ uiMode: value });
     },
     { key: UI_MODE_KEY, value: mode }
   );
