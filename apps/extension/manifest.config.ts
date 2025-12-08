@@ -30,22 +30,24 @@ const manifest = defineManifest(({ mode }) => {
         js: ['src/content-scripts/floating-ui.ts'],
         run_at: 'document_idle',
       },
-      {
-        matches: ['<all_urls>'],
-        js: ['src/content-scripts/sidebar-manager.ts'],
-        run_at: 'document_idle',
-      },
+      // Temporarily disabled for testing
+      // {
+      //   matches: ['<all_urls>'],
+      //   js: ['src/content-scripts/sidebar-manager.ts'],
+      //   run_at: 'document_idle',
+      // },
     ],
-    side_panel: {
-      default_path: 'index.html',
-    },
+    // Temporarily disabled for testing
+    // side_panel: {
+    //   default_path: 'index.html',
+    // },
     // options_page: 'options.html',
     permissions: [
       'tabs',
       'tabGroups',
       'bookmarks',
       'storage',
-      'sidePanel',
+      // 'sidePanel', // Temporarily disabled for testing
       'commands',
       'alarms',
       'contextMenus',

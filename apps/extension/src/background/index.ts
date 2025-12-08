@@ -76,26 +76,30 @@ function isSidePanelSupported(): boolean {
   return typeof chrome.sidePanel !== 'undefined' && typeof chrome.sidePanel.open === 'function';
 }
 
-function getPreferredUiMode(settings: Settings): UiMode {
+function _getPreferredUiMode(settings: Settings): UiMode {
   return (settings.uiMode as UiMode | undefined) ?? 'floating';
 }
 
 async function resolveUiMode(): Promise<UiMode> {
-  const settings = await getSettings();
-  const preference = getPreferredUiMode(settings);
-  if (preference === 'side-panel') {
-    if (!isSidePanelSupported()) {
-      console.warn(
-        '[Arcline] Side Panel preference requested but chrome.sidePanel is unavailable; falling back to floating UI'
-      );
-      return 'floating';
-    }
-    return 'side-panel';
-  }
-  if (preference === 'popup') {
-    return 'popup';
-  }
-  return preference;
+  // Temporarily force floating mode for testing
+  console.log('[Arcline] Force floating mode for testing');
+  return 'floating';
+
+  // const settings = await getSettings();
+  // const preference = getPreferredUiMode(settings);
+  // if (preference === 'side-panel') {
+  //   if (!isSidePanelSupported()) {
+  //     console.warn(
+  //       '[Arcline] Side Panel preference requested but chrome.sidePanel is unavailable; falling back to floating UI'
+  //     );
+  //     return 'floating';
+  //   }
+  //   return 'side-panel';
+  // }
+  // if (preference === 'popup') {
+  //   return 'popup';
+  // }
+  // return preference;
 }
 
 async function configureSidePanelBehavior(enabled: boolean): Promise<void> {
