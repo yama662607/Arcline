@@ -105,10 +105,11 @@ const FloatingUiRoot = forwardRef<
     host.style.top = '0';
     host.style.left = '0';
     host.style.height = '100vh';
-    host.style.width = open || pinned ? '300px' : '8px';
+    // Keep host width fixed to avoid double animation with Framer Motion
+    host.style.width = '300px';
     host.style.zIndex = '2147483646';
     host.style.pointerEvents = 'auto';
-  }, [host, open, pinned]);
+  }, [host]);
 
   return (
     <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[300px]">
