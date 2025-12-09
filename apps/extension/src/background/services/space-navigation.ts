@@ -163,7 +163,7 @@ async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
   }
 }
 
-async function openFloatingUiOnTab(tabId: number, spaces: SpaceSnapshot[]): Promise<void> {
+export async function openFloatingUiOnTab(tabId: number, spaces: SpaceSnapshot[]): Promise<void> {
   try {
     // まずスペースデータを送信してReact Queryのキャッシュを更新
     chrome.tabs.sendMessage(tabId, { command: 'spacesSnapshot', spaces }, () => {

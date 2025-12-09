@@ -2,6 +2,7 @@
 
 import type { TabGroupColor } from '@/shared/chrome-types';
 import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
+import { openFloatingUiOnTab } from './space-navigation';
 import type { SpaceState } from './spaces';
 import { deriveSpaceStateFromSnapshots, loadSpaceState, saveSpaceState } from './spaces';
 
@@ -565,6 +566,15 @@ export async function activateTab(tabId: number): Promise<void> {
       active: updatedTab.active,
       lastActive: updatedTab.lastAccessed,
     });
+
+    // Floating UIを新しいタブで即座に開く
+    try {
+      console.log('[Arcline] 🔄 Opening Floating UI on target tab...', tabId);
+      const spaces = await getSpacesSnapshot();
+      await openFloatingUiOnTab(tabId, spaces);
+    } catch (error) {
+      console.warn('[Arcline] Failed to open floating UI on target tab:', error);
+    }
   } catch (error) {
     console.error('[Arcline] ❌ activateTab failed:', {
       error: error instanceof Error ? error.message : String(error),
