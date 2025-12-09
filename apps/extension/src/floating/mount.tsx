@@ -71,6 +71,16 @@ const FloatingUiRoot = forwardRef<
     clearCloseTimer();
   }, [clearCloseTimer]);
 
+  const handlePointerLeave = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.clientX <= 0) {
+        return;
+      }
+      scheduleClose();
+    },
+    [scheduleClose]
+  );
+
   useImperativeHandle(
     ref,
     () => ({
@@ -116,7 +126,7 @@ const FloatingUiRoot = forwardRef<
           cancelClose();
           setOpen(true);
         }}
-        onPointerLeave={scheduleClose}
+        onPointerLeave={handlePointerLeave}
       />
       <div className="pointer-events-auto flex h-full w-full max-w-[332px] items-stretch">
         <button
@@ -127,7 +137,7 @@ const FloatingUiRoot = forwardRef<
             cancelClose();
             setOpen(true);
           }}
-          onPointerLeave={scheduleClose}
+          onPointerLeave={handlePointerLeave}
           onClick={() => {
             setPinned((prev) => {
               const next = !prev;
@@ -173,7 +183,7 @@ const FloatingUiRoot = forwardRef<
                   : { type: 'spring', stiffness: 420, damping: 38, mass: 0.5 }
               }
               onPointerEnter={cancelClose}
-              onPointerLeave={scheduleClose}
+              onPointerLeave={handlePointerLeave}
             >
               <div
                 className="relative flex w-[288px] flex-col overflow-hidden rounded-2xl border border-white/10 ring-1 ring-white/15 bg-slate-950/95 shadow-xl shadow-black/50 backdrop-blur"
