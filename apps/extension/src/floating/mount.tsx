@@ -39,6 +39,7 @@ function injectStyles(shadowRoot: ShadowRoot) {
   const style = document.createElement('style');
   style.setAttribute('data-arcline-floating-style', 'true');
   style.textContent = stylesText;
+  console.log('[Arcline-Debug] Styles Content Preview:', stylesText.slice(0, 200));
   shadowRoot.append(style);
 }
 
@@ -101,24 +102,16 @@ const FloatingUiRoot = forwardRef<
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
   useEffect(() => {
-    host.style.position = 'fixed';
-    host.style.top = '0';
-    host.style.left = '0';
-    host.style.height = '100vh';
-    // Keep width at 8px (hotzone width) and use overflow: visible
-    // This prevents the host from expanding and causing visual artifacts
-    host.style.width = '8px';
-    host.style.overflow = 'visible';
-    host.style.transition = 'none';
-    host.style.zIndex = '2147483646';
-    host.style.pointerEvents = 'auto';
+    // We do NOT set host styles here anymore to avoid conflicting with zoom correction.
+    // The host element is styled by floating-ui.ts content script.
   }, [host]);
 
   return (
-    <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[300px]">
+    <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[300px] font-sans text-base leading-normal text-left">
       <div
         aria-hidden="true"
         className="pointer-events-auto absolute inset-y-0 left-0 w-[2px] z-10"
+        style={{ background: 'transparent' }}
         onPointerEnter={() => {
           cancelClose();
           setOpen(true);
@@ -129,7 +122,7 @@ const FloatingUiRoot = forwardRef<
         <button
           data-testid="arcline-floating-hotzone"
           type="button"
-          className="relative flex w-[8px] flex-col items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent transition-all active:scale-95"
+          className="relative flex w-[8px] flex-col items-center justify-center appearance-none border-none bg-transparent opacity-0 outline-none transition-all focus:outline-none active:scale-95"
           onPointerEnter={() => {
             cancelClose();
             setOpen(true);
@@ -163,27 +156,14 @@ const FloatingUiRoot = forwardRef<
           aria-expanded={open || pinned}
           tabIndex={0}
           title={pinned ? 'Click to unpin sidebar' : 'Hover or click to open sidebar'}
-        >
-          <span
-            className="absolute inset-y-0 left-0 w-full rounded-r transition-all duration-200"
-            style={{
-              opacity: 0,
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.1))',
-              transform: pinned ? 'scaleY(1.02)' : 'scaleY(1)',
-            }}
-          />
-          {/* Visual indicator for pinned state */}
-          {pinned && (
-            <span className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-400 animate-pulse" />
-          )}
-        </button>
+        />
         <AnimatePresence>
           {(open || pinned) && (
             <motion.aside
               key="arcline-floating-panel"
               data-testid="arcline-floating-panel"
               className="flex h-full flex-1"
-              style={{ marginLeft: '0px', marginTop: '4px', marginBottom: '4px' }}
+              style={{ marginLeft: '-8px', marginTop: '4px', marginBottom: '4px' }}
               initial={skipAnimation ? false : { x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '-102%', opacity: 0 }}
@@ -197,7 +177,7 @@ const FloatingUiRoot = forwardRef<
             >
               <div
                 className="relative flex w-[288px] flex-col overflow-hidden rounded-2xl border border-white/10 ring-1 ring-white/15 bg-slate-950/95 shadow-xl shadow-black/50 backdrop-blur"
-                style={{ borderRadius: '16px', height: 'calc(100vh - 8px)' }}
+                style={{ borderRadius: '16px', height: 'calc(100% - 8px)' }}
               >
                 <div
                   aria-hidden="true"

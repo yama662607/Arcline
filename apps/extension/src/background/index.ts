@@ -35,7 +35,8 @@ type RuntimeSendResponse = (response?: unknown) => void;
 
 type CommandHandler = (
   message: Record<string, unknown>,
-  sendResponse: RuntimeSendResponse
+  sendResponse: RuntimeSendResponse,
+  sender?: chrome.runtime.MessageSender
 ) => boolean;
 
 function isTabEntry(value: unknown): value is TabEntry {
@@ -187,6 +188,15 @@ async function initializeUiMode() {
 chrome.runtime.onInstalled.addListener(async () => {
   await initializeUiMode();
   await initializeAutoArchive();
+});
+
+chrome.tabs.onZoomChange.addListener(async (info) => {
+  const { newZoomFactor, tabId } = info;
+  chrome.tabs.sendMessage(tabId, { command: 'zoomChanged', zoomFactor: newZoomFactor }, () => {
+    if (chrome.runtime.lastError) {
+      // Ignore errors if content script is not ready
+    }
+  });
 });
 
 chrome.runtime.onStartup?.addListener(async () => {
@@ -714,9 +724,25 @@ export const commandHandlers: Record<string, CommandHandler> = {
       }
     });
   },
+  getZoomLevel: (_message, sendResponse, sender) => {
+    return respondAsync(async () => {
+      let tabId = sender?.tab?.id;
+      if (!tabId) {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        tabId = tab?.id;
+      }
+
+      if (!tabId) {
+        sendResponse({ ok: false, error: 'No active tab found' });
+        return;
+      }
+      const zoom = await chrome.tabs.getZoom(tabId);
+      sendResponse({ ok: true, zoom });
+    });
+  },
 };
 
-chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
   if (typeof rawMessage !== 'object' || rawMessage === null) {
     return false;
   }
@@ -740,7 +766,7 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
     }
 
     // Call handler with bridge-style response
-    const bridgeHandler: CommandHandler = (msg, respond) => {
+    const bridgeHandler: CommandHandler = (msg, respond, s) => {
       const wrappedRespond = (response?: unknown) => {
         if (typeof response === 'object' && response !== null && 'ok' in response) {
           const result = response as { ok?: boolean; error?: string; data?: unknown };
@@ -753,10 +779,10 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
           respond({ id, data: response });
         }
       };
-      return handler(msg ?? {}, wrappedRespond);
+      return handler(msg ?? {}, wrappedRespond, s);
     };
 
-    return bridgeHandler(params || {}, sendResponse);
+    return bridgeHandler(params || {}, sendResponse, sender);
   }
 
   // Handle legacy command messages
@@ -770,7 +796,7 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
     return false;
   }
 
-  return handler(message, sendResponse);
+  return handler(message, sendResponse, sender);
 });
 
 chrome.tabs.onCreated?.addListener(() => {
