@@ -1,13 +1,19 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-
+import {
+  useCreatePinnedFolder,
+  useExportSpaceBookmarks,
+  useImportSpaceBookmarks,
+} from '@/hooks/use-spaces-query';
 import { queryClient } from '@/lib/query-client';
 import { useSpacesSync } from '@/lib/useSpacesSync';
-import type { TabEntry } from '@/shared/types';
+import type { PinnedItem, TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
+import { PinnedItemContextMenu } from '@/ui/components/PinnedItemContextMenu';
+import { PinnedItemList } from '@/ui/components/PinnedItems';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceManager } from '@/ui/components/SpaceManager';
 import { TabContextMenu } from '@/ui/components/TabContextMenu';
@@ -23,8 +29,18 @@ function SidebarAppContent() {
     () => spaces.find((space) => space.id === activeSpaceId) ?? null,
     [spaces, activeSpaceId]
   );
+  const { mutate: createPinnedFolder } = useCreatePinnedFolder();
+  const { mutateAsync: exportBookmarks } = useExportSpaceBookmarks();
+  const { mutate: importBookmarks } = useImportSpaceBookmarks();
+
   const [contextMenu, setContextMenu] = useState<{
     tab: TabEntry;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const [pinnedContextMenu, setPinnedContextMenu] = useState<{
+    item: PinnedItem;
     x: number;
     y: number;
   } | null>(null);
@@ -95,20 +111,119 @@ function SidebarAppContent() {
 
             {activeSpace && (
               <div className="space-y-2">
-                <EnhancedTabList
-                  tabs={activeSpace.pinnedTabs}
-                  title="Pinned"
-                  emptyMessage="No pinned tabs"
-                  variant="floating"
-                  onTabContextMenu={(tab, event) => {
-                    const rect = (event.target as HTMLElement).getBoundingClientRect();
-                    setContextMenu({
-                      tab,
-                      x: rect.left,
-                      y: rect.top,
-                    });
-                  }}
-                />
+                <div>
+                  <div className="px-3 py-2 flex items-center justify-between group">
+                    <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      Pinned ({activeSpace.pinnedItems.length})
+                    </h3>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10"
+                        title="New Folder"
+                        onClick={() => {
+                          const title = prompt('Folder Name:');
+                          if (title) createPinnedFolder({ spaceName: activeSpace.name, title });
+                        }}
+                      >
+                        <svg
+                          aria-hidden="true"
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10"
+                        title="Import Bookmarks"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = '.html';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                              if (typeof evt.target?.result === 'string') {
+                                importBookmarks({
+                                  spaceName: activeSpace.name,
+                                  htmlContent: evt.target.result,
+                                });
+                              }
+                            };
+                            reader.readAsText(file);
+                          };
+                          input.click();
+                        }}
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10"
+                        title="Export Bookmarks"
+                        onClick={async () => {
+                          const html = await exportBookmarks(activeSpace.name);
+                          const blob = new Blob([html], { type: 'text/html' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `${activeSpace.name}_bookmarks.html`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <PinnedItemList
+                    items={activeSpace.pinnedItems}
+                    spaceName={activeSpace.name}
+                    onContextMenu={(item, event) => {
+                      const rect = (event.target as HTMLElement).getBoundingClientRect();
+                      setPinnedContextMenu({
+                        item,
+                        x: rect.left,
+                        y: rect.bottom,
+                      });
+                    }}
+                  />
+                </div>
                 <EnhancedTabList
                   tabs={activeSpace.temporaryTabs}
                   title="Temporary"
@@ -149,6 +264,15 @@ function SidebarAppContent() {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {pinnedContextMenu && (
+        <PinnedItemContextMenu
+          item={pinnedContextMenu.item}
+          x={pinnedContextMenu.x}
+          y={pinnedContextMenu.y}
+          onClose={() => setPinnedContextMenu(null)}
         />
       )}
     </div>

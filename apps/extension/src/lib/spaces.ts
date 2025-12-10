@@ -41,6 +41,7 @@ const FALLBACK_SPACES: SpaceSnapshot[] = [
         groupId: 1,
       },
     ],
+    pinnedItems: [],
     windowId: -1,
     created_at: Date.now(),
     last_active_at: Date.now(),
