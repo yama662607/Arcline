@@ -47,6 +47,7 @@ const manifest = defineManifest(({ mode }) => {
       'tabGroups',
       'bookmarks',
       'storage',
+      'history',
       // 'sidePanel', // Temporarily disabled for testing
       'commands',
       'alarms',
@@ -67,6 +68,13 @@ const manifest = defineManifest(({ mode }) => {
           mac: 'Command+D',
         },
         description: 'Quick pin or unpin the active tab',
+      },
+      toggleCommandPalette: {
+        suggested_key: {
+          default: 'Ctrl+Shift+K',
+          mac: 'Command+Shift+K',
+        },
+        description: 'Toggle Command Palette',
       },
     },
     web_accessible_resources: [

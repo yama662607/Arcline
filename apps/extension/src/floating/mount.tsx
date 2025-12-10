@@ -11,12 +11,18 @@ import React, {
 import { createRoot, type Root } from 'react-dom/client';
 
 import stylesText from '@/styles.css?inline';
+import { queryClient } from '@/lib/query-client';
+import { QueryClientProvider } from '@tanstack/react-query';
 
 const FloatingApp = React.lazy(() => import('./FloatingApp'));
+const CommandPalette = React.lazy(() =>
+  import('./CommandPalette').then((module) => ({ default: module.CommandPalette }))
+);
 
 export interface FloatingUiInstance {
   openFromHover(): void;
   openInstantly(): void;
+  openCommandPalette(): void;
   destroy(): void;
 }
 
@@ -29,6 +35,7 @@ interface MountOptions {
 interface FloatingUiHandle {
   openFromHover(): void;
   openInstantly(): void;
+  openCommandPalette(): void;
   destroy(): void;
 }
 
@@ -49,6 +56,7 @@ const FloatingUiRoot = forwardRef<
 >(({ host, onBootstrapReady }, ref) => {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
   const [skipAnimation, setSkipAnimation] = useState(false);
   const closeTimer = useRef<number | null>(null);
 
@@ -96,10 +104,14 @@ const FloatingUiRoot = forwardRef<
         // Reset animation flag after a short delay
         requestAnimationFrame(() => setSkipAnimation(false));
       },
+      openCommandPalette() {
+        setShowPalette(true);
+      },
       destroy() {
         cancelClose();
         setPinned(false);
         setOpen(false);
+        setShowPalette(false);
       },
     }),
     [cancelClose]
@@ -230,6 +242,11 @@ const FloatingUiRoot = forwardRef<
           )}
         </AnimatePresence>
       </div>
+      <Suspense fallback={null}>
+        <QueryClientProvider client={queryClient}>
+          <CommandPalette isOpen={showPalette} onClose={() => setShowPalette(false)} />
+        </QueryClientProvider>
+      </Suspense>
     </div>
   );
 });
@@ -254,6 +271,9 @@ export async function mountFloatingUi({
     },
     openInstantly() {
       rootRef.current?.openInstantly();
+    },
+    openCommandPalette() {
+      rootRef.current?.openCommandPalette();
     },
     destroy() {
       rootRef.current?.destroy();

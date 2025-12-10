@@ -7,17 +7,26 @@ import {
   archiveTab,
   broadcastSpacesSnapshot,
   closeTab,
+  createPinnedFolder,
+  createPinnedTab,
   createSpace,
+  exportSpaceBookmarks,
   getActiveTabEntry,
   getArchivedTabs,
   getBookmarksForSpace,
   getSettings,
   getSpacesSnapshot,
+  importSpaceBookmarks,
+  movePinnedItem,
   moveTabToSpace,
   reloadTab,
+  removePinnedItem,
   removeSpace,
   restoreArchivedTab,
+  searchBookmarks,
+  searchHistory,
   toggleTabPinned,
+  updatePinnedItem,
   updateSettings,
 } from './services/browser';
 import {
@@ -323,6 +332,16 @@ const handleToggleSidePanel = async () => {
   await openSidePanel(activeTab.id);
 };
 
+const handleToggleCommandPalette = async () => {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab?.id) return;
+  chrome.tabs.sendMessage(activeTab.id, { command: 'openCommandPalette' }, () => {
+    if (chrome.runtime.lastError) {
+      console.warn('[Arcline] Failed to toggle command palette', chrome.runtime.lastError.message);
+    }
+  });
+};
+
 chrome.commands.onCommand.addListener(async (command) => {
   switch (command) {
     case 'quickPinToggle':
@@ -330,6 +349,9 @@ chrome.commands.onCommand.addListener(async (command) => {
       break;
     case 'toggleSidePanel':
       await handleToggleSidePanel();
+      break;
+    case 'toggleCommandPalette':
+      await handleToggleCommandPalette();
       break;
     default:
       break;
@@ -738,6 +760,142 @@ export const commandHandlers: Record<string, CommandHandler> = {
       }
       const zoom = await chrome.tabs.getZoom(tabId);
       sendResponse({ ok: true, zoom });
+    });
+  },
+  createPinnedFolder: (message, sendResponse) => {
+    const { spaceName, title, parentId } = message as {
+      spaceName: string;
+      title: string;
+      parentId?: string;
+    };
+    if (!spaceName || !title)
+      return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+    return respondAsync(async () => {
+      try {
+        const folder = await createPinnedFolder(spaceName, title, parentId);
+        await broadcastSpacesSnapshot();
+        sendResponse({ ok: true, data: folder });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
+    });
+  },
+  createPinnedTab: (message, sendResponse) => {
+    const { spaceName, title, url, favIconUrl, parentId, index } = message as {
+      spaceName: string;
+      title: string;
+      url: string;
+      favIconUrl?: string;
+      parentId?: string;
+      index?: number;
+    };
+    if (!spaceName || !title || !url)
+      return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+    return respondAsync(async () => {
+      try {
+        const tab = await createPinnedTab(spaceName, title, url, favIconUrl, parentId, index);
+        await broadcastSpacesSnapshot();
+        sendResponse({ ok: true, data: tab });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
+    });
+  },
+  movePinnedItem: (message, sendResponse) => {
+    const { id, parentId, index, spaceName } = message as {
+      id: string;
+      parentId?: string;
+      index?: number;
+      spaceName?: string;
+    };
+    if (!id) return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+    return respondAsync(async () => {
+      try {
+        await movePinnedItem(id, { parentId, index, spaceName });
+        await broadcastSpacesSnapshot();
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
+    });
+  },
+  removePinnedItem: (message, sendResponse) => {
+    const { id } = message as { id: string };
+    if (!id) return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+    return respondAsync(async () => {
+      try {
+        await removePinnedItem(id);
+        await broadcastSpacesSnapshot();
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
+    });
+  },
+  updatePinnedItem: (message, sendResponse) => {
+    const { id, changes } = message as { id: string; changes: { title?: string; url?: string } };
+    if (!id) return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+    return respondAsync(async () => {
+      try {
+        await updatePinnedItem(id, changes);
+        await broadcastSpacesSnapshot();
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
+    });
+  },
+  exportSpaceBookmarks: (message, sendResponse) => {
+    const { spaceName } = message as { spaceName: string };
+    if (!spaceName)
+      return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+    return respondAsync(async () => {
+      try {
+        const html = await exportSpaceBookmarks(spaceName);
+        sendResponse({ ok: true, data: html });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
+    });
+  },
+  importSpaceBookmarks: (message, sendResponse) => {
+    const { spaceName, htmlContent, parentId } = message as {
+      spaceName: string;
+      htmlContent: string;
+      parentId?: string;
+    };
+    if (!spaceName || !htmlContent)
+      return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+    return respondAsync(async () => {
+      try {
+        await importSpaceBookmarks(spaceName, htmlContent, parentId);
+        await broadcastSpacesSnapshot();
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
+    });
+  },
+  searchHistory: (message, sendResponse) => {
+    const { query, maxResults } = message as { query: string; maxResults?: number };
+    return respondAsync(async () => {
+      try {
+        const results = await searchHistory(query, maxResults);
+        sendResponse({ ok: true, data: results });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
+    });
+  },
+  searchBookmarks: (message, sendResponse) => {
+    const { query, maxResults } = message as { query: string; maxResults?: number };
+    return respondAsync(async () => {
+      try {
+        const results = await searchBookmarks(query, maxResults);
+        sendResponse({ ok: true, data: results });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e) });
+      }
     });
   },
 };

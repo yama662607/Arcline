@@ -14,6 +14,7 @@ let floatingInstance: Awaited<
   ReturnType<typeof import('../floating/mount')['mountFloatingUi']>
 > | null = null;
 let currentMode: UiMode | null = null;
+let hostPointerEnterHandler: ((e: PointerEvent) => void) | null = null;
 
 declare global {
   interface Window {
@@ -74,7 +75,7 @@ function ensureBootstrapHotzone() {
   window.__arclineFloatingReady = true;
 }
 
-async function startFloatingUi(options?: { instant?: boolean }) {
+async function startFloatingUi(options?: { instant?: boolean; commandPalette?: boolean }) {
   if (!hostElement || !shadowRoot) return;
   if (!mountPromise) {
     mountPromise = import('../floating/mount').catch((error) => {
@@ -89,6 +90,8 @@ async function startFloatingUi(options?: { instant?: boolean }) {
   if (floatingInstance) {
     if (options?.instant) {
       floatingInstance.openInstantly();
+    } else if (options?.commandPalette) {
+      floatingInstance.openCommandPalette();
     } else {
       floatingInstance.openFromHover();
     }
@@ -112,8 +115,23 @@ async function startFloatingUi(options?: { instant?: boolean }) {
 
   if (options?.instant) {
     floatingInstance?.openInstantly();
+  } else if (options?.commandPalette) {
+    floatingInstance?.openCommandPalette();
   } else {
     floatingInstance?.openFromHover();
+  }
+
+  // Add persistent listener on host element to handle cursor re-entry
+  // after the cursor left the screen (e.g., moved quickly to the left edge)
+  // Only trigger when cursor is within the left edge hotzone (8px)
+  if (hostElement && floatingInstance && !hostPointerEnterHandler) {
+    hostPointerEnterHandler = (e: PointerEvent) => {
+      // Only open if cursor is in the actual hotzone area (left 8px of the screen)
+      if (e.clientX <= 8) {
+        floatingInstance?.openFromHover();
+      }
+    };
+    hostElement.addEventListener('pointerenter', hostPointerEnterHandler as EventListener);
   }
 }
 
@@ -126,6 +144,12 @@ function teardownFloatingUi() {
   mountPromise = null;
 
   window.__arclineFloatingReady = false;
+
+  // Remove the pointerenter listener before removing host
+  if (hostElement && hostPointerEnterHandler) {
+    hostElement.removeEventListener('pointerenter', hostPointerEnterHandler as EventListener);
+    hostPointerEnterHandler = null;
+  }
 
   if (hostElement) {
     hostElement.remove();
@@ -165,6 +189,12 @@ function handleRuntimeMessage(message: unknown) {
     ensureHost();
     ensureBootstrapHotzone();
     void startFloatingUi({ instant: true });
+  }
+
+  if (payload.command === 'openCommandPalette') {
+    ensureHost();
+    ensureBootstrapHotzone();
+    void startFloatingUi({ commandPalette: true });
   }
 
   if (payload.command === 'zoomChanged' && (payload as { zoomFactor?: number }).zoomFactor) {
