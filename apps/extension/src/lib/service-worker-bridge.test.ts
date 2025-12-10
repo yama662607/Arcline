@@ -41,6 +41,7 @@ describe('ServiceWorkerBridge', () => {
         tabs: [],
         pinnedTabs: [],
         temporaryTabs: [],
+        pinnedItems: [],
         color: 'blue',
         windowId: 1,
         created_at: Date.now(),
@@ -208,5 +209,52 @@ describe('ServiceWorkerBridge', () => {
     callback?.({ id: sent.id, error: 'tab not found' });
 
     await expect(badPromise).rejects.toThrow('tab not found');
+  });
+  it('sends searchHistory query with correct params', async () => {
+    const searchPromise = bridge.searchHistory('test query');
+
+    const [sent, callback] = chromeMock.runtime.sendMessage.mock.calls.slice(-1)[0] as [
+      {
+        id: string;
+        type: string;
+        method: string;
+        params?: Record<string, unknown>;
+      },
+      (response?: BridgeResponse) => void,
+    ];
+
+    expect(sent).toMatchObject({
+      type: 'query',
+      method: 'searchHistory',
+      params: { query: 'test query' },
+    });
+
+    callback?.({ id: sent.id, data: [{ id: 'h1', title: 'Result', type: 'history' }] });
+
+    await expect(searchPromise).resolves.toEqual([{ id: 'h1', title: 'Result', type: 'history' }]);
+  });
+
+  it('sends searchBookmarks query with correct params', async () => {
+    const searchPromise = bridge.searchBookmarks('bookmark query');
+
+    const [sent, callback] = chromeMock.runtime.sendMessage.mock.calls.slice(-1)[0] as [
+      {
+        id: string;
+        type: string;
+        method: string;
+        params?: Record<string, unknown>;
+      },
+      (response?: BridgeResponse) => void,
+    ];
+
+    expect(sent).toMatchObject({
+      type: 'query',
+      method: 'searchBookmarks',
+      params: { query: 'bookmark query' },
+    });
+
+    callback?.({ id: sent.id, data: [{ id: 'b1', title: 'Bookmark Result', type: 'bookmark' }] });
+
+    await expect(searchPromise).resolves.toEqual([{ id: 'b1', title: 'Bookmark Result', type: 'bookmark' }]);
   });
 });

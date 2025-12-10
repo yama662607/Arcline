@@ -1,6 +1,6 @@
 /// <reference types="chrome" />
 
-import type { TabEntry } from '@/shared/types';
+import type { PinnedFolder, PinnedItem, PinnedTab, SearchResult, TabEntry } from '@/shared/types';
 
 const ARCLINE_FOLDER_NAME = 'Arcline';
 const BOOKMARK_SYNC_KEY = 'arclineBookmarkSync';
@@ -255,41 +255,258 @@ export async function removeSpaceFolder(spaceName: string): Promise<void> {
 /**
  * スペースのブックマークを取得する
  */
-export async function getBookmarksForSpace(spaceName: string): Promise<TabEntry[]> {
+/**
+ * スペースのブックマーク(PinnedItems)を取得する (再帰的)
+ */
+export async function getPinnedItemsForSpace(spaceName: string): Promise<PinnedItem[]> {
   try {
     const spaceFolder = await getOrCreateSpaceFolder(spaceName);
-
-    // Get all bookmarks in the space folder (recursive)
-    const bookmarks: TabEntry[] = [];
-    const processFolder = async (folderId: string) => {
-      const items = await chrome.bookmarks.getChildren(folderId);
-      for (const item of items) {
-        if (item.url) {
-          // This is a bookmark, convert to TabEntry format
-          bookmarks.push({
-            id: 0, // Bookmarks don't have tab IDs
-            url: item.url,
-            title: item.title,
-            favIconUrl: undefined, // Would need to fetch separately
-            pinned: false, // Bookmarks are not pinned tabs
-            active: false,
-            windowId: 0,
-            groupId: 0, // Will be set by caller
-            last_accessed: item.dateAdded,
-          });
-        } else if (!item.url) {
-          // This is a folder, process recursively
-          await processFolder(item.id);
-        }
-      }
-    };
-
-    await processFolder(spaceFolder.id);
-    return bookmarks;
+    return convertNodesToPinnedItems(await chrome.bookmarks.getChildren(spaceFolder.id));
   } catch (error) {
-    console.error(`[Arcline] Failed to get bookmarks for space "${spaceName}":`, error);
+    console.error(`[Arcline] Failed to get pinned items for space "${spaceName}":`, error);
     return [];
   }
+}
+
+async function convertNodesToPinnedItems(
+  nodes: chrome.bookmarks.BookmarkTreeNode[]
+): Promise<PinnedItem[]> {
+  const items: PinnedItem[] = [];
+
+  for (const node of nodes) {
+    if (node.url) {
+      // It's a tab/bookmark
+      items.push({
+        type: 'tab',
+        id: node.id,
+        url: node.url,
+        title: node.title,
+        favIconUrl: undefined, // Would fetch if needed
+        parentId: node.parentId,
+      } as PinnedTab);
+    } else {
+      // It's a folder
+      const children = await chrome.bookmarks.getChildren(node.id);
+      items.push({
+        type: 'folder',
+        id: node.id,
+        title: node.title,
+        children: await convertNodesToPinnedItems(children),
+        parentId: node.parentId,
+      } as PinnedFolder);
+    }
+  }
+
+  return items;
+}
+
+/**
+ * フォルダーを作成する
+ */
+export async function createPinnedFolder(
+  spaceName: string,
+  title: string,
+  parentId?: string
+): Promise<PinnedFolder> {
+  const spaceFolder = await getOrCreateSpaceFolder(spaceName);
+  // parentIdが指定されていればそれを使用、なければスペース直下
+  const effectiveParentId = parentId ?? spaceFolder.id;
+
+  const node = await chrome.bookmarks.create({
+    parentId: effectiveParentId,
+    title,
+  });
+
+  return {
+    type: 'folder',
+    id: node.id,
+    title: node.title,
+    children: [],
+    parentId: node.parentId,
+  };
+}
+
+/**
+ * タブ（ブックマーク）を作成する
+ */
+export async function createPinnedTab(
+  spaceName: string,
+  title: string,
+  url: string,
+  favIconUrl?: string,
+  parentId?: string,
+  index?: number
+): Promise<PinnedTab> {
+  const spaceFolder = await getOrCreateSpaceFolder(spaceName);
+  const effectiveParentId = parentId ?? spaceFolder.id;
+
+  const node = await chrome.bookmarks.create({
+    parentId: effectiveParentId,
+    index,
+    title,
+    url,
+  });
+
+  return {
+    type: 'tab',
+    id: node.id,
+    url: node.url ?? url,
+    title: node.title,
+    favIconUrl,
+    parentId: node.parentId,
+  };
+}
+
+/**
+ * Export space bookmarks to Netscape Bookmark File Format (HTML)
+ */
+export async function exportSpaceBookmarks(spaceName: string): Promise<string> {
+  const items = await getPinnedItemsForSpace(spaceName);
+
+  let html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<!-- This is an automatically generated file.
+     It will be read and overwritten.
+     DO NOT EDIT! -->
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>
+<H1>Bookmarks</H1>
+<DL><p>
+`;
+
+  function itemToHtml(item: PinnedItem, indent: string): string {
+    if (item.type === 'tab') {
+      return `${indent}<DT><A HREF="${item.url}">${item.title}</A>\n`;
+    } else {
+      let folderHtml = `${indent}<DT><H3>${item.title}</H3>\n${indent}<DL><p>\n`;
+      for (const child of item.children) {
+        folderHtml += itemToHtml(child, indent + '    ');
+      }
+      folderHtml += `${indent}</DL><p>\n`;
+      return folderHtml;
+    }
+  }
+
+  for (const item of items) {
+    html += itemToHtml(item, '    ');
+  }
+
+  html += '</DL><p>';
+  return html;
+}
+
+/**
+ * Import bookmarks from HTML content
+ * Note: A full HTML parser in service worker might be heavy or unavailable (DOMParser is not available in SW in some versions, but we are in extension environment so maybe).
+ * Actually, chrome.bookmarks.import() is not available to extensions programmatically with content.
+ * We need to parse basic Netscape HTML.
+ */
+export async function importSpaceBookmarks(
+  spaceName: string,
+  htmlContent: string,
+  parentId?: string
+): Promise<void> {
+  const spaceFolder = await getOrCreateSpaceFolder(spaceName);
+  const rootId = parentId ?? spaceFolder.id;
+
+  // Basic Regex-based parser for Netscape format (robust enough for simple exports)
+  // Limitation: This is a simple implementation. For production, a robust parser is needed.
+
+  // Split by specific tags to find items
+  // This is tricky without DOMParser.
+  // We can use a service to offload parsing or simple regex.
+  // Given constraints, we will assume simple structure or use a helper if possible.
+
+  // Alternate approach: Pass to an offscreen document for parsing if needed, but let's try regex for <A> and <H3>.
+  // Structure is <DT><A ...>...</A> or <DT><H3 ...>...</H3><DL>...</DL>
+
+  // For now, let's just parse flat links for simplicity or basic list.
+  // Actually, users might want folders.
+  // Let's defer complex parsing logic or implement a basic stack-based parser.
+
+  console.warn('Import logic is partial - implementing flat import for now or need a parser.');
+
+  // Regex to match links: <A HREF="(.*?)">(.*?)</A>
+  const linkRegex = /<A[^>]+HREF="([^"]+)"[^>]*>([^<]+)<\/A>/gi;
+  let match: RegExpExecArray | null = linkRegex.exec(htmlContent);
+  while (match !== null) {
+    const url = match[1];
+    const title = match[2];
+    await chrome.bookmarks.create({
+      parentId: rootId,
+      title: title,
+      url: url,
+    });
+    match = linkRegex.exec(htmlContent);
+  }
+}
+
+/**
+ * 古い getBookmarksForSpace (TabEntry[] を返す) - 後方互換性のため維持するか、新しいロジックを使うか
+ * Existing calls in browser.ts expect TabEntry[]. We can adapt.
+ */
+export async function getBookmarksForSpace(spaceName: string): Promise<TabEntry[]> {
+  const items = await getPinnedItemsForSpace(spaceName);
+  // Flatten for backward compatibility
+  const flatten = (items: PinnedItem[]): TabEntry[] => {
+    let result: TabEntry[] = [];
+    for (const item of items) {
+      if (item.type === 'tab') {
+        result.push({
+          id: 0,
+          url: item.url,
+          title: item.title,
+          active: false,
+          pinned: false,
+          windowId: 0,
+          groupId: 0,
+          last_accessed: 0,
+        });
+      } else {
+        result = result.concat(flatten(item.children));
+      }
+    }
+    return result;
+  };
+  return flatten(items);
+}
+
+export async function movePinnedItem(
+  id: string,
+  destination: { parentId?: string; index?: number; spaceName?: string }
+): Promise<void> {
+  let finalParentId = destination.parentId;
+
+  if (!finalParentId && destination.spaceName) {
+    const spaceFolder = await getOrCreateSpaceFolder(destination.spaceName);
+    finalParentId = spaceFolder.id;
+  }
+
+  await chrome.bookmarks.move(id, { parentId: finalParentId, index: destination.index });
+}
+
+export async function removePinnedItem(id: string): Promise<void> {
+  await chrome.bookmarks.removeTree(id); // Use removeTree to handle folders
+}
+
+export async function updatePinnedItem(
+  id: string,
+  updates: { title?: string; url?: string }
+): Promise<void> {
+  await chrome.bookmarks.update(id, updates);
+}
+
+export async function searchBookmarks(query: string, maxResults = 20): Promise<SearchResult[]> {
+  const items = await chrome.bookmarks.search(query);
+  return items
+    .filter((item) => item.url)
+    .slice(0, maxResults)
+    .map((item) => ({
+      type: 'bookmark',
+      id: item.id,
+      title: item.title,
+      url: item.url,
+      favIconUrl: undefined, // Need favicon fetcher if available
+    }));
 }
 
 /**

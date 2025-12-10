@@ -47,6 +47,7 @@ describe('space-navigation', () => {
     last_active_at: 0,
     tabs: [],
     pinnedTabs: [],
+    pinnedItems: [],
     temporaryTabs: [],
   });
 

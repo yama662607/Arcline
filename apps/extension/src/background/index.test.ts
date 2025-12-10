@@ -19,6 +19,8 @@ vi.mock('./services/browser', () => {
     archiveTab: fn(),
     restoreArchivedTab: fn(),
     updateSettings: fn(),
+    searchHistory: asyncFn([]),
+    searchBookmarks: asyncFn([]),
   };
 });
 
@@ -26,11 +28,19 @@ import type { UiMode } from '@/lib/ui-mode';
 import type { SpaceSnapshot } from '@/shared/types';
 import { chromeMock } from '@/test/chrome-mock';
 import { broadcastUiMode, commandHandlers } from './index';
-import { broadcastSpacesSnapshot, getSpacesSnapshot, toggleTabPinned } from './services/browser';
+import {
+  broadcastSpacesSnapshot,
+  getSpacesSnapshot,
+  searchBookmarks,
+  searchHistory,
+  toggleTabPinned,
+} from './services/browser';
 
 const toggleTabPinnedMock = vi.mocked(toggleTabPinned);
 const broadcastSpacesSnapshotMock = vi.mocked(broadcastSpacesSnapshot);
 const getSpacesSnapshotMock = vi.mocked(getSpacesSnapshot);
+const searchHistoryMock = vi.mocked(searchHistory);
+const searchBookmarksMock = vi.mocked(searchBookmarks);
 
 const flushAsync = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -129,6 +139,7 @@ describe('commandHandlers.requestSpacesSnapshot', () => {
         tabs: [],
         pinnedTabs: [],
         temporaryTabs: [],
+        pinnedItems: [],
         color: 'blue',
         windowId: 1,
         created_at: 0,
@@ -199,5 +210,47 @@ describe('commandHandlers.toggleTabPinned', () => {
     await flushAsync();
 
     expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: 'failure' });
+  });
+});
+
+describe('commandHandlers.searchHistory', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('calls searchHistory with query and returns results', async () => {
+    const mockResults = [
+      { id: 'h1', title: 'Test History', type: 'history' as const, url: 'http://test.com' },
+    ];
+    searchHistoryMock.mockResolvedValueOnce(mockResults);
+    const handler = commandHandlers.searchHistory;
+    const sendResponse = vi.fn();
+
+    handler?.({ query: 'test' }, sendResponse);
+    await flushAsync();
+
+    expect(searchHistoryMock).toHaveBeenCalledWith('test', undefined);
+    expect(sendResponse).toHaveBeenCalledWith({ ok: true, data: mockResults });
+  });
+});
+
+describe('commandHandlers.searchBookmarks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('calls searchBookmarks with query and returns results', async () => {
+    const mockResults = [
+      { id: 'b1', title: 'Test Bookmark', type: 'bookmark' as const, url: 'http://bookmark.com' },
+    ];
+    searchBookmarksMock.mockResolvedValueOnce(mockResults);
+    const handler = commandHandlers.searchBookmarks;
+    const sendResponse = vi.fn();
+
+    handler?.({ query: 'bookmark' }, sendResponse);
+    await flushAsync();
+
+    expect(searchBookmarksMock).toHaveBeenCalledWith('bookmark', undefined);
+    expect(sendResponse).toHaveBeenCalledWith({ ok: true, data: mockResults });
   });
 });

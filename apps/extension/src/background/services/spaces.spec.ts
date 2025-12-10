@@ -110,6 +110,7 @@ describe('spaces service', () => {
         pinnedTabs: [
           { id: 1, title: 'Pin1', url: '', pinned: true, active: false, windowId: 1, groupId: 100 },
         ],
+        pinnedItems: [],
         temporaryTabs: [
           {
             id: 2,
@@ -137,7 +138,7 @@ describe('spaces service', () => {
       const result = deriveSpaceStateFromSnapshots([snapshot]);
 
       expect(result).toHaveLength(1);
-      const state = result[0];
+      const state = result[0]!;
       expect(state.id).toBe(100);
       expect(state.name).toBe('Project');
       expect(state.color).toBe('green');

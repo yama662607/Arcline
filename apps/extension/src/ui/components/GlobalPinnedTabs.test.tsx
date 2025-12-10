@@ -96,7 +96,7 @@ describe('GlobalPinnedTabs', () => {
 
     // Mock drag data
     vi.mocked(getDragData).mockReturnValue({
-      tab: { id: 99, title: 'New Tab', url: 'http://new.com', pinned: false } as any,
+      item: { id: 99, title: 'New Tab', url: 'http://new.com', pinned: false } as any,
       source: 'temporary',
     });
 
@@ -115,7 +115,7 @@ describe('GlobalPinnedTabs', () => {
     const dropZone = screen.getByRole('region', { name: /Pinned tabs drop zone/ });
 
     vi.mocked(getDragData).mockReturnValue({
-      tab: { id: 88, title: 'Fav Tab', url: 'http://fav.com', pinned: false } as any,
+      item: { id: 88, title: 'Fav Tab', url: 'http://fav.com', pinned: false } as any,
       source: 'favorite',
     });
 
@@ -135,7 +135,7 @@ describe('GlobalPinnedTabs', () => {
     const dropZone = screen.getByRole('region', { name: /Pinned tabs drop zone/ });
 
     vi.mocked(getDragData).mockReturnValue({
-      tab: { id: 1, pinned: true } as any,
+      item: { id: 1, pinned: true } as any,
       source: 'pinned',
     });
 
