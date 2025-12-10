@@ -1,7 +1,7 @@
 import type { DragEvent as ReactDragEvent } from 'react';
 import { useCallback, useState } from 'react';
 
-import type { TabEntry } from '@/shared/types';
+import type { PinnedItem, TabEntry } from '@/shared/types';
 
 /**
  * タブの移動元を表す型
@@ -9,10 +9,15 @@ import type { TabEntry } from '@/shared/types';
 export type TabSource = 'temporary' | 'pinned' | 'favorite';
 
 /**
+ * ドラッグ可能なアイテムの型
+ */
+export type DragItem = TabEntry | PinnedItem;
+
+/**
  * ドラッグデータの型
  */
 export interface DragData {
-  tab: TabEntry;
+  item: DragItem;
   source: TabSource;
 }
 
@@ -24,10 +29,11 @@ export const DRAG_MIME_TYPE = 'application/x-arcline-tab';
 /**
  * ドラッグデータを設定する
  */
-export function setDragData(e: ReactDragEvent, tab: TabEntry, source: TabSource): void {
-  const data: DragData = { tab, source };
+export function setDragData(e: ReactDragEvent, item: DragItem, source: TabSource): void {
+  const data: DragData = { item, source };
   e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', tab.id.toString());
+  const id = 'id' in item ? item.id : 'unknown';
+  e.dataTransfer.setData('text/plain', String(id));
   e.dataTransfer.setData(DRAG_MIME_TYPE, JSON.stringify(data));
 }
 
@@ -41,10 +47,18 @@ export function getDragData(e: ReactDragEvent): DragData | null {
 
     const parsed = JSON.parse(rawData);
 
+    // 後方互換性: tabプロパティがある場合はitemとして扱う
+    if (parsed.tab) {
+      return {
+        item: parsed.tab,
+        source: parsed.source || (parsed.pinned ? 'pinned' : 'temporary'),
+      };
+    }
+
     // 後方互換性: sourceがない場合はtemporaryとして扱う
     if (!parsed.source && parsed.id !== undefined) {
       return {
-        tab: parsed as TabEntry,
+        item: parsed as TabEntry,
         source: parsed.pinned ? 'pinned' : 'temporary',
       };
     }
@@ -63,10 +77,13 @@ export function useTabDragDrop(source: TabSource) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDragStart = useCallback(
-    (e: ReactDragEvent, tab: TabEntry) => {
-      console.log(`[useTabDragDrop] DragStart from ${source}:`, tab.title);
+    (e: ReactDragEvent, item: DragItem) => {
+      console.log(
+        `[useTabDragDrop] DragStart from ${source}:`,
+        'title' in item ? item.title : 'unknown'
+      );
       setIsDragging(true);
-      setDragData(e, tab, source);
+      setDragData(e, item, source);
     },
     [source]
   );

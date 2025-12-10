@@ -199,8 +199,20 @@ export function GlobalPinnedTabs({
         return;
       }
 
-      const { tab, source } = dragData;
-      console.log('[GlobalPinnedTabs] Drop from source:', source, 'tab:', tab.title);
+      const { item, source } = dragData;
+      console.log(
+        '[GlobalPinnedTabs] Drop from source:',
+        source,
+        'tab:',
+        'title' in item ? item.title : 'unknown'
+      );
+
+      // Check if item is TabEntry (has numeric id)
+      if (typeof item.id !== 'number') {
+        console.log('[GlobalPinnedTabs] Ignoring non-TabEntry item');
+        return;
+      }
+      const tab = item as TabEntry;
 
       // すでにPinnedからのドラッグは無視（自分自身への移動）
       if (source === 'pinned') {

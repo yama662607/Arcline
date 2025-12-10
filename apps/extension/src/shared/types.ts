@@ -14,16 +14,49 @@ export interface TabEntry {
   last_accessed?: number;
 }
 
+export type PinnedItem = PinnedTab | PinnedFolder;
+
+export interface PinnedTab {
+  type: 'tab';
+  id: string; // URL or specialized ID
+  url: string;
+  title: string;
+  favIconUrl?: string;
+  // Optional: Link to an open tab ID if currently active
+  tabId?: number;
+  parentId?: string;
+}
+
+export interface PinnedFolder {
+  type: 'folder';
+  id: string; // UUID or Bookmark ID
+  title: string;
+  children: PinnedItem[];
+  collapsed?: boolean; // UI state
+  parentId?: string;
+}
+
 export interface SpaceSnapshot {
   id: number;
   name: string;
   color: TabGroupColor;
   tabs: TabEntry[];
-  pinnedTabs: TabEntry[];
+  pinnedTabs: TabEntry[]; // Deprecated: Use pinnedItems
+  pinnedItems: PinnedItem[];
   temporaryTabs: TabEntry[];
   windowId: number;
-  created_at: number;
-  last_active_at: number;
+  created_at?: number;
+  last_active_at?: number;
+}
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  url?: string;
+  type: 'tab' | 'bookmark' | 'history' | 'space' | 'command';
+  favIconUrl?: string;
+  lastVisitTime?: number;
+  description?: string;
 }
 
 export interface ArchivedTab {

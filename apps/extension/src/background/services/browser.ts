@@ -2,6 +2,16 @@
 
 import type { TabGroupColor } from '@/shared/chrome-types';
 import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
+import {
+  createPinnedFolder,
+  createPinnedTab,
+  exportSpaceBookmarks,
+  getPinnedItemsForSpace,
+  importSpaceBookmarks,
+  movePinnedItem,
+  removePinnedItem,
+  updatePinnedItem,
+} from './bookmarks';
 import { openFloatingUiOnTab } from './space-navigation';
 import type { SpaceState } from './spaces';
 import { deriveSpaceStateFromSnapshots, loadSpaceState, saveSpaceState } from './spaces';
@@ -33,6 +43,22 @@ type SpaceSnapshotInit = {
   timestamp: number;
 };
 
+// Helper to recursively link PinnedItems to open tabs
+import type { PinnedItem } from '@/shared/types';
+
+function linkPinnedItemsToOpenTabs(items: PinnedItem[], openTabs: TabEntry[]) {
+  for (const item of items) {
+    if (item.type === 'tab') {
+      const matchingTab = openTabs.find((t) => t.url === item.url);
+      if (matchingTab) {
+        item.tabId = matchingTab.id;
+      }
+    } else {
+      linkPinnedItemsToOpenTabs(item.children, openTabs);
+    }
+  }
+}
+
 async function queryChromeState(): Promise<{
   tabGroups: chrome.tabGroups.TabGroup[];
   allTabs: chrome.tabs.Tab[];
@@ -55,6 +81,7 @@ function createEmptySpaceSnapshot({
     color,
     tabs: [],
     pinnedTabs: [],
+    pinnedItems: [],
     temporaryTabs: [],
     windowId,
     created_at: timestamp,
@@ -239,6 +266,7 @@ function buildSnapshotFromState(
     color: state.color,
     tabs,
     pinnedTabs,
+    pinnedItems: [],
     temporaryTabs,
     windowId,
     created_at: timestamp,
@@ -356,6 +384,20 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
     distributeTabs(allTabs, groupMap, ungrouped, globalPinned);
 
     const snapshots = buildSnapshotList(groupMap, ungrouped, globalPinned);
+
+    // Populate pinnedItems from bookmarks for each space
+    for (const snapshot of snapshots) {
+      if (snapshot.id !== TAB_GROUP_ID_NONE) {
+        // Only for actual spaces (groups)
+        snapshot.pinnedItems = await getPinnedItemsForSpace(snapshot.name);
+        linkPinnedItemsToOpenTabs(snapshot.pinnedItems, [
+          ...snapshot.temporaryTabs,
+          ...snapshot.tabs,
+        ]);
+      } else {
+        snapshot.pinnedItems = [];
+      }
+    }
 
     // Persist SpaceState derived from the current snapshot so that
     // other background operations can treat it as the single source of truth.
@@ -718,6 +760,9 @@ import {
 
 export const getBookmarksForSpace = getBookmarksForSpaceFromService;
 
+export { searchBookmarks } from './bookmarks';
+export { searchHistory } from './history';
+
 // Tab name overrides
 const TAB_NAME_OVERRIDES_KEY = 'tabNameOverridesById';
 
@@ -788,3 +833,13 @@ export async function getTabActivity(): Promise<Record<number, number>> {
   const result = await chrome.storage.local.get(TAB_ACTIVITY_STORAGE_KEY);
   return result[TAB_ACTIVITY_STORAGE_KEY] || {};
 }
+
+export {
+  createPinnedFolder,
+  createPinnedTab,
+  exportSpaceBookmarks,
+  importSpaceBookmarks,
+  movePinnedItem,
+  removePinnedItem,
+  updatePinnedItem,
+};

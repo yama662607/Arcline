@@ -3,7 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FavoriteTab } from '@/background/services/favorites';
 import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
 import { queryKeys } from '@/lib/query-client';
-import type { ArchivedTab, Settings, SpaceCreateRequest, TabEntry } from '@/shared/types';
+import type {
+  ArchivedTab,
+  PinnedFolder,
+  PinnedTab,
+  Settings,
+  SpaceCreateRequest,
+  TabEntry,
+} from '@/shared/types';
 
 // Query hooks
 export function useSpacesSnapshot() {
@@ -309,6 +316,135 @@ export function useReorderFavorites() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.favorites });
+    },
+  });
+}
+
+// Pinned Items hooks
+
+export function useCreatePinnedFolder() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<PinnedFolder, Error, { spaceName: string; title: string; parentId?: string }>({
+    mutationFn: async ({ spaceName, title, parentId }) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      return await bridge.createPinnedFolder(spaceName, title, parentId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
+
+export function useCreatePinnedTab() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    PinnedTab,
+    Error,
+    {
+      spaceName: string;
+      title: string;
+      url: string;
+      favIconUrl?: string;
+      parentId?: string;
+      index?: number;
+    }
+  >({
+    mutationFn: async ({ spaceName, title, url, favIconUrl, parentId, index }) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      return await bridge.createPinnedTab(spaceName, title, url, favIconUrl, parentId, index);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
+
+export function useMovePinnedItem() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    void,
+    Error,
+    { id: string; parentId?: string; index?: number; spaceName?: string }
+  >({
+    mutationFn: async ({ id, parentId, index, spaceName }) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.movePinnedItem(id, { parentId, index, spaceName });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
+
+export function useRemovePinnedItem() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, string>({
+    mutationFn: async (id: string) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.removePinnedItem(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
+
+export function useUpdatePinnedItem() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { id: string; changes: { title?: string; url?: string } }>({
+    mutationFn: async ({ id, changes }) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.updatePinnedItem(id, changes);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
+
+export function useExportSpaceBookmarks() {
+  const bridge = useServiceWorkerBridge();
+
+  return useMutation<string, Error, string>({
+    mutationFn: async (spaceName: string) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      return await bridge.exportSpaceBookmarks(spaceName);
+    },
+  });
+}
+
+export function useImportSpaceBookmarks() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { spaceName: string; htmlContent: string; parentId?: string }>({
+    mutationFn: async ({ spaceName, htmlContent, parentId }) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.importSpaceBookmarks(spaceName, htmlContent, parentId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
+
+export function useOpenUrlInTab() {
+  const bridge = useServiceWorkerBridge();
+
+  return useMutation<void, Error, string>({
+    mutationFn: async (url: string) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.openUrlInTab(url);
     },
   });
 }

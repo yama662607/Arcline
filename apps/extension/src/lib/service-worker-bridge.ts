@@ -3,7 +3,15 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { FavoriteTab } from '@/background/services/favorites';
 import type { OptionalTabGroupColor } from '@/shared/chrome-types';
-import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
+import type {
+  ArchivedTab,
+  PinnedFolder,
+  PinnedTab,
+  SearchResult,
+  Settings,
+  SpaceSnapshot,
+  TabEntry,
+} from '@/shared/types';
 import { queryKeys } from './query-client';
 import { hasChromeRuntime } from './utils';
 
@@ -311,6 +319,97 @@ export class ServiceWorkerBridge {
       method: 'reorderFavorites',
       params: { favorites },
     }) as Promise<void>;
+  }
+
+  // Pinned Items management
+  async createPinnedFolder(
+    spaceName: string,
+    title: string,
+    parentId?: string
+  ): Promise<PinnedFolder> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'createPinnedFolder',
+      params: { spaceName, title, parentId },
+    }) as Promise<PinnedFolder>;
+  }
+
+  async createPinnedTab(
+    spaceName: string,
+    title: string,
+    url: string,
+    favIconUrl?: string,
+    parentId?: string,
+    index?: number
+  ): Promise<PinnedTab> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'createPinnedTab',
+      params: { spaceName, title, url, favIconUrl, parentId, index },
+    }) as Promise<PinnedTab>;
+  }
+
+  async movePinnedItem(
+    id: string,
+    destination: { parentId?: string; index?: number; spaceName?: string }
+  ): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'movePinnedItem',
+      params: { id, ...destination },
+    }) as Promise<void>;
+  }
+
+  async removePinnedItem(id: string): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'removePinnedItem',
+      params: { id },
+    }) as Promise<void>;
+  }
+
+  async updatePinnedItem(id: string, changes: { title?: string; url?: string }): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'updatePinnedItem',
+      params: { id, changes },
+    }) as Promise<void>;
+  }
+
+  async exportSpaceBookmarks(spaceName: string): Promise<string> {
+    return this.sendMessage({
+      type: 'query',
+      method: 'exportSpaceBookmarks',
+      params: { spaceName },
+    }) as Promise<string>;
+  }
+
+  async importSpaceBookmarks(
+    spaceName: string,
+    htmlContent: string,
+    parentId?: string
+  ): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'importSpaceBookmarks',
+      params: { spaceName, htmlContent, parentId },
+    }) as Promise<void>;
+  }
+
+  async searchHistory(query: string, maxResults?: number): Promise<SearchResult[]> {
+    return this.sendMessage({
+      type: 'query',
+      method: 'searchHistory',
+      params: { query, maxResults },
+    }) as Promise<SearchResult[]>;
+  }
+
+  async searchBookmarks(query: string, maxResults?: number): Promise<SearchResult[]> {
+    return this.sendMessage({
+      type: 'query',
+      method: 'searchBookmarks',
+      params: { query, maxResults },
+    }) as Promise<SearchResult[]>;
   }
 
   // Setup React Query queries

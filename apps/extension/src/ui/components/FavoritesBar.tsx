@@ -213,8 +213,8 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
         return;
       }
 
-      const { tab, source } = dragData;
-      console.log('[FavoritesBar] Drop from source:', source, 'tab:', tab.title);
+      const { item, source } = dragData;
+      console.log('[FavoritesBar] Drop from source:', source, 'tab:', item.title);
 
       // すでにFavoriteからのドラッグは無視（自分自身への移動）
       if (source === 'favorite') {
@@ -223,13 +223,18 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
       }
 
       // Favoriteに追加
-      addToFavorites(tab);
+      // Favorite requires title, url, favIconUrl. Safe to cast or pick.
+      const tabLike = item as TabEntry;
+      addToFavorites(tabLike);
 
       // 移動元から削除
       if (source === 'pinned') {
         // Pinnedからの移動: ピン留めを解除
-        console.log('[FavoritesBar] Unpinning tab:', tab.id);
-        toggleTabPinned({ tabId: tab.id, pinned: false });
+        // If it's a PinnedItem with tabId, we can unpin it.
+        if ('tabId' in item && typeof item.tabId === 'number') {
+          console.log('[FavoritesBar] Unpinning tab:', item.tabId);
+          toggleTabPinned({ tabId: item.tabId, pinned: false });
+        }
       }
       // Temporaryからの移動は特に削除処理不要（Favoriteに追加されるだけ）
     },
