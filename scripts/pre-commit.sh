@@ -29,7 +29,7 @@ echo ""
 
 # 1. Lint チェック（ステージされたファイルのみ）
 echo -e "${YELLOW}🔍 Lint チェック実行中...${NC}"
-if echo "$STAGED_FILES" | xargs pnpm exec biome check --reporter=compact; then
+if echo "$STAGED_FILES" | xargs pnpm exec biome check --reporter=summary; then
   echo -e "${GREEN}✅ Lint チェック通過${NC}"
 else
   echo -e "${RED}❌ Lint エラーが見つかりました${NC}"

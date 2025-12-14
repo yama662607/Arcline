@@ -107,4 +107,4 @@ console.log('  • pnpm quality-check:full: 完全品質チェック');
 console.log('  • pnpm pre-commit: プレコミットチェックのみ実行');
 console.log('');
 console.log('💡 フックを無効化するには:');
-echo '  git config core.hooksPath /dev/null';
+console.log('  git config core.hooksPath /dev/null');
