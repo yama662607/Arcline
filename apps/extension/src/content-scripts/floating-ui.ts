@@ -2,6 +2,7 @@
 
 import '@/dev/reactPreamble';
 
+import { enableEdgeDetectionDebug, updateDebugInfo } from './edge-detection-debug';
 import { hasChromeRuntime, requestUiMode, type UiMode } from './shared-utils';
 
 const HOST_ID = 'arcline-floating-root';
@@ -14,7 +15,7 @@ let floatingInstance: Awaited<
   ReturnType<typeof import('../floating/mount')['mountFloatingUi']>
 > | null = null;
 let currentMode: UiMode | null = null;
-let hostPointerEnterHandler: ((e: PointerEvent) => void) | null = null;
+let edgeDetectionHandler: ((e: PointerEvent) => void) | null = null;
 
 declare global {
   interface Window {
@@ -62,13 +63,9 @@ function ensureBootstrapHotzone() {
   hotzone.style.pointerEvents = 'auto';
   hotzone.style.cursor = 'default';
   hotzone.style.background = 'transparent';
-  hotzone.addEventListener(
-    'pointerenter',
-    () => {
-      void startFloatingUi();
-    },
-    { once: true }
-  );
+  hotzone.addEventListener('pointerenter', () => {
+    void startFloatingUi();
+  });
 
   shadowRoot.append(hotzone);
   bootstrapHotzone = hotzone;
@@ -120,18 +117,72 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
   } else {
     floatingInstance?.openFromHover();
   }
+}
 
-  // Add persistent listener on host element to handle cursor re-entry
-  // after the cursor left the screen (e.g., moved quickly to the left edge)
-  // Only trigger when cursor is within the left edge hotzone (8px)
-  if (hostElement && floatingInstance && !hostPointerEnterHandler) {
-    hostPointerEnterHandler = (e: PointerEvent) => {
-      // Only open if cursor is in the actual hotzone area (left 8px of the screen)
-      if (e.clientX <= 8) {
-        floatingInstance?.openFromHover();
+function setupEdgeDetection() {
+  if (!hostElement) return;
+  if (edgeDetectionHandler) return;
+
+  // Enable debug overlay (toggle with Ctrl+Shift+D)
+  enableEdgeDetectionDebug();
+
+  let debugRafId: number | null = null;
+  let lastEnterTime = 0;
+  const DEBOUNCE_MS = 100; // Prevent rapid re-triggers
+
+  // Use hostElement's pointerenter for reliable detection
+  // hostElement is the 8px-wide fixed element on the left edge
+  edgeDetectionHandler = (e: PointerEvent) => {
+    const now = Date.now();
+
+    // Debounce to prevent rapid re-triggers
+    if (now - lastEnterTime < DEBOUNCE_MS) {
+      return;
+    }
+    lastEnterTime = now;
+
+    // Update debug info (throttled with RAF)
+    if (debugRafId === null) {
+      debugRafId = requestAnimationFrame(() => {
+        debugRafId = null;
+        updateDebugInfo({
+          clientX: e.clientX,
+          lastX: null,
+          inHotzone: true,
+          movingLeft: false,
+          startedOutside: false,
+          hotzoneIntersects: false,
+          shouldTrigger: true,
+          rafPending: false,
+        });
+      });
+    }
+
+    // Trigger floating UI
+    if (floatingInstance) {
+      floatingInstance.openFromHover();
+      // Disable pointer events on hostElement while UI is open
+      // to prevent re-triggering when hovering over the open UI
+      if (hostElement) {
+        hostElement.style.pointerEvents = 'none';
       }
-    };
-    hostElement.addEventListener('pointerenter', hostPointerEnterHandler as EventListener);
+    }
+  };
+
+  hostElement.addEventListener('pointerenter', edgeDetectionHandler);
+}
+
+function teardownEdgeDetection() {
+  if (edgeDetectionHandler && hostElement) {
+    hostElement.removeEventListener('pointerenter', edgeDetectionHandler);
+    edgeDetectionHandler = null;
+  }
+}
+
+// Re-enable hostElement pointer events when UI is closed
+export function enableHostElementPointerEvents() {
+  if (hostElement) {
+    hostElement.style.pointerEvents = 'auto';
   }
 }
 
@@ -145,11 +196,7 @@ function teardownFloatingUi() {
 
   window.__arclineFloatingReady = false;
 
-  // Remove the pointerenter listener before removing host
-  if (hostElement && hostPointerEnterHandler) {
-    hostElement.removeEventListener('pointerenter', hostPointerEnterHandler as EventListener);
-    hostPointerEnterHandler = null;
-  }
+  teardownEdgeDetection();
 
   if (hostElement) {
     hostElement.remove();
@@ -166,6 +213,7 @@ function applyUiMode(mode: UiMode) {
   if (mode === 'floating') {
     ensureHost();
     ensureBootstrapHotzone();
+    setupEdgeDetection();
   } else {
     teardownFloatingUi();
   }

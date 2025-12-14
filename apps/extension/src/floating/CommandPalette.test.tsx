@@ -10,7 +10,6 @@ global.ResizeObserver = ResizeObserverMock;
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
-import type React from 'react';
 
 import { CommandPalette } from './CommandPalette';
 
@@ -64,7 +63,9 @@ describe('CommandPalette', () => {
 
   it('does not render content when isOpen is false', () => {
     renderComponent(false);
-    expect(screen.queryByPlaceholderText(/Search tabs, bookmarks, history/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(/Search tabs, bookmarks, history/i)
+    ).not.toBeInTheDocument();
   });
 
   it('renders search input when isOpen is true', () => {

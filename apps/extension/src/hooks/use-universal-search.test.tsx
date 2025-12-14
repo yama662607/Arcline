@@ -57,7 +57,7 @@ describe('useUniversalSearch', () => {
     const { result } = renderHook(() => useUniversalSearch('Local', true), { wrapper });
 
     expect(result.current.results).toHaveLength(1);
-    expect(result.current.results[0]!.title).toBe('Local Tab');
+    expect(result.current.results[0]?.title).toBe('Local Tab');
   });
 
   it.skip('searches remote (history/bookmarks)', async () => {
@@ -113,6 +113,6 @@ describe('useUniversalSearch', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.results).toHaveLength(1);
-    expect(result.current.results[0]!.type).toBe('tab');
+    expect(result.current.results[0]?.type).toBe('tab');
   });
 });

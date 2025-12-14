@@ -172,6 +172,7 @@ function SidebarAppContent() {
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
+                          <title>Import Bookmarks</title>
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -201,6 +202,7 @@ function SidebarAppContent() {
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
+                          <title>Export Bookmarks</title>
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"

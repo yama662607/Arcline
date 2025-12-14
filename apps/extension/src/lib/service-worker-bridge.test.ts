@@ -255,6 +255,8 @@ describe('ServiceWorkerBridge', () => {
 
     callback?.({ id: sent.id, data: [{ id: 'b1', title: 'Bookmark Result', type: 'bookmark' }] });
 
-    await expect(searchPromise).resolves.toEqual([{ id: 'b1', title: 'Bookmark Result', type: 'bookmark' }]);
+    await expect(searchPromise).resolves.toEqual([
+      { id: 'b1', title: 'Bookmark Result', type: 'bookmark' },
+    ]);
   });
 });
