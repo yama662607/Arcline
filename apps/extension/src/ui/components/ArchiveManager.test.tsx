@@ -43,12 +43,12 @@ describe('ArchiveManager', () => {
     vi.mocked(useArchivedTabs).mockReturnValue({
       data: mockArchivedTabs,
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof useArchivedTabs>);
 
     vi.mocked(useRestoreArchivedTab).mockReturnValue({
       mutateAsync: mutateAsyncMock,
       isPending: false,
-    } as any);
+    } as unknown as ReturnType<typeof useRestoreArchivedTab>);
   });
 
   const renderComponent = (variant: 'standalone' | 'floating' = 'standalone') => {
@@ -60,7 +60,9 @@ describe('ArchiveManager', () => {
   };
 
   it('renders empty state when no tabs', () => {
-    vi.mocked(useArchivedTabs).mockReturnValue({ data: [] } as any);
+    vi.mocked(useArchivedTabs).mockReturnValue({
+      data: [],
+    } as unknown as ReturnType<typeof useArchivedTabs>);
     renderComponent();
     expect(screen.getByText(/No archived tabs/)).toBeInTheDocument();
   });

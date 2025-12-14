@@ -34,12 +34,12 @@ describe('SettingsPanel', () => {
       data: mockSettings,
       isLoading: false,
       error: null,
-    } as any);
+    } as unknown as ReturnType<typeof useSettings>);
 
     vi.mocked(useUpdateSettings).mockReturnValue({
       mutateAsync: mutateAsyncMock,
       isPending: false,
-    } as any);
+    } as unknown as ReturnType<typeof useUpdateSettings>);
   });
 
   const renderComponent = (variant: 'standalone' | 'floating' = 'standalone') => {
@@ -51,7 +51,9 @@ describe('SettingsPanel', () => {
   };
 
   it('renders loading state', () => {
-    vi.mocked(useSettings).mockReturnValue({ isLoading: true } as any);
+    vi.mocked(useSettings).mockReturnValue({
+      isLoading: true,
+    } as unknown as ReturnType<typeof useSettings>);
     renderComponent();
     expect(screen.queryByText('Settings')).not.toBeInTheDocument(); // Assuming title isn't shown in loading
     // Check for pulse animation class (or structure) - Implementation detail
@@ -61,7 +63,9 @@ describe('SettingsPanel', () => {
   });
 
   it('renders error state', () => {
-    vi.mocked(useSettings).mockReturnValue({ error: new Error('Failed load') } as any);
+    vi.mocked(useSettings).mockReturnValue({
+      error: new Error('Failed load'),
+    } as unknown as ReturnType<typeof useSettings>);
     renderComponent();
     expect(screen.getByText(/設定の読み込みに失敗しました/)).toBeInTheDocument();
   });

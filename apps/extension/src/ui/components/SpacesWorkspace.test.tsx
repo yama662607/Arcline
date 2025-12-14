@@ -3,8 +3,17 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFavorites } from '@/hooks/use-spaces-query';
+import type { UiMode } from '@/lib/ui-mode';
+import type { SpaceSnapshot, TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { SpacesWorkspace } from './SpacesWorkspace';
+
+type MockSpacesState = {
+  spaces: SpaceSnapshot[];
+  activeSpaceId: number | null;
+  setSpaces: (spaces: SpaceSnapshot[]) => void;
+  setActiveSpace: (spaceId: number) => void;
+};
 
 // Mock Component Mocks
 vi.mock('@/ui/components/ActiveTabHeader', () => ({
@@ -14,7 +23,9 @@ vi.mock('@/ui/components/ArchiveManager', () => ({
   ArchiveManager: () => <div data-testid="archive-manager">Archive Manager</div>,
 }));
 vi.mock('@/ui/components/EnhancedTabList', () => ({
-  EnhancedTabList: ({ title }: any) => <div data-testid="enhanced-tab-list">{title}</div>,
+  EnhancedTabList: ({ title }: { title: string }) => (
+    <div data-testid="enhanced-tab-list">{title}</div>
+  ),
 }));
 vi.mock('@/ui/components/FavoritesBar', () => ({
   FavoritesBar: () => <div data-testid="favorites-bar">Favorites Bar</div>,
@@ -46,28 +57,56 @@ describe('SpacesWorkspace', () => {
     vi.clearAllMocks();
 
     // Default Store State
-    vi.mocked(useSpacesStore).mockImplementation((selector: any) => {
-      const state = {
-        activeSpaceId: 1,
-        spaces: [
-          {
-            id: 1,
-            name: 'Work',
-            pinnedTabs: [{ id: 10, title: 'Pinned 1', pinned: true }],
-            temporaryTabs: [{ id: 11, title: 'Temp 1' }],
-          },
-        ],
-      };
-      return selector(state);
-    });
+    const pinnedTab: TabEntry = {
+      id: 10,
+      title: 'Pinned 1',
+      url: 'https://example.com/pinned',
+      pinned: true,
+      active: false,
+      windowId: 1,
+      groupId: 1,
+    };
+
+    const tempTab: TabEntry = {
+      id: 11,
+      title: 'Temp 1',
+      url: 'https://example.com/temp',
+      pinned: false,
+      active: false,
+      windowId: 1,
+      groupId: 1,
+    };
+
+    const space: SpaceSnapshot = {
+      id: 1,
+      name: 'Work',
+      color: 'blue',
+      windowId: 1,
+      tabs: [pinnedTab, tempTab],
+      pinnedTabs: [pinnedTab],
+      pinnedItems: [],
+      temporaryTabs: [tempTab],
+    };
+
+    vi.mocked(useSpacesStore).mockImplementation(
+      (selector: (state: MockSpacesState) => unknown) => {
+        const state: MockSpacesState = {
+          activeSpaceId: 1,
+          spaces: [space],
+          setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
+          setActiveSpace: vi.fn<(spaceId: number) => void>(),
+        };
+        return selector(state);
+      }
+    );
 
     // Default Favorites
     vi.mocked(useFavorites).mockReturnValue({
       data: [],
-    } as any);
+    } as unknown as ReturnType<typeof useFavorites>);
   });
 
-  const renderComponent = (variant: 'sidepanel' | 'floating' = 'sidepanel', uiMode?: any) => {
+  const renderComponent = (variant: 'sidepanel' | 'floating' = 'sidepanel', uiMode?: UiMode) => {
     return render(
       <QueryClientProvider client={queryClient}>
         <SpacesWorkspace variant={variant} uiMode={uiMode} />
@@ -118,12 +157,17 @@ describe('SpacesWorkspace', () => {
 
   it('displays message when no spaces active', () => {
     // Override store to have no matching space
-    vi.mocked(useSpacesStore).mockImplementation((selector: any) => {
-      return selector({
-        activeSpaceId: 999, // Non-existent
-        spaces: [],
-      });
-    });
+    vi.mocked(useSpacesStore).mockImplementation(
+      (selector: (state: MockSpacesState) => unknown) => {
+        const state: MockSpacesState = {
+          activeSpaceId: 999,
+          spaces: [],
+          setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
+          setActiveSpace: vi.fn<(spaceId: number) => void>(),
+        };
+        return selector(state);
+      }
+    );
 
     renderComponent();
     expect(screen.getByText(/No spaces available/)).toBeInTheDocument();

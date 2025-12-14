@@ -6,7 +6,8 @@ import {
   useRemoveFromFavorites,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
-import { getDragData } from '@/ui/hooks/use-tab-drag-drop';
+import type { TabEntry } from '@/shared/types';
+import { type DragData, getDragData } from '@/ui/hooks/use-tab-drag-drop';
 import { GlobalPinnedTabs } from './GlobalPinnedTabs';
 
 // Mock Hooks
@@ -43,12 +44,19 @@ describe('GlobalPinnedTabs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(useActivateTab).mockReturnValue({ mutate: activateTabMock } as any);
-    vi.mocked(useToggleTabPinned).mockReturnValue({ mutate: togglePinMock } as any);
-    vi.mocked(useRemoveFromFavorites).mockReturnValue({ mutate: removeFromFavoritesMock } as any);
+    vi.mocked(useActivateTab).mockReturnValue({
+      mutate: activateTabMock,
+    } as unknown as ReturnType<typeof useActivateTab>);
+    vi.mocked(useToggleTabPinned).mockReturnValue({
+      mutate: togglePinMock,
+    } as unknown as ReturnType<typeof useToggleTabPinned>);
+    vi.mocked(useRemoveFromFavorites).mockReturnValue({
+      mutate: removeFromFavoritesMock,
+    } as unknown as ReturnType<typeof useRemoveFromFavorites>);
   });
 
-  const renderComponent = (props: any = {}) => {
+  type GlobalPinnedTabsProps = Parameters<typeof GlobalPinnedTabs>[0];
+  const renderComponent = (props: Partial<GlobalPinnedTabsProps> = {}) => {
     return render(
       <GlobalPinnedTabs
         tabs={mockTabs}
@@ -95,10 +103,17 @@ describe('GlobalPinnedTabs', () => {
     const dropZone = screen.getByRole('region', { name: /Pinned tabs drop zone/ });
 
     // Mock drag data
-    vi.mocked(getDragData).mockReturnValue({
-      item: { id: 99, title: 'New Tab', url: 'http://new.com', pinned: false } as any,
-      source: 'temporary',
-    });
+    const newTab: TabEntry = {
+      id: 99,
+      title: 'New Tab',
+      url: 'http://new.com',
+      pinned: false,
+      active: false,
+      windowId: 1,
+      groupId: -1,
+    };
+    const dragData: DragData = { item: newTab, source: 'temporary' };
+    vi.mocked(getDragData).mockReturnValue(dragData);
 
     const dropEvent = createEvent.drop(dropZone);
     Object.defineProperty(dropEvent, 'dataTransfer', {
@@ -114,10 +129,16 @@ describe('GlobalPinnedTabs', () => {
     renderComponent();
     const dropZone = screen.getByRole('region', { name: /Pinned tabs drop zone/ });
 
-    vi.mocked(getDragData).mockReturnValue({
-      item: { id: 88, title: 'Fav Tab', url: 'http://fav.com', pinned: false } as any,
-      source: 'favorite',
-    });
+    const favTab: TabEntry = {
+      id: 88,
+      title: 'Fav Tab',
+      url: 'http://fav.com',
+      pinned: false,
+      active: false,
+      windowId: 1,
+      groupId: -1,
+    };
+    vi.mocked(getDragData).mockReturnValue({ item: favTab, source: 'favorite' });
 
     const dropEvent = createEvent.drop(dropZone);
     Object.defineProperty(dropEvent, 'dataTransfer', {
@@ -134,10 +155,17 @@ describe('GlobalPinnedTabs', () => {
     renderComponent();
     const dropZone = screen.getByRole('region', { name: /Pinned tabs drop zone/ });
 
-    vi.mocked(getDragData).mockReturnValue({
-      item: { id: 1, pinned: true } as any,
-      source: 'pinned',
-    });
+    const pinnedTab: TabEntry = {
+      id: 1,
+      title: 'Pinned Tab 1',
+      url: 'https://example.com/1',
+      pinned: true,
+      active: false,
+      windowId: 1,
+      groupId: -1,
+      favIconUrl: '',
+    };
+    vi.mocked(getDragData).mockReturnValue({ item: pinnedTab, source: 'pinned' });
 
     fireEvent.drop(dropZone);
 
