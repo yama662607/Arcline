@@ -379,7 +379,7 @@ export async function exportSpaceBookmarks(spaceName: string): Promise<string> {
     } else {
       let folderHtml = `${indent}<DT><H3>${item.title}</H3>\n${indent}<DL><p>\n`;
       for (const child of item.children) {
-        folderHtml += itemToHtml(child, indent + '    ');
+        folderHtml += itemToHtml(child, `${indent}    `);
       }
       folderHtml += `${indent}</DL><p>\n`;
       return folderHtml;

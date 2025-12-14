@@ -31,6 +31,14 @@ export function PinnedItemList({ items, spaceName, level = 0, onContextMenu }: P
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          role="button"
+          tabIndex={0}
+          aria-label="Pinned items drop zone"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+            }
+          }}
         >
           Drag tabs here to pin
         </div>
@@ -132,6 +140,15 @@ function PinnedFolderRow({ folder, spaceName, level, index, onContextMenu }: Pin
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={toggleOpen}
         onContextMenu={handleContextMenu}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setIsOpen((prev) => !prev);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
         draggable
         onDragStart={(e) => handleDragStart(e, folder)}
         onDragEnd={handleDragEnd}
@@ -215,6 +232,18 @@ function PinnedTabRow({ tab, spaceName, level, index, onContextMenu }: PinnedTab
         style={{ paddingLeft: `${level * 12 + 20}px` }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (tab.tabId) {
+              activateTab(tab.tabId);
+            } else {
+              openUrl(tab.url);
+            }
+          }
+        }}
+        role="button"
+        tabIndex={0}
         draggable
         onDragStart={(e) => handleDragStart(e, tab)}
         onDragEnd={handleDragEnd}

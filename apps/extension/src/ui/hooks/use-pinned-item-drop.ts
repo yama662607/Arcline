@@ -12,6 +12,57 @@ interface UsePinnedItemDropProps {
   index?: number; // Index of the item in its parent list
 }
 
+function resolveDropPosition(
+  item: PinnedItem | null,
+  e: DragEvent<HTMLElement>
+): { position: DropPosition; isSelf: boolean } {
+  const dragData = getDragData(e);
+  if (!dragData) {
+    return { position: 'inside', isSelf: false };
+  }
+
+  if (dragData.source === 'pinned' && item && dragData.item.id === item.id) {
+    return { position: 'inside', isSelf: true };
+  }
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const height = rect.height;
+
+  if (!item) {
+    return { position: 'inside', isSelf: false };
+  }
+
+  if (item.type === 'folder') {
+    if (y < height * 0.25) return { position: 'top', isSelf: false };
+    if (y > height * 0.75) return { position: 'bottom', isSelf: false };
+    return { position: 'inside', isSelf: false };
+  }
+
+  if (y < height * 0.5) return { position: 'top', isSelf: false };
+  return { position: 'bottom', isSelf: false };
+}
+
+function resolveDropTarget(params: {
+  item: PinnedItem | null;
+  dropPosition: DropPosition;
+  index?: number;
+}): { parentId: string | undefined; index: number | undefined } {
+  const { item, dropPosition, index } = params;
+
+  if (!item) {
+    return { parentId: undefined, index: undefined };
+  }
+
+  if (dropPosition === 'inside') {
+    return { parentId: item.id, index: undefined };
+  }
+
+  const baseIndex = index ?? 0;
+  const targetIndex = dropPosition === 'top' ? baseIndex : baseIndex + 1;
+  return { parentId: item.parentId, index: targetIndex };
+}
+
 export function usePinnedItemDrop({ item, spaceName, index }: UsePinnedItemDropProps) {
   const [isOver, setIsOver] = useState(false);
   const [dropPosition, setDropPosition] = useState<DropPosition | null>(null);
@@ -27,40 +78,12 @@ export function usePinnedItemDrop({ item, spaceName, index }: UsePinnedItemDropP
       const dragData = getDragData(e);
       if (!dragData) return;
 
-      // Prevent dropping into itself or children (if folder)
-      if (dragData.source === 'pinned' && item) {
-        // If dragging same item
-        if (dragData.item.id === item.id) {
-          e.dataTransfer.dropEffect = 'none';
-          setDropPosition(null);
-          setIsOver(false);
-          return;
-        }
-        // Check if dragging parent into child (simple check: if item is inside dragged folder)
-        // Since we don't have full tree here, we skip complex check for now.
-        // Backend/Chrome API handles cyclic move error usually.
-      }
-
-      const rect = e.currentTarget.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      const height = rect.height;
-
-      let position: DropPosition = 'inside';
-
-      if (item) {
-        if (item.type === 'folder') {
-          // Folder: Top 25% -> Before, Bottom 25% -> After, Middle -> Inside
-          if (y < height * 0.25) position = 'top';
-          else if (y > height * 0.75) position = 'bottom';
-          else position = 'inside';
-        } else {
-          // Tab: Top 50% -> Before, Bottom 50% -> After
-          if (y < height * 0.5) position = 'top';
-          else position = 'bottom';
-        }
-      } else {
-        // Empty container
-        position = 'inside';
+      const { position, isSelf } = resolveDropPosition(item, e);
+      if (isSelf) {
+        e.dataTransfer.dropEffect = 'none';
+        setDropPosition(null);
+        setIsOver(false);
+        return;
       }
 
       setDropPosition(position);
@@ -87,41 +110,23 @@ export function usePinnedItemDrop({ item, spaceName, index }: UsePinnedItemDropP
       const dragData = getDragData(e);
       if (!dragData) return;
 
-      let targetParentId: string | undefined;
-      let targetIndex: number | undefined;
+      const { parentId: targetParentId, index: targetIndex } = resolveDropTarget({
+        item,
+        dropPosition: currentDropPosition ?? 'inside',
+        index,
+      });
 
-      if (item) {
-        if (currentDropPosition === 'inside') {
-          targetParentId = item.id;
-          targetIndex = undefined; // Append to folder
-        } else {
-          targetParentId = item.parentId; // If root item, parentId is undefined
-          const baseIndex = index ?? 0;
-          targetIndex = currentDropPosition === 'top' ? baseIndex : baseIndex + 1;
-        }
-      } else {
-        // Dropping into container (Space Root or Folder Content)
-        // If 'item' is null, we assume we are at the "List" level.
-        // But the hook is usually used on a Row.
-        // If used on PinnedItemList (empty state), item is null.
-        // We need to know parentId of the list?
-        // Wait, if PinnedItemList is empty, we don't have item know parentId easily unless passed props.
-        // But for 'inside' drop on Root List (empty), parentId is undefined (Space Root).
-        targetParentId = undefined;
-        targetIndex = undefined; // Append
+      if (dragData.source === 'pinned' && typeof dragData.item.id === 'string') {
+        moveItem({
+          id: dragData.item.id,
+          parentId: targetParentId,
+          index: targetIndex,
+          spaceName,
+        });
+        return;
       }
 
-      if (dragData.source === 'pinned') {
-        const itemId = dragData.item.id;
-        if (typeof itemId === 'string') {
-          moveItem({
-            id: itemId,
-            parentId: targetParentId,
-            index: targetIndex,
-            spaceName, // Resolves root if parentId is undefined
-          });
-        }
-      } else if (dragData.source === 'temporary') {
+      if (dragData.source === 'temporary') {
         createPinnedTab({
           spaceName,
           title: dragData.item.title,

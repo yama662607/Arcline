@@ -52,6 +52,7 @@ const manifest = defineManifest(({ mode }) => {
       'commands',
       'alarms',
       'contextMenus',
+      'clipboardWrite',
     ],
     host_permissions: ['<all_urls>'],
     commands: {
