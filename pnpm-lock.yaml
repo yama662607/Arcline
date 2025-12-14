@@ -11,9 +11,15 @@ importers:
       '@arcline/openspec-cli':
         specifier: workspace:*
         version: link:packages/openspec-cli
+      '@biomejs/biome':
+        specifier: ^2.3.4
+        version: 2.3.4
       turbo:
         specifier: ^2.6.0
         version: 2.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   apps/extension:
     dependencies:

@@ -1,8 +1,14 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.4/schema.json",
   "files": {
-    "include": ["apps/**/*.{ts,tsx,js,jsx}", "docs/**/*.md", "openspec/**/*.md"],
-    "ignore": ["**/dist/**", "**/node_modules/**", "**/legacy/**"]
+    "includes": [
+      "apps/**/*.{ts,tsx,js,jsx}",
+      "docs/**/*.md",
+      "openspec/**/*.md",
+      "!**/dist/**",
+      "!**/node_modules/**",
+      "!**/legacy/**"
+    ]
   },
   "formatter": {
     "enabled": true,
