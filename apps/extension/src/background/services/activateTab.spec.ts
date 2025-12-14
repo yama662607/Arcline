@@ -26,7 +26,7 @@ const mockChrome = {
   },
 };
 
-global.chrome = mockChrome as any;
+globalThis.chrome = mockChrome as unknown as typeof chrome;
 
 // Mock dependencies
 vi.mock('./space-navigation', () => ({

@@ -277,8 +277,8 @@ describe('Bookmarks Service', () => {
       const results = await searchBookmarks('query');
       expect(mockChrome.bookmarks.search).toHaveBeenCalledWith('query');
       expect(results).toHaveLength(2);
-      expect(results[0]!.type).toBe('bookmark');
-      expect(results[0]!.url).toBe('http://res1.com');
+      expect(results[0]?.type).toBe('bookmark');
+      expect(results[0]?.url).toBe('http://res1.com');
     });
 
     it('filters out folders (without url)', async () => {
@@ -288,7 +288,7 @@ describe('Bookmarks Service', () => {
       ]);
       const results = await searchBookmarks('query');
       expect(results).toHaveLength(1);
-      expect(results[0]!.title).toBe('Page');
+      expect(results[0]?.title).toBe('Page');
     });
   });
 });

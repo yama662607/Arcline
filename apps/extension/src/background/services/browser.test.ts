@@ -47,7 +47,7 @@ import { getPinnedItemsForSpace } from './bookmarks';
 describe('getSpacesSnapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (getPinnedItemsForSpace as any).mockResolvedValue([]);
+    vi.mocked(getPinnedItemsForSpace).mockResolvedValue([]);
   });
 
   it('should return empty array when no tab groups exist', async () => {
@@ -75,16 +75,16 @@ describe('getSpacesSnapshot', () => {
     mockChrome.tabs.query.mockResolvedValue([]);
 
     // Mock pinned items for Work space
-    (getPinnedItemsForSpace as any).mockResolvedValue([
+    vi.mocked(getPinnedItemsForSpace).mockResolvedValue([
       { type: 'tab', id: 'b1', title: 'Start', url: 'http://start.com' },
     ]);
 
     const result = await getSpacesSnapshot();
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.name).toBe('Work');
-    expect(result[0]!.pinnedItems).toHaveLength(1);
-    expect((result[0]!.pinnedItems[0] as PinnedTab).title).toBe('Start');
+    expect(result[0]?.name).toBe('Work');
+    expect(result[0]?.pinnedItems).toHaveLength(1);
+    expect((result[0]?.pinnedItems[0] as PinnedTab).title).toBe('Start');
     expect(getPinnedItemsForSpace).toHaveBeenCalledWith('Work');
   });
 
@@ -123,17 +123,17 @@ describe('getSpacesSnapshot', () => {
     mockChrome.tabs.query.mockResolvedValue(mockTabs);
 
     // Pinned item matches the open tab URL
-    (getPinnedItemsForSpace as any).mockResolvedValue([
+    vi.mocked(getPinnedItemsForSpace).mockResolvedValue([
       { type: 'tab', id: 'b1', title: 'Start', url: 'http://start.com' },
     ]);
 
     const result = await getSpacesSnapshot();
 
-    expect(result[0]!.tabs).toHaveLength(1);
-    expect(result[0]!.pinnedItems).toHaveLength(1);
+    expect(result[0]?.tabs).toHaveLength(1);
+    expect(result[0]?.pinnedItems).toHaveLength(1);
 
     // Check if tabId was linked
-    const pinnedItem = result[0]!.pinnedItems[0] as PinnedTab;
+    const pinnedItem = result[0]?.pinnedItems[0] as PinnedTab;
     expect(pinnedItem.tabId).toBe(101);
   });
 
@@ -164,6 +164,6 @@ describe('getSpacesSnapshot', () => {
     ]);
     const result = await getSpacesSnapshot();
     expect(result).toHaveLength(1);
-    expect(result[0]!.tabs).toHaveLength(1);
+    expect(result[0]?.tabs).toHaveLength(1);
   });
 });

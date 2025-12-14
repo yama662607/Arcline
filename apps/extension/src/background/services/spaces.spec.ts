@@ -17,7 +17,7 @@ const mockChrome = {
   },
 };
 
-global.chrome = mockChrome as any;
+globalThis.chrome = mockChrome as unknown as typeof chrome;
 
 describe('spaces service', () => {
   beforeEach(() => {
@@ -138,7 +138,11 @@ describe('spaces service', () => {
       const result = deriveSpaceStateFromSnapshots([snapshot]);
 
       expect(result).toHaveLength(1);
-      const state = result[0]!;
+      const state = result[0];
+      expect(state).toBeDefined();
+      if (!state) {
+        throw new Error('Expected state to be defined');
+      }
       expect(state.id).toBe(100);
       expect(state.name).toBe('Project');
       expect(state.color).toBe('green');

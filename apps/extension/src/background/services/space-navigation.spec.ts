@@ -25,7 +25,7 @@ const mockChrome = {
     lastError: null,
   },
 };
-global.chrome = mockChrome as any;
+globalThis.chrome = mockChrome as unknown as typeof chrome;
 
 describe('space-navigation', () => {
   beforeEach(() => {
