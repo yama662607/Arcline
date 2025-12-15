@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 import { useSettings, useUpdateSettings } from '@/hooks/use-spaces-query';
 import { settingsFormSchema } from '@/shared/settings';

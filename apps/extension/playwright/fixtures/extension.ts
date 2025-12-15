@@ -8,7 +8,7 @@ import { type BrowserContext, type ConsoleMessage, chromium, type Worker } from 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 export const extensionDistPath = join(currentDir, '..', '..', 'dist');
 export const EXTENSION_PROTOCOL = 'chrome-extension://';
-export const UI_MODE_KEY = 'arclineoMode';
+export const UI_MODE_KEY = 'arcline.uiMode.current';
 export const SERVICE_WORKER_TIMEOUT = 60_000;
 export const TEST_EXTENSION_ID = process.env.ARCLINE_TEST_EXTENSION_ID;
 

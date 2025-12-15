@@ -20,6 +20,12 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     target: 'es2020',
     sourcemap: mode === 'development',
+    rollupOptions: {
+      input: {
+        index: resolve(__dirname, 'index.html'),
+        popup: resolve(__dirname, 'popup.html'),
+      },
+    },
   },
   resolve: {
     alias: {

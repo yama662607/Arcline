@@ -22,13 +22,39 @@ export const test = base.extend<{
     await use(context);
     await context.close();
   },
-  page: async ({ context }, use) => {
+  page: async ({ context }, use, testInfo) => {
     const pages = context.pages();
     const page = pages.length > 0 ? pages[0] : await context.newPage();
+
+    const onConsole = (message: import('@playwright/test').ConsoleMessage) => {
+      if (message.type() === 'error') {
+        process.stderr.write(`[PAGE][${testInfo.testId}] CONSOLE_ERROR ${message.text()}\n`);
+        testInfo.annotations.push({
+          type: 'page-console-error',
+          description: message.text(),
+        });
+      }
+    };
+
+    const onPageError = (error: Error) => {
+      process.stderr.write(
+        `[PAGE][${testInfo.testId}] PAGE_ERROR ${error.stack ?? error.message}\n`
+      );
+      testInfo.annotations.push({
+        type: 'page-error',
+        description: error.stack ?? error.message,
+      });
+    };
+
+    page.on('console', onConsole);
+    page.on('pageerror', onPageError);
     await use(page);
     if (!page.isClosed()) {
       await page.close();
     }
+
+    page.off('console', onConsole);
+    page.off('pageerror', onPageError);
   },
   extensionId: async ({ context }, use) => {
     const id = await getExtensionId(context);
@@ -101,11 +127,7 @@ export const test = base.extend<{
         );
       };
 
-      if (typeof testInfo.step === 'function') {
-        await testInfo.step(`mock requestUiMode -> ${mode}`, runWithAnnotation);
-      } else {
-        await runWithAnnotation();
-      }
+      await runWithAnnotation();
     };
 
     await use(applyMock);
