@@ -721,9 +721,43 @@ export async function updateSettings(settings: Partial<Settings>): Promise<void>
 const ARCHIVED_TABS_KEY = 'archivedTabs';
 const MAX_ARCHIVED_TABS = 100;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseRecordNumberToNumber(value: unknown): Record<number, number> {
+  if (!isRecord(value)) return {};
+  const out: Record<number, number> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    const parsedKey = Number(key);
+    if (!Number.isFinite(parsedKey)) continue;
+    if (typeof raw !== 'number') continue;
+    out[parsedKey] = raw;
+  }
+  return out;
+}
+
+function parseTabNameOverrides(
+  value: unknown
+): Record<number, { name: string; originalDomain: string }> {
+  if (!isRecord(value)) return {};
+  const out: Record<number, { name: string; originalDomain: string }> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    const parsedKey = Number(key);
+    if (!Number.isFinite(parsedKey)) continue;
+    if (!isRecord(raw)) continue;
+    const name = raw.name;
+    const originalDomain = raw.originalDomain;
+    if (typeof name !== 'string' || typeof originalDomain !== 'string') continue;
+    out[parsedKey] = { name, originalDomain };
+  }
+  return out;
+}
+
 export async function getArchivedTabs(): Promise<ArchivedTab[]> {
   const result = await chrome.storage.local.get(ARCHIVED_TABS_KEY);
-  return result[ARCHIVED_TABS_KEY] || [];
+  const raw = (result as Record<string, unknown>)[ARCHIVED_TABS_KEY];
+  return Array.isArray(raw) ? (raw as ArchivedTab[]) : [];
 }
 
 export async function addArchivedTab(
@@ -837,7 +871,8 @@ export async function getTabNameOverrides(): Promise<
   Record<number, { name: string; originalDomain: string }>
 > {
   const result = await chrome.storage.local.get(TAB_NAME_OVERRIDES_KEY);
-  return result[TAB_NAME_OVERRIDES_KEY] || {};
+  const raw = (result as Record<string, unknown>)[TAB_NAME_OVERRIDES_KEY];
+  return parseTabNameOverrides(raw);
 }
 
 export async function saveTabNameOverrides(
@@ -876,7 +911,8 @@ export async function updateTabLastActivity(tabId: number): Promise<void> {
   if (!tabId) return;
   try {
     const result = await chrome.storage.local.get(TAB_ACTIVITY_STORAGE_KEY);
-    const activityData = result[TAB_ACTIVITY_STORAGE_KEY] || {};
+    const raw = (result as Record<string, unknown>)[TAB_ACTIVITY_STORAGE_KEY];
+    const activityData = parseRecordNumberToNumber(raw);
     activityData[tabId] = Date.now();
     await chrome.storage.local.set({ [TAB_ACTIVITY_STORAGE_KEY]: activityData });
   } catch (error) {
@@ -888,7 +924,8 @@ export async function removeTabLastActivity(tabId: number): Promise<void> {
   if (!tabId) return;
   try {
     const result = await chrome.storage.local.get(TAB_ACTIVITY_STORAGE_KEY);
-    const activityData = result[TAB_ACTIVITY_STORAGE_KEY] || {};
+    const raw = (result as Record<string, unknown>)[TAB_ACTIVITY_STORAGE_KEY];
+    const activityData = parseRecordNumberToNumber(raw);
     delete activityData[tabId];
     await chrome.storage.local.set({ [TAB_ACTIVITY_STORAGE_KEY]: activityData });
   } catch (error) {
@@ -898,7 +935,8 @@ export async function removeTabLastActivity(tabId: number): Promise<void> {
 
 export async function getTabActivity(): Promise<Record<number, number>> {
   const result = await chrome.storage.local.get(TAB_ACTIVITY_STORAGE_KEY);
-  return result[TAB_ACTIVITY_STORAGE_KEY] || {};
+  const raw = (result as Record<string, unknown>)[TAB_ACTIVITY_STORAGE_KEY];
+  return parseRecordNumberToNumber(raw);
 }
 
 export {

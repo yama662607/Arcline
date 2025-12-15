@@ -18,7 +18,8 @@ export interface FavoriteTab {
 export async function getFavorites(): Promise<FavoriteTab[]> {
   try {
     const result = await chrome.storage.local.get(FAVORITES_STORAGE_KEY);
-    return result[FAVORITES_STORAGE_KEY] || [];
+    const raw = (result as Record<string, unknown>)[FAVORITES_STORAGE_KEY];
+    return Array.isArray(raw) ? (raw as FavoriteTab[]) : [];
   } catch (error) {
     console.error('[Arcline] Failed to get favorites:', error);
     return [];

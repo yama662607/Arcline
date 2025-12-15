@@ -208,19 +208,31 @@ async function updateBookmarkMirrorStatus(status: BookmarkSyncStatus): Promise<v
   }
 }
 
+function isBookmarkSyncStatus(value: unknown): value is BookmarkSyncStatus {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.lastSyncTime === 'number' &&
+    typeof candidate.isSyncing === 'boolean' &&
+    (candidate.error === null || typeof candidate.error === 'string')
+  );
+}
+
 /**
  * 同期状態を取得する
  */
 export async function getSyncStatus(): Promise<BookmarkSyncStatus> {
   try {
     const result = await chrome.storage.local.get([BOOKMARK_MIRROR_STATUS_KEY]);
-    return (
-      result[BOOKMARK_MIRROR_STATUS_KEY] || {
-        lastSyncTime: 0,
-        isSyncing: false,
-        error: null,
-      }
-    );
+    const raw = (result as Record<string, unknown>)[BOOKMARK_MIRROR_STATUS_KEY];
+    if (isBookmarkSyncStatus(raw)) {
+      return raw;
+    }
+    return {
+      lastSyncTime: 0,
+      isSyncing: false,
+      error: null,
+    };
   } catch (error) {
     console.error('[Arcline] Failed to get sync status:', error);
     return {
