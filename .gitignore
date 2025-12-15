@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 dist-dev/
+**/dist/
+**/dist-dev/
 *.zip
 
 # CRXJS build artifacts
@@ -23,6 +25,7 @@ hot-update.css
 
 # Development files
 .vite/
+**/.vite/
 .env
 .env.local
 .env.development.local
