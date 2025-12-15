@@ -46,7 +46,9 @@ function injectStyles(shadowRoot: ShadowRoot) {
   const style = document.createElement('style');
   style.setAttribute('data-arcline-floating-style', 'true');
   style.textContent = stylesText;
-  console.log('[Arcline-Debug] Styles Content Preview:', stylesText.slice(0, 200));
+  if (import.meta.env.DEV) {
+    console.log('[Arcline-Debug] Styles Content Preview:', stylesText.slice(0, 200));
+  }
   shadowRoot.append(style);
 }
 

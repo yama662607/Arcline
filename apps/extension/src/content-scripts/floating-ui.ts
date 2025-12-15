@@ -2,7 +2,6 @@
 
 import '@/dev/reactPreamble';
 
-import { enableEdgeDetectionDebug, updateDebugInfo } from './edge-detection-debug';
 import { hasChromeRuntime, requestUiMode, type UiMode } from './shared-utils';
 
 const HOST_ID = 'arcline-floating-root';
@@ -16,6 +15,19 @@ let floatingInstance: Awaited<
 > | null = null;
 let currentMode: UiMode | null = null;
 let edgeDetectionHandler: ((e: PointerEvent) => void) | null = null;
+
+interface DebugInfo {
+  clientX: number;
+  lastX: number | null;
+  inHotzone: boolean;
+  movingLeft: boolean;
+  startedOutside: boolean;
+  hotzoneIntersects: boolean;
+  shouldTrigger: boolean;
+  rafPending: boolean;
+}
+
+let updateDebugInfoFn: ((info: DebugInfo) => void) | null = null;
 
 declare global {
   interface Window {
@@ -123,8 +135,16 @@ function setupEdgeDetection() {
   if (!hostElement) return;
   if (edgeDetectionHandler) return;
 
-  // Enable debug overlay (toggle with Ctrl+Shift+D)
-  enableEdgeDetectionDebug();
+  if (import.meta.env.DEV) {
+    void import('./edge-detection-debug')
+      .then((module) => {
+        updateDebugInfoFn = module.updateDebugInfo;
+        module.enableEdgeDetectionDebug();
+      })
+      .catch((error) => {
+        console.warn('[Arcline] Failed to load edge detection debug', error);
+      });
+  }
 
   let debugRafId: number | null = null;
   let lastEnterTime = 0;
@@ -141,21 +161,22 @@ function setupEdgeDetection() {
     }
     lastEnterTime = now;
 
-    // Update debug info (throttled with RAF)
-    if (debugRafId === null) {
-      debugRafId = requestAnimationFrame(() => {
-        debugRafId = null;
-        updateDebugInfo({
-          clientX: e.clientX,
-          lastX: null,
-          inHotzone: true,
-          movingLeft: false,
-          startedOutside: false,
-          hotzoneIntersects: false,
-          shouldTrigger: true,
-          rafPending: false,
+    if (updateDebugInfoFn) {
+      if (debugRafId === null) {
+        debugRafId = requestAnimationFrame(() => {
+          debugRafId = null;
+          updateDebugInfoFn?.({
+            clientX: e.clientX,
+            lastX: null,
+            inHotzone: true,
+            movingLeft: false,
+            startedOutside: false,
+            hotzoneIntersects: false,
+            shouldTrigger: true,
+            rafPending: false,
+          });
         });
-      });
+      }
     }
 
     // Trigger floating UI
