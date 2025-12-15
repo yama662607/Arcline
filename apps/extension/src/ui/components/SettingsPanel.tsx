@@ -80,6 +80,25 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
         <div className="px-3 py-2 space-y-3">
           <div>
+            <label
+              className="block text-xs font-medium text-slate-400 mb-1"
+              htmlFor="floating-ui-mode"
+            >
+              UI Mode
+            </label>
+            <select
+              id="floating-ui-mode"
+              {...register('uiMode')}
+              className="w-full px-2 py-1 text-xs bg-surface-light rounded border border-surface-light focus:outline-none focus:border-blue-500 text-white"
+            >
+              <option value="floating">Floating (Default)</option>
+              <option value="side-panel">Side Panel</option>
+              <option value="popup">Popup</option>
+            </select>
+            <p className="mt-1 text-xs text-slate-500">Change how the extension UI appears</p>
+          </div>
+
+          <div>
             <label className="flex items-center gap-2 text-sm text-slate-300">
               <input
                 type="checkbox"
