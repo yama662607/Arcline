@@ -1,10 +1,4 @@
-import {
-  type BrowserContext,
-  test as base,
-  expect as baseExpect,
-  type Page,
-  type Worker,
-} from '@playwright/test';
+import { type BrowserContext, test as base, type Page, type Worker } from '@playwright/test';
 import {
   attachServiceWorkerLogging,
   ensureUiMode as ensureUiModeInStorage,
@@ -123,11 +117,4 @@ export const test = base.extend<{
       global.__arclineRestoreRequestUiMode?.();
     });
   },
-});
-
-export const expect = baseExpect;
-
-test.beforeEach(async ({ context, ensureUiMode }) => {
-  await context.clearCookies();
-  await ensureUiMode();
 });
