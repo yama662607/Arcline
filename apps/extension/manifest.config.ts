@@ -41,7 +41,6 @@ const manifest = defineManifest(({ mode }) => {
     // side_panel: {
     //   default_path: 'index.html',
     // },
-    // options_page: 'options.html',
     permissions: [
       'tabs',
       'tabGroups',
@@ -80,8 +79,13 @@ const manifest = defineManifest(({ mode }) => {
     },
     web_accessible_resources: [
       {
-        resources: ['index.html', 'options.html', 'popup.html', 'assets/*', 'icons/*'],
+        resources: ['index.html', 'popup.html', 'assets/*', 'icons/*'],
         matches: ['<all_urls>'],
+      },
+      {
+        matches: ['<all_urls>'],
+        resources: ['**/*', '*'],
+        use_dynamic_url: false,
       },
     ],
   };
