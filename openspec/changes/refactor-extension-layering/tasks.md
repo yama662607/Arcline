@@ -5,6 +5,7 @@
 1.3 tabs/windows/tabGroups 等のイベント購読を listeners モジュールへ移動し、エントリポイントから分離する
 1.4 `chrome.*` 直接参照を段階移行できる最小の adapter 層を導入する（注入可能な依存境界）
 1.5 content script の責務を「DOM 注入・ライフサイクル制御」と「React mount」に分割できる構造へ寄せる（挙動は維持する）
+1.6 設定（Settings）の永続化を `chrome.storage.local` に統一し、必要に応じて初回のみ `chrome.storage.sync` から移行する
 
 ## 2. Testing / Verification
 
