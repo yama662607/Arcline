@@ -87,26 +87,24 @@ function isSidePanelSupported(): boolean {
 }
 
 async function resolveUiMode(): Promise<UiMode> {
-  // Temporarily force floating mode for testing
-  console.log('[Arcline] Force floating mode for testing');
-  return 'floating';
+  const settings = await getSettings();
+  const preference = (settings.uiMode as UiMode | undefined) ?? 'floating';
 
-  // Original implementation (commented out for testing):
-  // const settings = await getSettings();
-  // const preference = (settings.uiMode as UiMode | undefined) ?? 'floating';
-  // if (preference === 'side-panel') {
-  //   if (!isSidePanelSupported()) {
-  //     console.warn(
-  //       '[Arcline] Side Panel preference requested but chrome.sidePanel is unavailable; falling back to floating UI'
-  //     );
-  //     return 'floating';
-  //   }
-  //   return 'side-panel';
-  // }
-  // if (preference === 'popup') {
-  //   return 'popup';
-  // }
-  // return preference;
+  if (preference === 'side-panel') {
+    if (!isSidePanelSupported()) {
+      console.warn(
+        '[Arcline] Side Panel preference requested but chrome.sidePanel is unavailable; falling back to floating UI'
+      );
+      return 'floating';
+    }
+    return 'side-panel';
+  }
+
+  if (preference === 'popup') {
+    return 'popup';
+  }
+
+  return preference;
 }
 
 async function configureSidePanelBehavior(enabled: boolean): Promise<void> {
@@ -167,7 +165,11 @@ export async function broadcastUiMode(mode: UiMode) {
 }
 
 async function applyUiMode(mode: UiMode) {
-  chrome.action.setPopup({ popup: '' });
+  if (mode === 'popup') {
+    chrome.action.setPopup({ popup: 'popup.html' });
+  } else {
+    chrome.action.setPopup({ popup: '' });
+  }
 
   if (mode !== 'side-panel') {
     await closeSidePanel();
@@ -1009,6 +1011,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 if (import.meta.env.MODE === 'test') {
   setInterval(() => {
-    chrome.runtime.getPlatformInfo(() => {});
+    chrome.runtime.getPlatformInfo(() => undefined);
   }, 20000);
 }
