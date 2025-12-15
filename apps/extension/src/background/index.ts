@@ -1,5 +1,7 @@
 /// <reference types="chrome" />
 import type { UiMode } from '@/lib/ui-mode';
+import type { Settings } from '@/shared/types';
+import { SETTINGS_STORAGE_KEY } from '@/shared/settings';
 import { createCommandHandlers, type CommandHandler } from './handlers/command-handlers';
 import { registerSpacesSnapshotListeners } from './listeners/spaces-snapshot-listeners';
 import { initializeAutoArchive, setupAutoArchiveAlarm } from './services/auto-archive';
@@ -40,9 +42,26 @@ import {
 import { initializeGestureDetection, subscribeToSwipe } from './services/gestures';
 import { navigateSpace } from './services/space-navigation';
 
-const UI_MODE_KEY = 'arclineoMode';
+const LEGACY_UI_MODE_KEY = 'arclineoMode';
+const UI_MODE_KEY = 'arcline.uiMode.current';
 
 let currentUiMode: UiMode | null = null;
+
+async function migrateUiModeStorageKey(): Promise<void> {
+  try {
+    const probe = await chrome.storage.local.get([UI_MODE_KEY, LEGACY_UI_MODE_KEY]);
+    const hasNew = typeof probe[UI_MODE_KEY] !== 'undefined';
+    const legacyValue = probe[LEGACY_UI_MODE_KEY] as unknown;
+    const hasLegacy = typeof legacyValue !== 'undefined';
+
+    if (!hasNew && hasLegacy) {
+      await chrome.storage.local.set({ [UI_MODE_KEY]: legacyValue });
+      await chrome.storage.local.remove(LEGACY_UI_MODE_KEY);
+    }
+  } catch (error) {
+    console.warn('[Arcline] Failed to migrate uiMode storage key', error);
+  }
+}
 
 function isSidePanelSupported(): boolean {
   return typeof chrome.sidePanel !== 'undefined' && typeof chrome.sidePanel.open === 'function';
@@ -155,6 +174,7 @@ async function detectUiMode(): Promise<UiMode> {
 }
 
 async function initializeUiMode() {
+  await migrateUiModeStorageKey();
   await refreshUiMode();
 }
 
@@ -419,6 +439,27 @@ registerSpacesSnapshotListeners({ broadcastSpacesSnapshot });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
+
+  const settingsChange = changes[SETTINGS_STORAGE_KEY];
+  if (settingsChange) {
+    const previous = (settingsChange.oldValue ?? {}) as Partial<Settings>;
+    const next = (settingsChange.newValue ?? {}) as Partial<Settings>;
+
+    if (previous.uiMode !== next.uiMode) {
+      void refreshUiMode();
+    }
+
+    if (
+      previous.autoArchiveEnabled !== next.autoArchiveEnabled ||
+      previous.autoArchiveIdleMinutes !== next.autoArchiveIdleMinutes
+    ) {
+      void getSettings().then((settings) =>
+        setupAutoArchiveAlarm(settings.autoArchiveEnabled, settings.autoArchiveIdleMinutes)
+      );
+    }
+
+    return;
+  }
 
   if ('uiMode' in changes) {
     void refreshUiMode();

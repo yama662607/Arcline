@@ -2,7 +2,13 @@
 
 import type { TabGroupColor } from '@/shared/chrome-types';
 import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
-import { defaultSettings, settingsSchema } from '@/shared/settings';
+import {
+  defaultSettings,
+  SETTINGS_MIGRATED_TO_LOCAL_KEY,
+  SETTINGS_MIGRATED_TO_NAMESPACED_KEY,
+  SETTINGS_STORAGE_KEY,
+  settingsSchema,
+} from '@/shared/settings';
 import {
   createPinnedFolder,
   createPinnedTab,
@@ -632,36 +638,83 @@ export async function activateTab(tabId: number): Promise<void> {
 
 // Settings management
 export async function getSettings(): Promise<Settings> {
-  const SETTINGS_MIGRATION_KEY = 'arclineSettingsMigratedToLocal';
   const settingKeys = Object.keys(defaultSettings) as Array<keyof Settings>;
 
   try {
-    const localProbe = await chrome.storage.local.get([...settingKeys, SETTINGS_MIGRATION_KEY]);
-    const alreadyMigrated = Boolean(localProbe[SETTINGS_MIGRATION_KEY]);
-    const hasAnyLocalSetting = settingKeys.some((key) => typeof localProbe[key] !== 'undefined');
+    const localProbe = await chrome.storage.local.get([
+      SETTINGS_STORAGE_KEY,
+      SETTINGS_MIGRATED_TO_LOCAL_KEY,
+      SETTINGS_MIGRATED_TO_NAMESPACED_KEY,
+      ...settingKeys,
+    ]);
 
-    if (!alreadyMigrated) {
-      if (hasAnyLocalSetting) {
-        await chrome.storage.local.set({ [SETTINGS_MIGRATION_KEY]: true });
-      } else {
-        const legacy = await chrome.storage.sync.get(settingKeys);
+    const alreadyMigratedToLocal = Boolean(localProbe[SETTINGS_MIGRATED_TO_LOCAL_KEY]);
+    const alreadyMigratedToNamespaced = Boolean(localProbe[SETTINGS_MIGRATED_TO_NAMESPACED_KEY]);
+    const hasNamespacedSettings = typeof localProbe[SETTINGS_STORAGE_KEY] !== 'undefined';
+    const hasAnyFlatSetting = settingKeys.some((key) => typeof localProbe[key] !== 'undefined');
+
+    if (!alreadyMigratedToNamespaced) {
+      if (hasNamespacedSettings) {
+        await chrome.storage.local.set({ [SETTINGS_MIGRATED_TO_NAMESPACED_KEY]: true });
+      } else if (hasAnyFlatSetting) {
+        const flatSettings = Object.fromEntries(
+          settingKeys
+            .map((key) => [key, localProbe[key]] as const)
+            .filter(([, value]) => typeof value !== 'undefined')
+        ) as Partial<Settings>;
+
         const merged = {
           ...defaultSettings,
-          ...(legacy as Partial<Settings>),
+          ...flatSettings,
         };
-        await chrome.storage.local.set({ ...merged, [SETTINGS_MIGRATION_KEY]: true });
+
+        await chrome.storage.local.set({
+          [SETTINGS_STORAGE_KEY]: merged,
+          [SETTINGS_MIGRATED_TO_NAMESPACED_KEY]: true,
+        });
+
+        await chrome.storage.local.remove(settingKeys);
+      } else {
+        if (alreadyMigratedToLocal) {
+          await chrome.storage.local.set({
+            [SETTINGS_STORAGE_KEY]: defaultSettings,
+            [SETTINGS_MIGRATED_TO_NAMESPACED_KEY]: true,
+          });
+        } else {
+          const legacy = await chrome.storage.sync.get(settingKeys);
+          const merged = {
+            ...defaultSettings,
+            ...(legacy as Partial<Settings>),
+          };
+
+          await chrome.storage.local.set({
+            [SETTINGS_STORAGE_KEY]: merged,
+            [SETTINGS_MIGRATED_TO_LOCAL_KEY]: true,
+            [SETTINGS_MIGRATED_TO_NAMESPACED_KEY]: true,
+          });
+        }
       }
     }
   } catch (error) {
     console.warn('[Arcline] Failed to migrate settings to local storage:', error);
   }
 
-  const result = await chrome.storage.local.get(defaultSettings);
-  return settingsSchema.parse(result);
+  const result = await chrome.storage.local.get([SETTINGS_STORAGE_KEY]);
+  return settingsSchema.parse((result[SETTINGS_STORAGE_KEY] as unknown) ?? {});
 }
 
 export async function updateSettings(settings: Partial<Settings>): Promise<void> {
-  await chrome.storage.local.set(settings);
+  const current = await getSettings();
+  const patch = Object.fromEntries(
+    Object.entries(settings).filter(([, value]) => typeof value !== 'undefined')
+  ) as Partial<Settings>;
+
+  await chrome.storage.local.set({
+    [SETTINGS_STORAGE_KEY]: {
+      ...current,
+      ...patch,
+    },
+  });
 }
 
 // Archive functionality

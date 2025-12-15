@@ -110,7 +110,7 @@ describe('commandHandlers.requestUiMode', () => {
   });
 
   it('responds with stored mode when available', async () => {
-    chromeMock.storage.local.get.mockResolvedValueOnce({ arclineoMode: 'popup' });
+    chromeMock.storage.local.get.mockResolvedValueOnce({ 'arcline.uiMode.current': 'popup' });
     const handler = commandHandlers.requestUiMode;
     const sendResponse = vi.fn();
 
@@ -119,7 +119,7 @@ describe('commandHandlers.requestUiMode', () => {
     expect(handled).toBe(true);
     await flushAsync();
 
-    expect(chromeMock.storage.local.get).toHaveBeenCalledWith('arclineoMode');
+    expect(chromeMock.storage.local.get).toHaveBeenCalledWith('arcline.uiMode.current');
     expect(sendResponse).toHaveBeenCalledWith({ command: 'currentUiMode', mode: 'popup' });
   });
 

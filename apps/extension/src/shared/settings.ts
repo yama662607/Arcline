@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 import type { Settings } from './types';
 
+export const SETTINGS_STORAGE_KEY = 'arcline.settings';
+export const SETTINGS_MIGRATED_TO_LOCAL_KEY = 'arclineSettingsMigratedToLocal';
+export const SETTINGS_MIGRATED_TO_NAMESPACED_KEY = 'arcline.settings.migratedToNamespaced';
+
 export const settingsSchema: z.ZodType<Settings> = z.object({
   defaultSpaceName: z.string().min(1).default('Home').catch('Home'),
   autoArchiveEnabled: z.boolean().default(false).catch(false),
