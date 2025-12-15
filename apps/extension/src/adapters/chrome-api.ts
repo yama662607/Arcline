@@ -3,6 +3,11 @@ export type ChromeEvent<TArgs extends unknown[]> = {
 };
 
 export type ChromeApi = {
+  storage: {
+    local: {
+      get: (keys: unknown) => Promise<Record<string, unknown>>;
+    };
+  };
   tabs: {
     onCreated?: ChromeEvent<[unknown]>;
     onUpdated?: ChromeEvent<[unknown, unknown, unknown]>;
@@ -11,9 +16,16 @@ export type ChromeApi = {
     onAttached?: ChromeEvent<[unknown, unknown]>;
     onRemoved?: ChromeEvent<[unknown, unknown]>;
     onActivated?: ChromeEvent<[unknown]>;
+
+    query: (queryInfo: unknown) => Promise<unknown[]>;
+    update: (tabId: number, updateProperties: unknown) => Promise<unknown>;
+    create: (createProperties: unknown) => Promise<unknown>;
+    getZoom: (tabId: number) => Promise<number>;
   };
   windows: {
     onFocusChanged?: ChromeEvent<[unknown]>;
+
+    update: (windowId: number, updateInfo: unknown) => Promise<unknown>;
   };
   tabGroups?: {
     onCreated?: ChromeEvent<[unknown]>;

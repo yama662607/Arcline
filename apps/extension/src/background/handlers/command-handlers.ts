@@ -1,5 +1,6 @@
 import type { UiMode } from '@/lib/ui-mode';
 import type { ArchivedTab, Settings, SpaceCreateRequest, TabEntry } from '@/shared/types';
+import { chromeApi as defaultChromeApi, type ChromeApi } from '@/adapters/chrome-api';
 
 type RuntimeSendResponse = (response?: unknown) => void;
 
@@ -16,6 +17,7 @@ export type CommandHandlersDeps = {
   uiModeKey: string;
   detectUiMode: () => Promise<UiMode>;
   getCurrentUiMode: () => UiMode | null;
+  chromeApi?: ChromeApi;
   getActiveTabEntry: BrowserFns['getActiveTabEntry'];
   getSpacesSnapshot: BrowserFns['getSpacesSnapshot'];
   getSettings: BrowserFns['getSettings'];
@@ -86,11 +88,13 @@ const respondAsync = (handler: () => Promise<void>): boolean => {
 };
 
 export function createCommandHandlers(deps: CommandHandlersDeps): Record<string, CommandHandler> {
+  const chromeApi = deps.chromeApi ?? defaultChromeApi;
+
   return {
     requestUiMode: (_message, sendResponse) =>
       respondAsync(async () => {
         try {
-          const result = await chrome.storage.local.get(deps.uiModeKey);
+          const result = await chromeApi.storage.local.get(deps.uiModeKey);
           const fallbackMode = await deps.detectUiMode();
           const storedMode = (result[deps.uiModeKey] as UiMode) ?? fallbackMode;
           const modeToSend = deps.getCurrentUiMode() ?? storedMode;
@@ -457,14 +461,19 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
       return respondAsync(async () => {
         try {
           // Check if tab with URL already exists
-          const tabs = await chrome.tabs.query({ url });
-          if (tabs.length > 0 && tabs[0]?.id) {
+          const tabs = (await chromeApi.tabs.query({ url })) as Array<{
+            id?: number;
+            windowId?: number;
+          }>;
+          if (tabs.length > 0 && typeof tabs[0]?.id === 'number') {
             // Tab exists, activate it
-            await chrome.tabs.update(tabs[0].id, { active: true });
-            await chrome.windows.update(tabs[0].windowId, { focused: true });
+            await chromeApi.tabs.update(tabs[0].id, { active: true });
+            if (typeof tabs[0].windowId === 'number') {
+              await chromeApi.windows.update(tabs[0].windowId, { focused: true });
+            }
           } else {
             // Tab doesn't exist, create it
-            await chrome.tabs.create({ url, active: true });
+            await chromeApi.tabs.create({ url, active: true });
           }
           sendResponse(null);
         } catch (error) {
@@ -477,7 +486,10 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
         const senderWithTab = sender as { tab?: { id?: number } } | undefined;
         let tabId = senderWithTab?.tab?.id;
         if (!tabId) {
-          const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          const [tab] = (await chromeApi.tabs.query({
+            active: true,
+            lastFocusedWindow: true,
+          })) as Array<{ id?: number } | undefined>;
           tabId = tab?.id;
         }
 
@@ -485,7 +497,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           sendResponse({ ok: false, error: 'No active tab found' });
           return;
         }
-        const zoom = await chrome.tabs.getZoom(tabId);
+        const zoom = await chromeApi.tabs.getZoom(tabId);
         sendResponse({ ok: true, zoom });
       });
     },
