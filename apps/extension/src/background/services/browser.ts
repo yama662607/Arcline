@@ -2,6 +2,7 @@
 
 import type { TabGroupColor } from '@/shared/chrome-types';
 import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
+import { defaultSettings, settingsSchema } from '@/shared/settings';
 import {
   createPinnedFolder,
   createPinnedTab,
@@ -631,17 +632,6 @@ export async function activateTab(tabId: number): Promise<void> {
 
 // Settings management
 export async function getSettings(): Promise<Settings> {
-  const defaultSettings: Settings = {
-    defaultSpaceName: 'Home',
-    autoArchiveEnabled: false,
-    autoArchiveIdleMinutes: 30,
-    uiMode: 'floating',
-    showFavicons: true,
-    compactMode: false,
-    enableAnimations: true,
-    theme: 'auto',
-  };
-
   const SETTINGS_MIGRATION_KEY = 'arclineSettingsMigratedToLocal';
   const settingKeys = Object.keys(defaultSettings) as Array<keyof Settings>;
 
@@ -667,7 +657,7 @@ export async function getSettings(): Promise<Settings> {
   }
 
   const result = await chrome.storage.local.get(defaultSettings);
-  return result as Settings;
+  return settingsSchema.parse(result);
 }
 
 export async function updateSettings(settings: Partial<Settings>): Promise<void> {
