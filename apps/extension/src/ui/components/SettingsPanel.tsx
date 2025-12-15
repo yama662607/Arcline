@@ -4,19 +4,9 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useSettings, useUpdateSettings } from '@/hooks/use-spaces-query';
+import { settingsFormSchema } from '@/shared/settings';
 
-const settingsSchema = z.object({
-  defaultSpaceName: z.string().min(1, 'Default space name is required'),
-  autoArchiveEnabled: z.boolean(),
-  autoArchiveIdleMinutes: z.number().min(1).max(1440),
-  uiMode: z.enum(['side-panel', 'popup', 'floating']),
-  showFavicons: z.boolean(),
-  compactMode: z.boolean(),
-  enableAnimations: z.boolean(),
-  theme: z.enum(['dark', 'light', 'auto']),
-});
-
-type SettingsFormData = z.infer<typeof settingsSchema>;
+type SettingsFormData = z.infer<typeof settingsFormSchema>;
 
 interface SettingsPanelProps {
   variant?: 'standalone' | 'floating';
@@ -33,7 +23,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
     reset,
     formState: { errors, isDirty },
   } = useForm<SettingsFormData>({
-    resolver: zodResolver(settingsSchema),
+    resolver: zodResolver(settingsFormSchema),
     defaultValues: settings,
     values: settings,
   });
