@@ -28,7 +28,7 @@ pnpm install
 pnpm build
 ```
 
-出力先: `apps/extension/dist/`
+出力先: `extension/dist/`
 
 ---
 
@@ -44,7 +44,7 @@ pnpm dev
 
 - Vite 開発サーバーが起動（ポート 5173）
 - ファイル変更時に自動的に再ビルド
-- `apps/extension/dist/`に出力
+- `extension/dist/`に出力
 
 **注意**: 開発モードでは`dist/index.html`が一時的にプレースホルダーになる場合があります。その場合は一度`pnpm build`でプロダクションビルドを実行してください。
 
@@ -54,7 +54,7 @@ pnpm dev
 pnpm build
 ```
 
-最適化されたビルドが`apps/extension/dist/`に生成されます。
+最適化されたビルドが`extension/dist/`に生成されます。
 
 ### Lint / Format
 
@@ -75,7 +75,7 @@ pnpm format  # Biome format
 2. `chrome://extensions/`にアクセス
 3. 右上の「デベロッパーモード」を**ON**にする
 4. 「パッケージ化されていない拡張機能を読み込む」をクリック
-5. `apps/extension/dist/`フォルダを選択
+5. `extension/dist/`フォルダを選択
 
 #### 2. 拡張機能を使用
 
@@ -114,7 +114,7 @@ pnpm format  # Biome format
 2. 設定 → 拡張機能（または`atlas://extensions/`）
 3. 右上の「デベロッパーモード」を**ON**にする
 4. 「パッケージ化されていない拡張機能を読み込む」をクリック
-5. `apps/extension/dist/`フォルダを選択
+5. `extension/dist/`フォルダを選択
 
 #### 2. 拡張機能を使用
 
@@ -184,7 +184,7 @@ Chrome と同様の手順でサービスワーカーとポップアップをデ�
 
 - `manifest.config.ts`の変更
 - Background script (`src/background/index.ts`)の変更
-- アセット（`apps/extension/public/` 以下のアイコンなど）の変更
+- アセット（`extension/public/` 以下のアイコンなど）の変更
 
 手動再読み込み方法:
 
@@ -196,7 +196,7 @@ Chrome と同様の手順でサービスワーカーとポップアップをデ�
 ## ディレクトリ構造
 
 ```
-apps/extension/
+extension/
 ├── dist/                    # ビルド出力（Git無視）
 │   ├── manifest.json
 │   ├── index.html
@@ -302,7 +302,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: "pnpm"
+          cache: 'pnpm'
       - run: pnpm install
       - run: pnpm lint
       - run: pnpm build

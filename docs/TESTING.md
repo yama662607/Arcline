@@ -2,10 +2,10 @@
 
 ## テスト構成
 
-Arcline は以下の3層のテスト戦略を採用しています：
+Arcline は以下の 3 層のテスト戦略を採用しています：
 
 1. **ユニットテスト** (Vitest)
-2. **E2Eテスト** (Playwright)
+2. **E2E テスト** (Playwright)
 3. **手動テスト** (アクセシビリティ検証など)
 
 ## ユニットテスト
@@ -25,8 +25,8 @@ pnpm test -- --coverage
 
 ### テストファイルの場所
 
-- `apps/extension/src/**/*.test.ts`
-- `apps/extension/src/**/*.spec.ts`
+- `extension/src/**/*.test.ts`
+- `extension/src/**/*.spec.ts`
 
 ### モック戦略
 
@@ -42,10 +42,10 @@ const mockChrome = {
   tabGroups: {
     query: vi.fn(),
   },
-};
+}
 
 // @ts-expect-error - Mocking global chrome
-global.chrome = mockChrome;
+global.chrome = mockChrome
 ```
 
 ### 例: getSpacesSnapshot のテスト
@@ -60,23 +60,23 @@ it('should create space for each tab group', async () => {
       windowId: 100,
       collapsed: false,
     },
-  ];
+  ]
 
-  mockChrome.tabGroups.query.mockResolvedValue(mockTabGroups);
-  mockChrome.tabs.query.mockResolvedValue([]);
+  mockChrome.tabGroups.query.mockResolvedValue(mockTabGroups)
+  mockChrome.tabs.query.mockResolvedValue([])
 
-  const result = await getSpacesSnapshot();
+  const result = await getSpacesSnapshot()
 
-  expect(result).toHaveLength(1);
+  expect(result).toHaveLength(1)
   expect(result[0]).toMatchObject({
     id: 1,
     name: 'Work',
     color: 'blue',
-  });
-});
+  })
+})
 ```
 
-## E2Eテスト
+## E2E テスト
 
 ### 実行方法
 
@@ -93,11 +93,11 @@ pnpm test:e2e -- floating.spec.ts
 
 ### テストファイルの場所
 
-- `apps/extension/playwright/e2e/*.spec.ts`
+- `extension/playwright/e2e/*.spec.ts`
 
-### E2Eテストの構成
+### E2E テストの構成
 
-- **フローティング UI テスト**: ホットゾーンのhover/離脱動作
+- **フローティング UI テスト**: ホットゾーンの hover/離脱動作
 - **ポップアップ UI テスト**: ポップアップの表示とインタラクション
 
 ### 例: フローティング UI のテスト
@@ -107,20 +107,18 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
   // Chrome API をモック
   await page.addInitScript(() => {
     // ... モック設定
-  });
+  })
 
-  await page.setContent('<main>Test Page</main>');
-  await page.evaluate(() => window.bootstrapFloatingUiForTest());
+  await page.setContent('<main>Test Page</main>')
+  await page.evaluate(() => window.bootstrapFloatingUiForTest())
 
   // ホットゾーンにhoverしてパネルを開く
   await page.evaluate(() => {
-    window.__arclineFloatingInstance?.openFromHover();
-  });
+    window.__arclineFloatingInstance?.openFromHover()
+  })
 
-  await expect
-    .poll(readPanelOpen, { timeout: 2000 })
-    .toBe(true);
-});
+  await expect.poll(readPanelOpen, { timeout: 2000 }).toBe(true)
+})
 ```
 
 ## 手動テスト
@@ -132,14 +130,17 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
 **ホットゾーン（フローティング UI）**
 
 1. Tab キーでホットゾーンにフォーカスを移動
+
    - [ ] フォーカスリング（青い枠線）が表示されること
    - [ ] フォーカスインジケーターが明確に見えること
 
 2. Enter キーまたは Space キーを押す
+
    - [ ] フローティング UI が開くこと
    - [ ] アニメーションがスムーズであること
 
 3. Escape キーを押す
+
    - [ ] フローティング UI が閉じること
    - [ ] ピン留めも解除されること
 
@@ -150,6 +151,7 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
 **タブリスト**
 
 1. Tab キーでタブアイテムにフォーカスを移動
+
    - [ ] 各タブにフォーカスリングが表示されること
    - [ ] フォーカスが視覚的に明確であること
 
@@ -160,6 +162,7 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
 #### 2. スクリーンリーダーのテスト
 
 **推奨ツール:**
+
 - macOS: VoiceOver (Cmd + F5)
 - Windows: NVDA または JAWS
 - Chrome: ChromeVox 拡張機能
@@ -167,11 +170,13 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
 **確認項目:**
 
 1. ホットゾーン
+
    - [ ] "Pin floating sidebar" または "Unpin floating sidebar" と読み上げられること
    - [ ] 現在の状態（pinned/unpinned）が明確に伝わること
 
 2. タブリスト
-   - [ ] タブのタイトルとURLが読み上げられること
+
+   - [ ] タブのタイトルと URL が読み上げられること
    - [ ] ピン留め状態が伝わること
 
 3. ボタンとリンク
@@ -181,19 +186,23 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
 #### 3. マウス操作の確認
 
 1. ホットゾーンにマウスをホバー
-   - [ ] UI が即座に表示されること（150ms以内）
+
+   - [ ] UI が即座に表示されること（150ms 以内）
    - [ ] アニメーションがスムーズであること
 
 2. UI 内でマウスを移動
+
    - [ ] UI が開いたままであること
 
 3. UI の外にマウスを移動
-   - [ ] 220ms後に UI が閉じること
+
+   - [ ] 220ms 後に UI が閉じること
    - [ ] ピン留めされている場合は閉じないこと
 
 4. タブアイテムをクリック
+
    - [ ] タブがアクティブになること
-   - [ ] hover時にボタンが表示されること
+   - [ ] hover 時にボタンが表示されること
 
 5. ピン留めボタンをクリック
    - [ ] タブがピン留めされること
@@ -202,14 +211,15 @@ test('floating UI hotzone reveals and hides panel', async ({ page }) => {
 #### 4. 視覚的フィードバックの確認
 
 1. ホットゾーン
-   - [ ] hover時に背景が表示されること
-   - [ ] focus時にリングが表示されること
-   - [ ] active時にスケールが変化すること（active:scale-95）
-   - [ ] pinned時に青い点が表示されること
+
+   - [ ] hover 時に背景が表示されること
+   - [ ] focus 時にリングが表示されること
+   - [ ] active 時にスケールが変化すること（active:scale-95）
+   - [ ] pinned 時に青い点が表示されること
 
 2. タブアイテム
-   - [ ] hover時に背景色が変わること
-   - [ ] active状態が視覚的に区別できること
+   - [ ] hover 時に背景色が変わること
+   - [ ] active 状態が視覚的に区別できること
 
 ### ブラウザ別の動作確認
 
@@ -222,6 +232,7 @@ pnpm dev
 ```
 
 確認項目:
+
 - [ ] フローティング UI が正常に動作すること
 - [ ] Side Panel が正常に動作すること
 - [ ] ポップアップが正常に動作すること
@@ -229,6 +240,7 @@ pnpm dev
 #### Atlas
 
 確認項目:
+
 - [ ] フローティング UI が自動的に選択されること
 - [ ] Atlas の UI と競合しないこと
 - [ ] ホットゾーンの位置が適切であること
@@ -236,6 +248,7 @@ pnpm dev
 #### Arc
 
 確認項目:
+
 - [ ] フローティング UI が動作すること
 - [ ] Arc のスペース機能と干渉しないこと
 
@@ -252,7 +265,8 @@ pnpm dev
 ```
 
 確認項目:
-- [ ] UI を100回開閉してもメモリリークがないこと
+
+- [ ] UI を 100 回開閉してもメモリリークがないこと
 - [ ] フローティング UI のメモリ使用量が 60MB 以下であること
 
 #### 描画パフォーマンス
@@ -266,6 +280,7 @@ pnpm dev
 ```
 
 確認項目:
+
 - [ ] hover から表示まで 150ms 以内であること
 - [ ] アニメーション中のフレームレートが 60fps を維持すること
 - [ ] レイアウトシフトがないこと
@@ -280,7 +295,7 @@ CI では以下のテストが自動実行されます:
 2. 型チェック
 3. ユニットテスト
 4. ビルド
-5. E2Eテスト
+5. E2E テスト
 
 ### ローカルで CI 相当の確認
 
@@ -302,9 +317,13 @@ pnpm test:e2e
 
 ```typescript
 // テストのタイムアウトを延長
-it('should complete long operation', async () => {
-  // ...
-}, { timeout: 10000 }); // 10秒
+it(
+  'should complete long operation',
+  async () => {
+    // ...
+  },
+  { timeout: 10000 }
+) // 10秒
 ```
 
 ### Playwright のタイムアウトエラー
@@ -321,8 +340,8 @@ export default defineConfig({
 ```typescript
 // beforeEach でモックをクリア
 beforeEach(() => {
-  vi.clearAllMocks();
-});
+  vi.clearAllMocks()
+})
 ```
 
 ## 参考リンク

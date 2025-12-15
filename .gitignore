@@ -43,7 +43,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 .turbo/
-apps/**/.turbo/
+extension/**/.turbo/
 legacy/**/.turbo/
 
 # Editor directories and files

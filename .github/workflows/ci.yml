@@ -151,11 +151,11 @@ jobs:
         run: |
           echo "## 📦 Bundle Size Report" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          du -sh apps/extension/dist/* >> $GITHUB_STEP_SUMMARY
+          du -sh extension/dist/* >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
           # バンドルサイズの警告（10MB超過時）
-          TOTAL_SIZE=$(du -sk apps/extension/dist | cut -f1)
+          TOTAL_SIZE=$(du -sk extension/dist | cut -f1)
           if [ "$TOTAL_SIZE" -gt 10240 ]; then
             echo "⚠️ **Warning**: Bundle size exceeds 10MB" >> $GITHUB_STEP_SUMMARY
           fi
@@ -164,7 +164,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: extension-dist
-          path: apps/extension/dist/
+          path: extension/dist/
           retention-days: 7
 
   # ===========================================================================
@@ -196,7 +196,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: extension-dist
-          path: apps/extension/dist/
+          path: extension/dist/
 
       - name: Install Playwright browsers
         run: pnpm --filter arcline-extension exec playwright install chromium --with-deps
@@ -213,8 +213,8 @@ jobs:
         with:
           name: e2e-report
           path: |
-            apps/extension/playwright-report/
-            apps/extension/test-results/
+            extension/playwright-report/
+            extension/test-results/
           retention-days: 7
 
       - name: 📊 E2E Test Summary
@@ -273,12 +273,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: extension-dist
-          path: apps/extension/dist/
+          path: extension/dist/
 
       - name: Create ZIP package
         run: |
-          cd apps/extension
-          zip -r ../../arcline-extension.zip dist/
+          cd extension
+          zip -r ../arcline-extension.zip dist/
 
       - name: Generate SHA256 checksum
         run: |

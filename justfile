@@ -89,7 +89,7 @@ build:
 # アーティファクト削除 (不要なら削除可)
 clean:
     @echo "🗑️ Cleaning artifacts..."
-    rm -rf apps/extension/dist
-    rm -rf apps/extension/coverage
-    rm -rf apps/extension/playwright-report
-    rm -rf apps/extension/test-results
+    rm -rf extension/dist
+    rm -rf extension/coverage
+    rm -rf extension/playwright-report
+    rm -rf extension/test-results

@@ -244,7 +244,7 @@ cat >> "$REPORT_FILE" << EOF
             </div>
             <div class="metric">
                 <span class="metric-label">バージョン</span>
-                <span class="metric-value">$(grep -o '"version": "[^"]*"' apps/extension/package.json | cut -d'"' -f4)</span>
+                <span class="metric-value">$(grep -o '"version": "[^"]*"' extension/package.json | cut -d'"' -f4)</span>
             </div>
             <div class="metric">
                 <span class="metric-label">ブランチ</span>
@@ -263,8 +263,8 @@ EOF
 if [ "$COVERAGE" = true ] || [ "$ALL" = true ]; then
     echo -e "${YELLOW}📊 カバレッジレポート生成中...${NC}"
 
-    if [ -f "apps/extension/coverage/coverage-summary.json" ]; then
-        COVERAGE_DATA=$(cat apps/extension/coverage/coverage-summary.json)
+    if [ -f "extension/coverage/coverage-summary.json" ]; then
+        COVERAGE_DATA=$(cat extension/coverage/coverage-summary.json)
 
         # カバレッジ値を抽出
         LINES_PCT=$(echo "$COVERAGE_DATA" | node -e "console.log(JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8')).total.lines.pct)")
@@ -345,9 +345,9 @@ fi
 if [ "$E2E" = true ] || [ "$ALL" = true ]; then
     echo -e "${YELLOW}🎭 E2Eテストレポート生成中...${NC}"
 
-    if [ -f "apps/extension/playwright-report/index.html" ]; then
+    if [ -f "extension/playwright-report/index.html" ]; then
         # Playwright結果を解析
-        TEST_RESULTS=$(find apps/extension/playwright-report -name "*.json" | head -1)
+        TEST_RESULTS=$(find extension/playwright-report -name "*.json" | head -1)
 
         if [ -n "$TEST_RESULTS" ]; then
             PASSED_TESTS=$(cat "$TEST_RESULTS" | node -e "console.log(JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8')).suites.reduce((acc, s) => acc + s.specs.reduce((a, sp) => a + sp.tests.filter(t => t.results[0].status === 'passed').length, 0), 0))" 2>/dev/null || echo "0")
@@ -422,8 +422,8 @@ fi
 if [ "$PERFORMANCE" = true ] || [ "$ALL" = true ]; then
     echo -e "${YELLOW}🚀 パフォーマンスレポート生成中...${NC}"
 
-    if [ -d "apps/extension/dist" ]; then
-        BUNDLE_SIZE=$(du -sb apps/extension/dist | cut -f1)
+    if [ -d "extension/dist" ]; then
+        BUNDLE_SIZE=$(du -sb extension/dist | cut -f1)
         BUNDLE_SIZE_MB=$((BUNDLE_SIZE / 1024 / 1024))
         BUNDLE_SIZE_KB=$((BUNDLE_SIZE / 1024))
 
@@ -452,7 +452,7 @@ if [ "$PERFORMANCE" = true ] || [ "$ALL" = true ]; then
 
             <div class="metric">
                 <span class="metric-label">ファイル数</span>
-                <span class="metric-value">$(find apps/extension/dist -type f | wc -l)</span>
+                <span class="metric-value">$(find extension/dist -type f | wc -l)</span>
             </div>
 
             <div class="metric">

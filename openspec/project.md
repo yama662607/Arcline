@@ -1,9 +1,11 @@
 # Project Context
 
 ## Purpose
+
 Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces" for Chromium-based browsers. It provides a side panel UI and floating UI to organize tabs into named spaces, pin frequently used pages, archive idle tabs automatically, and deliver a modern vertical tab management experience.
 
 ## Tech Stack
+
 - Chrome Extension (Manifest V3) targeting modern Chromium browsers (Chrome 116+, Atlas, Arc, Edge, Brave)
 - React 19 + TypeScript for all UI components
 - Vite 7 for bundling with `@crxjs/vite-plugin` for extension development
@@ -17,6 +19,7 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 ## Project Conventions
 
 ### Code Style
+
 - TypeScript with strict mode enabled
 - React functional components with hooks (no class components)
 - ES module syntax with named exports
@@ -26,14 +29,15 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 - Tailwind CSS for styling (utility-first approach)
 
 ### Architecture Patterns
-- **Service Worker** (`apps/extension/src/background/`): Manifest V3 service worker that manages Chrome APIs, messaging, and auto-archive alarms
+
+- **Service Worker** (`extension/src/background/`): Manifest V3 service worker that manages Chrome APIs, messaging, and auto-archive alarms
   - `background/index.ts`: Main entry point, handles commands, messaging, UI mode detection
   - `background/services/browser.ts`: Chrome API wrappers (tabs, tabGroups, bookmarks, storage)
-- **React UI** (`apps/extension/src/ui/`): Main vertical tab UI with components
+- **React UI** (`extension/src/ui/`): Main vertical tab UI with components
   - Entry points: `main.tsx` (side panel), `popup/index.tsx` (popup), `options/index.tsx` (options page)
   - Components in `ui/components/`: TabList, SpaceManager, SettingsPanel, ArchiveManager, etc.
   - All components use Tailwind CSS and shadcn/ui
-- **Floating UI** (`apps/extension/src/floating/`): Content script-based floating sidebar for Atlas
+- **Floating UI** (`extension/src/floating/`): Content script-based floating sidebar for Atlas
   - `floating/mount.tsx`: Shadow DOM mounting and hotzone interaction
   - `floating/FloatingApp.tsx`: React app rendered in floating panel
 - **State Management**:
@@ -43,6 +47,7 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 - **Styling**: Tailwind CSS with custom configuration, Radix UI primitives, shadcn/ui components
 
 ### Testing Strategy
+
 - **Unit Tests**: Vitest with React Testing Library for component and logic tests
   - Located in `src/**/*.test.ts` and `src/**/*.spec.ts`
   - Chrome API mocking with `vi.fn()`
@@ -58,6 +63,7 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 - **CI/CD**: GitHub Actions runs lint, typecheck, unit tests, build, and E2E tests on every push
 
 ### Git Workflow
+
 - Feature work follows OpenSpec workflow: proposal → implementation → archive
 - Commits follow Conventional Commits format in Japanese (e.g., `feat: タブ検索機能を追加`)
 - Changes are validated with `pnpm openspec validate <change-id> --strict`
@@ -65,6 +71,7 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 - Release process documented in `docs/RELEASE.md`
 
 ## Domain Context
+
 - Spaces map directly to Chrome tab groups; each space tracks pinned (`spaceBookmarks`) versus temporary tabs and remembers the last active tab
 - Pinned tabs synchronize with browser bookmarks inside an `Arcify/<Space>` folder; bookmark titles can override tab titles
 - Keyboard shortcuts (default `Ctrl/Command+E` for the side panel, `Ctrl/Command+D` for Quick Pin) and context menus integrate with Chrome commands messaging
@@ -72,6 +79,7 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 - Assets (GIF screenshots, icons) support onboarding and marketing surfaces embedded in the extension
 
 ## Important Constraints
+
 - Must adhere to Manifest V3 constraints: background logic runs in the service worker, APIs are asynchronous, and HMR is disabled for extension builds
 - Requires the declared Chrome permissions (`tabs`, `tabGroups`, `sidePanel`, `storage`, `bookmarks`, `alarms`, `commands`, `favicon`); features assume these permissions are granted
 - Archived tab storage is capped at 100 entries to avoid unbounded `chrome.storage.local` growth
@@ -81,6 +89,7 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 ## External Dependencies
 
 ### Runtime Dependencies
+
 - React 19 + React DOM: UI framework
 - Zustand: Client state management
 - TanStack Query: Data fetching and synchronization
@@ -92,6 +101,7 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 - clsx + tailwind-merge: Class name utilities
 
 ### Development Dependencies
+
 - TypeScript: Type safety
 - Vite + @crxjs/vite-plugin: Build tool and extension development
 - Vitest + React Testing Library: Unit testing
@@ -101,4 +111,5 @@ Arcline is a Chrome extension that recreates Arc Browser's vertical tab "spaces"
 - Turbo: Monorepo task runner
 
 ### Chrome Extension APIs
+
 - tabs, tabGroups, bookmarks, storage, sidePanel, alarms, commands, runtime, windows

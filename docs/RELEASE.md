@@ -3,13 +3,15 @@
 ## リリース前チェックリスト
 
 ### 1. コード品質確認
+
 - [ ] `pnpm check` が全て通過することを確認
 - [ ] `pnpm lint` でエラーがないことを確認
 - [ ] `pnpm typecheck` で型エラーがないことを確認
 - [ ] `pnpm test` で全てのユニットテストが通過することを確認
-- [ ] `pnpm test:e2e` でE2Eテストが通過することを確認
+- [ ] `pnpm test:e2e` で E2E テストが通過することを確認
 
 ### 2. 機能テスト
+
 - [ ] Chrome でフローティング UI が正常に動作することを確認
 - [ ] Atlas でフローティング UI が正常に動作することを確認
 - [ ] Arc でフローティング UI が正常に動作することを確認
@@ -20,21 +22,23 @@
 - [ ] DnD（ドラッグ&ドロップ）が動作することを確認
 
 ### 3. ドキュメント確認
+
 - [ ] README.md が最新の情報に更新されていることを確認
 - [ ] LICENSE ファイルが存在することを確認
 - [ ] KNOWN_ISSUES.md が最新の情報に更新されていることを確認
 
 ### 4. ビルドと配布物準備
+
 ```bash
 # 本番ビルドを実行
 pnpm build
 
 # ビルド成果物を確認
-ls -la apps/extension/dist/
+ls -la extension/dist/
 
 # 必須ファイルの存在確認
-test -f apps/extension/dist/manifest.json
-test -f apps/extension/dist/index.html
+test -f extension/dist/manifest.json
+test -f extension/dist/index.html
 ```
 
 ## リリース手順
@@ -42,16 +46,19 @@ test -f apps/extension/dist/index.html
 ### ベータ版リリース（GitHub Releases）
 
 1. **バージョン番号の更新**
+
    ```bash
-   # apps/extension/package.json の version フィールドを更新
+   # extension/package.json の version フィールドを更新
    # 例: "0.0.1" -> "0.1.0-beta.1"
    ```
 
 2. **変更履歴の記録**
+
    - CHANGELOG.md に変更内容を記録
    - 新機能、バグ修正、既知の問題を明記
 
 3. **Git タグの作成**
+
    ```bash
    git add .
    git commit -m "chore: Prepare v0.1.0-beta.1 release"
@@ -60,28 +67,34 @@ test -f apps/extension/dist/index.html
    ```
 
 4. **GitHub Release の作成**
+
    - GitHub の Releases ページで新しいリリースを作成
    - タグ: `v0.1.0-beta.1`
    - タイトル: `Arcline v0.1.0-beta.1`
    - 説明:
+
      ```markdown
      ## What's New
+
      - React + TypeScript への移行完了
      - フローティング UI の実装
      - TanStack Query による状態管理の改善
      - DnD（ドラッグ&ドロップ）のサポート
 
      ## Known Issues
+
      詳細は [KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) を参照してください。
 
      ## Installation
+
      1. `dist.zip` をダウンロード
      2. Chrome で `chrome://extensions/` を開く
      3. 「デベロッパーモード」を有効化
      4. 「パッケージ化されていない拡張機能を読み込む」をクリック
      5. 解凍した `dist` フォルダを選択
      ```
-   - ビルド成果物（`apps/extension/dist`をzipしたもの）を添付
+
+   - ビルド成果物（`extension/dist`を zip したもの）を添付
    - "This is a pre-release" にチェック
 
 5. **リリースノートの公開**
@@ -91,15 +104,18 @@ test -f apps/extension/dist/index.html
 ### Chrome Web Store への公開（将来）
 
 1. **Chrome Web Store デベロッパーダッシュボード**
+
    - https://chrome.google.com/webstore/developer/dashboard にアクセス
    - "New Item" をクリック
 
 2. **拡張機能のアップロード**
-   - `apps/extension/dist` をzip化してアップロード
+
+   - `extension/dist` を zip 化してアップロード
    - ストアの説明文、スクリーンショット、アイコンを設定
 
 3. **審査の提出**
-   - プライバシーポリシーのURL（必要に応じて作成）
+
+   - プライバシーポリシーの URL（必要に応じて作成）
    - 単一目的の説明（"Vertical tab management for Chromium browsers"）
    - 審査を提出
 
@@ -111,10 +127,12 @@ test -f apps/extension/dist/index.html
 問題が発生した場合：
 
 1. **GitHub Release の取り下げ**
+
    - 問題のあるリリースを Draft に戻す
    - 既知の問題を Issue に記録
 
 2. **緊急修正版のリリース**
+
    ```bash
    # 修正を実装
    git add .

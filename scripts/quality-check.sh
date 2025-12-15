@@ -174,12 +174,12 @@ fi
 
 # 10. バンドルサイズチェック
 echo -e "${YELLOW}📊 バンドルサイズチェック実行中...${NC}"
-if [ -d "apps/extension/dist" ]; then
-  BUNDLE_SIZE=$(du -sh apps/extension/dist | cut -f1)
+if [ -d "extension/dist" ]; then
+  BUNDLE_SIZE=$(du -sh extension/dist | cut -f1)
   echo -e "${GREEN}✅ バンドルサイズ: $BUNDLE_SIZE${NC}"
 
   # サイズ警告（10MB超過 - macOS対応）
-  SIZE_BYTES=$(du -sk apps/extension/dist | cut -f1)
+  SIZE_BYTES=$(du -sk extension/dist | cut -f1)
   if [ "$SIZE_BYTES" -gt 10240 ]; then
     echo -e "${YELLOW}⚠️ バンドルサイズが大きいです: $BUNDLE_SIZE${NC}"
   fi
@@ -198,11 +198,11 @@ echo -e "${GREEN}🎉 品質チェック完了！${NC}"
 echo -e "${BLUE}実行時間: ${DURATION}秒${NC}"
 
 if [ "$COVERAGE" = true ]; then
-  echo -e "${BLUE}📊 カバレッジレポート: apps/extension/coverage/index.html${NC}"
+  echo -e "${BLUE}📊 カバレッジレポート: extension/coverage/index.html${NC}"
 fi
 
 if [ "$E2E" = true ]; then
-  echo -e "${BLUE}🎭 E2Eレポート: apps/extension/playwright-report/index.html${NC}"
+  echo -e "${BLUE}🎭 E2Eレポート: extension/playwright-report/index.html${NC}"
 fi
 
 echo -e "${GREEN}✨ すべてのチェックが完了しました！${NC}"

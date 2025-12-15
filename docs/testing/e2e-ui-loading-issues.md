@@ -105,7 +105,7 @@ if (process.env.NODE_ENV === 'test') {
 
 ## 関連ファイル
 
-- `apps/extension/playwright/fixtures/extension.ts`
-- `apps/extension/src/lib/service-worker-bridge.ts`
-- `apps/extension/src/background/index.ts`
-- `apps/extension/playwright/e2e/simple-space-test.spec.ts`
+- `extension/playwright/fixtures/extension.ts`
+- `extension/src/lib/service-worker-bridge.ts`
+- `extension/src/background/index.ts`
+- `extension/playwright/e2e/simple-space-test.spec.ts`

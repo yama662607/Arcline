@@ -6,8 +6,7 @@ Atlas や Arc などの Chromium 系ブラウザでも Arc Browser のような�
 
 ```
 .
-├── apps/
-│   └── extension/      # React + TypeScript + Vite ベースの新実装
+├── extension/          # React + TypeScript + Vite ベースの新実装
 ├── legacy/
 │   └── arcify/         # 参考用に残したバニラ JS 実装 (Arcify クローン)
 ├── docs/               # 設計ノートやリサーチ資料
@@ -16,7 +15,7 @@ Atlas や Arc などの Chromium 系ブラウザでも Arc Browser のような�
 └── pnpm-workspace.yaml
 ```
 
-> 旧版の資産は `legacy/arcify/` に移動済みです。参照はできますが、ビルドや改修は今後 `apps/extension/` を中心に行います。
+> 旧版の資産は `legacy/arcify/` に移動済みです。参照はできますが、ビルドや改修は今後 `extension/` を中心に行います。
 
 ## 開発環境
 
@@ -38,7 +37,7 @@ pnpm install
 pnpm dev
 ```
 
-Vite + CRXJS による拡張のウォッチビルドが起動します（`apps/extension/dist/` に出力）。
+Vite + CRXJS による拡張のウォッチビルドが起動します（`extension/dist/` に出力）。
 
 変更保存で自動的に `dist/` が更新され、Chrome で拡張がリロードされます。
 
@@ -47,7 +46,7 @@ Vite + CRXJS による拡張のウォッチビルドが起動します（`apps/e
 1. Chrome の「拡張機能」ページを開く（`chrome://extensions/`）
 2. 「デベロッパーモード」を ON にする
 3. 「パッケージ化されていない拡張機能を読み込む」をクリック
-4. `apps/extension/dist/` フォルダを選択
+4. `extension/dist/` フォルダを選択
 
 Arc / Atlas など Chromium 系でも同様に `dist/` を読み込めます。
 
@@ -65,7 +64,7 @@ Vite の Dev サーバーが起動し、React + Tailwind ベースのプレー�
 pnpm build
 ```
 
-`apps/extension/dist/` に Manifest V3 形式の成果物が出力されます。Chrome の「パッケージ化されていない拡張機能を読み込む」で `dist/` を選択すると検証できます。
+`extension/dist/` に Manifest V3 形式の成果物が出力されます。Chrome の「パッケージ化されていない拡張機能を読み込む」で `dist/` を選択すると検証できます。
 
 ### Lint / Format / Test
 
@@ -79,20 +78,22 @@ pnpm test    # Vitest (今後整備)
 
 Chrome の UI モードは `chrome.storage.local` に `arclineUiMode` として保存され、次回起動時の初期値に利用されます。Side Panel を利用するには、以下を満たしてください。
 
-1. **ユーザー操作直後に Side Panel を開くこと**  
+1. **ユーザー操作直後に Side Panel を開くこと**
    ツールバーアイコンをクリックしてトリガーされたイベント内で `chrome.sidePanel.open` を呼び出します。非同期 API を挟むとユーザー操作扱いが失効するため、`chrome.windows.getCurrent()` ではなく `chrome.windows.WINDOW_ID_CURRENT` を利用し、同期的に `open({ windowId })` を呼び出します。
 
-2. **Chrome の設定確認**  
+2. **Chrome の設定確認**
+
    - Chrome バージョンは 116 以上であること。
    - `chrome://flags/#side-panel` が Disable になっていないこと。
    - 拡張機能の `manifest` に `permissions: ['sidePanel']` と `side_panel.default_path` が含まれていること（実装済み）。
 
-3. **現在の暫定仕様（2025-11-07 時点）**  
+3. **現在の暫定仕様（2025-11-07 時点）**
+
    - Atlas 判定ロジックが未確定のため、**すべてのブラウザで UI モードを強制的に `floating` に固定**しています。
    - `chrome.storage.local.get('arclineUiMode')` は常に `'floating'`（または未設定時に初期化で `floating`）になります。
    - Side Panel は一時的に無効化しているため、`chrome.sidePanel` 関連のログや API 呼び出しは実行されません。
 
-4. **Atlas / その他ブラウザでの挙動**  
+4. **Atlas / その他ブラウザでの挙動**
    - Atlas ではこれまで通り左端にフローティングビューが即表示されます。
    - Chrome など他ブラウザでも同じ挙動になります。今後 Atlas を確実に判定できる方法が見つかった際に、Side Panel と Floating を切り替えるロジックを再導入する予定です。
 

@@ -53,9 +53,9 @@ echo -e "${YELLOW}🧪 単体テスト実行中...${NC}"
 TEST_PATTERNS=""
 for file in $STAGED_FILES; do
   # ソースファイルに対応するテストファイルを探す
-  if [[ "$file" =~ ^apps/extension/src/ ]]; then
+  if [[ "$file" =~ ^extension/src/ ]]; then
     # src/ 以下のファイルの場合、対応するテストファイルを探す
-    test_file=$(echo "$file" | sed 's|apps/extension/src/|apps/extension/src/|' | sed 's/\.\(ts\|tsx\)$/.test.\1/')
+    test_file=$(echo "$file" | sed 's|extension/src/|extension/src/|' | sed 's/\.\(ts\|tsx\)$/.test.\1/')
     if [ -f "$test_file" ]; then
       TEST_PATTERNS="$TEST_PATTERNS $test_file"
     fi

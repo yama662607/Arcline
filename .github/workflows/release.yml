@@ -52,8 +52,8 @@ jobs:
 
       - name: Create ZIP package
         run: |
-          cd apps/extension
-          zip -r ../../arcline-extension.zip dist/
+          cd extension
+          zip -r ../arcline-extension.zip dist/
 
       - name: Generate SHA256 checksum
         id: checksum
