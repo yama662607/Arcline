@@ -1,29 +1,8 @@
 import '@/dev/reactPreamble';
 
 import { hasChromeRuntime, requestUiMode, type UiMode } from './shared-utils';
-import { destroySidebar, getSidebarManager, initializeSidebar } from './sidebar';
-
-let currentMode: UiMode | null = null;
-
-function ensureSidebarInitialized() {
-  if (!getSidebarManager()) {
-    initializeSidebar();
-  }
-}
-
-function applyUiMode(mode: UiMode) {
-  if (mode === currentMode) {
-    return;
-  }
-
-  currentMode = mode;
-
-  if (mode === 'side-panel') {
-    ensureSidebarInitialized();
-  } else {
-    destroySidebar();
-  }
-}
+import { applySidebarUiMode, cleanupSidebarOnUnload } from './sidebar-lifecycle';
+import { getSidebarManager } from './sidebar';
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -34,7 +13,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const payload = message as { command?: string; mode?: UiMode };
 
   if (payload.command === 'currentUiMode' && payload.mode) {
-    applyUiMode(payload.mode);
+    applySidebarUiMode(payload.mode);
     return false;
   }
 
@@ -76,7 +55,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
-  destroySidebar();
+  cleanupSidebarOnUnload();
 });
 
 async function bootstrapSidebarInjection() {
@@ -91,7 +70,7 @@ async function bootstrapSidebarInjection() {
   }
 
   const mode = await requestUiMode().catch(() => 'floating' as const);
-  applyUiMode(mode);
+  applySidebarUiMode(mode);
 }
 
 void bootstrapSidebarInjection();
