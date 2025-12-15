@@ -3,7 +3,7 @@
 import type { PinnedFolder, PinnedItem, PinnedTab, SearchResult, TabEntry } from '@/shared/types';
 
 const ARCLINE_FOLDER_NAME = 'Arcline';
-const BOOKMARK_SYNC_KEY = 'arclineBookmarkSync';
+const BOOKMARK_MIRROR_STATUS_KEY = 'arclineBookmarkSync';
 
 export interface BookmarkSyncStatus {
   lastSyncTime: number;
@@ -151,7 +151,7 @@ export async function syncSpaceToBookmarks(spaceName: string, tabs: TabEntry[]):
     }
 
     // 同期状態を更新
-    await updateSyncStatus({
+    await updateBookmarkMirrorStatus({
       lastSyncTime: Date.now(),
       isSyncing: false,
       error: null,
@@ -160,7 +160,7 @@ export async function syncSpaceToBookmarks(spaceName: string, tabs: TabEntry[]):
     console.error(`[Arcline] Synced ${tabs.length} tabs to bookmarks for space "${spaceName}"`);
   } catch (error) {
     console.error(`[Arcline] Failed to sync space "${spaceName}" to bookmarks:`, error);
-    await updateSyncStatus({
+    await updateBookmarkMirrorStatus({
       lastSyncTime: Date.now(),
       isSyncing: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -200,9 +200,9 @@ export async function restoreSpacesFromBookmarks(): Promise<SpaceBookmarkData[]>
 /**
  * 同期状態を更新する
  */
-async function updateSyncStatus(status: BookmarkSyncStatus): Promise<void> {
+async function updateBookmarkMirrorStatus(status: BookmarkSyncStatus): Promise<void> {
   try {
-    await chrome.storage.local.set({ [BOOKMARK_SYNC_KEY]: status });
+    await chrome.storage.local.set({ [BOOKMARK_MIRROR_STATUS_KEY]: status });
   } catch (error) {
     console.error('[Arcline] Failed to update sync status:', error);
   }
@@ -213,9 +213,9 @@ async function updateSyncStatus(status: BookmarkSyncStatus): Promise<void> {
  */
 export async function getSyncStatus(): Promise<BookmarkSyncStatus> {
   try {
-    const result = await chrome.storage.local.get([BOOKMARK_SYNC_KEY]);
+    const result = await chrome.storage.local.get([BOOKMARK_MIRROR_STATUS_KEY]);
     return (
-      result[BOOKMARK_SYNC_KEY] || {
+      result[BOOKMARK_MIRROR_STATUS_KEY] || {
         lastSyncTime: 0,
         isSyncing: false,
         error: null,
