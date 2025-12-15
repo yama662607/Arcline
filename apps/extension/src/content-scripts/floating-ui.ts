@@ -115,6 +115,7 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
         bootstrapHotzone?.remove();
         bootstrapHotzone = null;
       },
+      onClosed: enableHostElementPointerEvents,
     })
     .catch((error) => {
       console.error('[Arcline] Failed to mount floating UI', error);
