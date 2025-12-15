@@ -642,12 +642,36 @@ export async function getSettings(): Promise<Settings> {
     theme: 'auto',
   };
 
-  const result = await chrome.storage.sync.get(defaultSettings);
+  const SETTINGS_MIGRATION_KEY = 'arclineSettingsMigratedToLocal';
+  const settingKeys = Object.keys(defaultSettings) as Array<keyof Settings>;
+
+  try {
+    const localProbe = await chrome.storage.local.get([...settingKeys, SETTINGS_MIGRATION_KEY]);
+    const alreadyMigrated = Boolean(localProbe[SETTINGS_MIGRATION_KEY]);
+    const hasAnyLocalSetting = settingKeys.some((key) => typeof localProbe[key] !== 'undefined');
+
+    if (!alreadyMigrated) {
+      if (hasAnyLocalSetting) {
+        await chrome.storage.local.set({ [SETTINGS_MIGRATION_KEY]: true });
+      } else {
+        const legacy = await chrome.storage.sync.get(settingKeys);
+        const merged = {
+          ...defaultSettings,
+          ...(legacy as Partial<Settings>),
+        };
+        await chrome.storage.local.set({ ...merged, [SETTINGS_MIGRATION_KEY]: true });
+      }
+    }
+  } catch (error) {
+    console.warn('[Arcline] Failed to migrate settings to local storage:', error);
+  }
+
+  const result = await chrome.storage.local.get(defaultSettings);
   return result as Settings;
 }
 
 export async function updateSettings(settings: Partial<Settings>): Promise<void> {
-  await chrome.storage.sync.set(settings);
+  await chrome.storage.local.set(settings);
 }
 
 // Archive functionality

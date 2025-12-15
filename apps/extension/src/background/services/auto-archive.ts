@@ -2,6 +2,7 @@
 
 import {
   archiveTab,
+  getSettings,
   getTabActivity,
   removeTabLastActivity,
   updateTabLastActivity,
@@ -138,10 +139,7 @@ export function shouldExcludeFromAutoArchive(tab: chrome.tabs.Tab): boolean {
  */
 export async function getAutoArchiveSettings(): Promise<{ enabled: boolean; idleMinutes: number }> {
   try {
-    const settings = await chrome.storage.sync.get([
-      'autoArchiveEnabled',
-      'autoArchiveIdleMinutes',
-    ]);
+    const settings = await getSettings();
     return {
       enabled: Boolean(settings.autoArchiveEnabled),
       idleMinutes: Number(settings.autoArchiveIdleMinutes) || 30,

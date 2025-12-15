@@ -365,7 +365,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
       </div>
 
       <div className="text-xs text-slate-500">
-        <p>Settings are automatically synced across your Chrome browsers.</p>
+        <p>Settings are stored locally on this device.</p>
       </div>
     </div>
   );

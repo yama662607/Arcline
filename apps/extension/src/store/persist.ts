@@ -6,16 +6,12 @@ function hasChromeStorage(): boolean {
 
 export function createChromeStorage<T>(key: string) {
   if (!hasChromeStorage()) {
-    if (typeof window === 'undefined') {
-      const memory = new Map<string, string>();
-      return createJSONStorage<T>(() => ({
-        getItem: (name) => memory.get(`${key}:${name}`) ?? null,
-        setItem: (name, value) => void memory.set(`${key}:${name}`, value),
-        removeItem: (name) => void memory.delete(`${key}:${name}`),
-      }));
-    }
-
-    return createJSONStorage<T>(() => window.localStorage);
+    const memory = new Map<string, string>();
+    return createJSONStorage<T>(() => ({
+      getItem: (name) => memory.get(`${key}:${name}`) ?? null,
+      setItem: (name, value) => void memory.set(`${key}:${name}`, value),
+      removeItem: (name) => void memory.delete(`${key}:${name}`),
+    }));
   }
 
   return createJSONStorage<T>(() => ({

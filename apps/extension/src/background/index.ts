@@ -2,7 +2,7 @@
 import type { UiMode } from '@/lib/ui-mode';
 import { createCommandHandlers, type CommandHandler } from './handlers/command-handlers';
 import { registerSpacesSnapshotListeners } from './listeners/spaces-snapshot-listeners';
-import { initializeAutoArchive } from './services/auto-archive';
+import { initializeAutoArchive, setupAutoArchiveAlarm } from './services/auto-archive';
 import {
   activateTab,
   archiveTab,
@@ -418,8 +418,16 @@ chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
 registerSpacesSnapshotListeners({ broadcastSpacesSnapshot });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'sync' && 'uiMode' in changes) {
+  if (areaName !== 'local') return;
+
+  if ('uiMode' in changes) {
     void refreshUiMode();
+  }
+
+  if ('autoArchiveEnabled' in changes || 'autoArchiveIdleMinutes' in changes) {
+    void getSettings().then((settings) =>
+      setupAutoArchiveAlarm(settings.autoArchiveEnabled, settings.autoArchiveIdleMinutes)
+    );
   }
 });
 

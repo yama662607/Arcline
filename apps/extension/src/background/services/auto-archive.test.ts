@@ -8,7 +8,7 @@ import {
   setupTabActivityListeners,
   shouldExcludeFromAutoArchive,
 } from './auto-archive';
-import { archiveTab, getTabActivity, updateTabLastActivity } from './browser';
+import { archiveTab, getSettings, getTabActivity, updateTabLastActivity } from './browser';
 
 // Mock Chrome APIs
 const mockChrome = {
@@ -17,11 +17,6 @@ const mockChrome = {
     create: vi.fn(),
     onAlarm: {
       addListener: vi.fn(),
-    },
-  },
-  storage: {
-    sync: {
-      get: vi.fn(),
     },
   },
   tabs: {
@@ -41,6 +36,7 @@ const mockChrome = {
 // Mock browser service functions
 vi.mock('./browser', () => ({
   archiveTab: vi.fn(),
+  getSettings: vi.fn(),
   getTabActivity: vi.fn(),
   updateTabLastActivity: vi.fn(),
   removeTabLastActivity: vi.fn(),
@@ -245,7 +241,10 @@ describe('Auto-Archive Service', () => {
 
   describe('getAutoArchiveSettings', () => {
     it('should return default settings when none stored', async () => {
-      mockChrome.storage.sync.get.mockResolvedValue({});
+      vi.mocked(getSettings).mockResolvedValue({
+        autoArchiveEnabled: false,
+        autoArchiveIdleMinutes: 30,
+      } as never);
 
       const settings = await getAutoArchiveSettings();
 
@@ -256,10 +255,10 @@ describe('Auto-Archive Service', () => {
     });
 
     it('should return stored settings', async () => {
-      mockChrome.storage.sync.get.mockResolvedValue({
+      vi.mocked(getSettings).mockResolvedValue({
         autoArchiveEnabled: true,
         autoArchiveIdleMinutes: 60,
-      });
+      } as never);
 
       const settings = await getAutoArchiveSettings();
 
@@ -270,10 +269,10 @@ describe('Auto-Archive Service', () => {
     });
 
     it('should handle boolean conversion for enabled setting', async () => {
-      mockChrome.storage.sync.get.mockResolvedValue({
+      vi.mocked(getSettings).mockResolvedValue({
         autoArchiveEnabled: 'true', // String truthy value
         autoArchiveIdleMinutes: 45,
-      });
+      } as never);
 
       const settings = await getAutoArchiveSettings();
 
@@ -314,10 +313,10 @@ describe('Auto-Archive Service', () => {
       ];
 
       mockChrome.tabs.query.mockResolvedValue(mockTabs as chrome.tabs.Tab[]);
-      mockChrome.storage.sync.get.mockResolvedValue({
+      vi.mocked(getSettings).mockResolvedValue({
         autoArchiveEnabled: true,
         autoArchiveIdleMinutes: 30,
-      });
+      } as never);
       mockChrome.alarms.clear.mockResolvedValue(undefined);
       mockChrome.alarms.create.mockResolvedValue(undefined);
 
