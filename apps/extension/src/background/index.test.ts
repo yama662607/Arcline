@@ -12,6 +12,8 @@ vi.mock('./services/browser', () => {
     removeSpace: vi.fn(),
     closeTab: vi.fn(),
     activateTab: vi.fn(),
+    reloadTab: vi.fn(),
+    getActiveTabEntry: asyncFn(null),
     getSpacesSnapshot: asyncFn([]),
     getSettings: asyncFn({}),
     getArchivedTabs: asyncFn([]),
@@ -21,6 +23,13 @@ vi.mock('./services/browser', () => {
     updateSettings: fn(),
     searchHistory: asyncFn([]),
     searchBookmarks: asyncFn([]),
+    createPinnedFolder: fn(),
+    createPinnedTab: fn(),
+    movePinnedItem: fn(),
+    removePinnedItem: fn(),
+    updatePinnedItem: fn(),
+    exportSpaceBookmarks: fn(),
+    importSpaceBookmarks: fn(),
   };
 });
 

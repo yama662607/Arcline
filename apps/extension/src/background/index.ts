@@ -1,6 +1,7 @@
 /// <reference types="chrome" />
 import type { UiMode } from '@/lib/ui-mode';
-import type { ArchivedTab, Settings, SpaceCreateRequest, TabEntry } from '@/shared/types';
+import { createCommandHandlers, type CommandHandler } from './handlers/command-handlers';
+import { registerSpacesSnapshotListeners } from './listeners/spaces-snapshot-listeners';
 import { initializeAutoArchive } from './services/auto-archive';
 import {
   activateTab,
@@ -31,7 +32,6 @@ import {
 } from './services/browser';
 import {
   addToFavorites,
-  type FavoriteTab,
   getFavorites,
   removeFromFavorites,
   reorderFavorites,
@@ -39,44 +39,6 @@ import {
 } from './services/favorites';
 import { initializeGestureDetection, subscribeToSwipe } from './services/gestures';
 import { navigateSpace } from './services/space-navigation';
-
-type RuntimeSendResponse = (response?: unknown) => void;
-
-type CommandHandler = (
-  message: Record<string, unknown>,
-  sendResponse: RuntimeSendResponse,
-  sender?: chrome.runtime.MessageSender
-) => boolean;
-
-function isTabEntry(value: unknown): value is TabEntry {
-  if (!value || typeof value !== 'object') return false;
-
-  const candidate = value as Partial<TabEntry>;
-
-  return (
-    typeof candidate.id === 'number' &&
-    typeof candidate.url === 'string' &&
-    typeof candidate.title === 'string' &&
-    typeof candidate.windowId === 'number' &&
-    typeof candidate.groupId === 'number' &&
-    typeof candidate.pinned === 'boolean' &&
-    typeof candidate.active === 'boolean'
-  );
-}
-
-function isFavoriteTabArray(value: unknown): value is FavoriteTab[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (fav) =>
-        fav &&
-        typeof fav === 'object' &&
-        typeof fav.url === 'string' &&
-        typeof fav.title === 'string' &&
-        typeof (fav as FavoriteTab).addedAt === 'number'
-    )
-  );
-}
 
 const UI_MODE_KEY = 'arclineoMode';
 
@@ -195,6 +157,42 @@ async function detectUiMode(): Promise<UiMode> {
 async function initializeUiMode() {
   await refreshUiMode();
 }
+
+export const commandHandlers: Record<string, CommandHandler> = createCommandHandlers({
+  uiModeKey: UI_MODE_KEY,
+  detectUiMode,
+  getCurrentUiMode: () => currentUiMode,
+  getActiveTabEntry,
+  getSpacesSnapshot,
+  getSettings,
+  getArchivedTabs,
+  getBookmarksForSpace,
+  archiveTab,
+  restoreArchivedTab,
+  updateSettings,
+  searchHistory,
+  searchBookmarks,
+  toggleTabPinned,
+  moveTabToSpace,
+  createSpace,
+  removeSpace,
+  closeTab,
+  activateTab,
+  reloadTab,
+  broadcastSpacesSnapshot,
+  createPinnedFolder,
+  createPinnedTab,
+  movePinnedItem,
+  removePinnedItem,
+  updatePinnedItem,
+  exportSpaceBookmarks,
+  importSpaceBookmarks,
+  getFavorites,
+  addToFavorites,
+  removeFromFavorites,
+  toggleFavorite,
+  reorderFavorites,
+});
 
 chrome.runtime.onInstalled.addListener(async () => {
   await initializeUiMode();
@@ -360,548 +358,6 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
-const respondAsync = (handler: () => Promise<void>): boolean => {
-  void handler();
-  return true;
-};
-
-export const commandHandlers: Record<string, CommandHandler> = {
-  requestUiMode: (_message, sendResponse) =>
-    respondAsync(async () => {
-      try {
-        const result = await chrome.storage.local.get(UI_MODE_KEY);
-        const fallbackMode = await detectUiMode();
-        const storedMode = (result[UI_MODE_KEY] as UiMode) ?? fallbackMode;
-        const modeToSend = currentUiMode ?? storedMode;
-        sendResponse({
-          command: 'currentUiMode',
-          mode: modeToSend,
-        });
-      } catch (error) {
-        console.error('Failed to respond with UI mode', error);
-        sendResponse({ command: 'currentUiMode', mode: 'floating' as UiMode });
-      }
-    }),
-  requestSpacesSnapshot: (_message, sendResponse) =>
-    respondAsync(async () => {
-      try {
-        const spaces = await getSpacesSnapshot();
-        sendResponse({ command: 'spacesSnapshot', spaces });
-      } catch (error) {
-        console.error('Failed to respond with spaces snapshot', error);
-        sendResponse({ command: 'spacesSnapshot', spaces: [] });
-      }
-    }),
-  getActiveTab: (_message, sendResponse) =>
-    respondAsync(async () => {
-      try {
-        const tab = await getActiveTabEntry();
-        sendResponse({ ok: true, data: tab });
-      } catch (error) {
-        console.error('Failed to fetch active tab', error);
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    }),
-  toggleTabPinned: (message, sendResponse) => {
-    const { tabId, pinned } = message as { tabId?: number; pinned?: boolean };
-    if (typeof tabId !== 'number') {
-      sendResponse({ ok: false, error: 'tabId is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        const nextPinned = await toggleTabPinned(tabId, pinned);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true, pinned: nextPinned });
-      } catch (error) {
-        console.error('Failed to toggle pin state', error);
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  moveTabToSpace: (message, sendResponse) => {
-    const { tabId, spaceId } = message as { tabId?: number; spaceId?: number };
-    if (typeof tabId !== 'number' || typeof spaceId !== 'number') {
-      sendResponse({ ok: false, error: 'tabId and spaceId are required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        const groupId = await moveTabToSpace(tabId, spaceId);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true, groupId });
-      } catch (error) {
-        console.error('Failed to move tab to space', error);
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  createSpace: (message, sendResponse) => {
-    const { name, color } = message as unknown as SpaceCreateRequest;
-    if (!name) {
-      sendResponse({ ok: false, error: 'name is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        const groupId = await createSpace(name, color);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true, data: groupId });
-      } catch (error) {
-        console.error('Failed to create space', error);
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  removeSpace: (message, sendResponse) => {
-    const { spaceId } = message as { spaceId?: number };
-    if (typeof spaceId !== 'number') {
-      sendResponse({ ok: false, error: 'spaceId is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        await removeSpace(spaceId);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true });
-      } catch (error) {
-        console.error('Failed to remove space', error);
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  closeTab: (message, sendResponse) => {
-    const { tabId } = message as { tabId?: number };
-    if (typeof tabId !== 'number') {
-      sendResponse({ ok: false, error: 'tabId is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        await closeTab(tabId);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true });
-      } catch (error) {
-        console.error('Failed to close tab', error);
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  activateTab: (message, sendResponse) => {
-    const { tabId } = message as { tabId?: number };
-    const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
-
-    console.log('[Arcline] 🎯 activateTab handler called:', {
-      tabId,
-      isAtlas,
-      userAgent: navigator.userAgent,
-      message,
-      timestamp: new Date().toISOString(),
-    });
-
-    if (typeof tabId !== 'number') {
-      console.error('[Arcline] ❌ Invalid tabId:', tabId);
-      sendResponse({ ok: false, error: 'tabId is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        console.log('[Arcline] 🔄 Calling activateTab function...');
-        await activateTab(tabId);
-        console.log('[Arcline] ✅ activateTab completed successfully');
-        sendResponse({ ok: true });
-      } catch (error) {
-        console.error('[Arcline] ❌ activateTab handler failed:', {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : 'No stack available',
-          tabId,
-          isAtlas,
-        });
-        sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) });
-      }
-    });
-  },
-  reloadTab: (message, sendResponse) => {
-    const { tabId } = message as { tabId?: number };
-
-    return respondAsync(async () => {
-      try {
-        await reloadTab(tabId);
-        sendResponse({ ok: true });
-      } catch (error) {
-        console.error('Failed to reload tab', error);
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  getSpacesSnapshot: (_message, sendResponse) =>
-    respondAsync(async () => {
-      try {
-        const spaces = await getSpacesSnapshot();
-        sendResponse(spaces);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    }),
-  getSettings: (_message, sendResponse) =>
-    respondAsync(async () => {
-      try {
-        const settings = await getSettings();
-        sendResponse(settings);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    }),
-  getArchivedTabs: (_message, sendResponse) =>
-    respondAsync(async () => {
-      try {
-        const archivedTabs = await getArchivedTabs();
-        sendResponse(archivedTabs);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    }),
-  getBookmarksForSpace: (message, sendResponse) => {
-    const { spaceId, spaceName } = message as { spaceId?: number; spaceName?: string };
-
-    return respondAsync(async () => {
-      try {
-        let resolvedName = spaceName;
-
-        if (!resolvedName) {
-          if (typeof spaceId !== 'number') {
-            sendResponse({ ok: false, error: 'spaceId or spaceName is required' });
-            return;
-          }
-
-          const spaces = await getSpacesSnapshot();
-          const targetSpace = spaces.find((space) => space.id === spaceId);
-          if (!targetSpace) {
-            sendResponse({ ok: false, error: `Space with id ${spaceId} not found` });
-            return;
-          }
-
-          resolvedName = targetSpace.name;
-        }
-
-        const bookmarks = await getBookmarksForSpace(resolvedName);
-        sendResponse(bookmarks);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  archiveTab: (message, sendResponse) => {
-    const { tabId } = message as { tabId?: number };
-    if (typeof tabId !== 'number') {
-      sendResponse({ ok: false, error: 'tabId is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        await archiveTab(tabId);
-        await broadcastSpacesSnapshot();
-        sendResponse(null);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  restoreArchivedTab: (message, sendResponse) => {
-    const { archivedTab } = message as { archivedTab?: ArchivedTab };
-    if (!archivedTab) {
-      sendResponse({ ok: false, error: 'archivedTab is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        await restoreArchivedTab(archivedTab);
-        await broadcastSpacesSnapshot();
-        sendResponse(null);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  updateSettings: (message, sendResponse) => {
-    const { settings } = message as { settings?: Partial<Settings> };
-    if (!settings) {
-      sendResponse({ ok: false, error: 'settings object is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        await updateSettings(settings);
-        sendResponse(null);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  // Favorites management
-  getFavorites: (_message, sendResponse) =>
-    respondAsync(async () => {
-      try {
-        const favorites = await getFavorites();
-        sendResponse(favorites);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    }),
-  addToFavorites: (message, sendResponse) => {
-    const { tab } = message as { tab?: unknown };
-    if (!isTabEntry(tab)) {
-      sendResponse({ ok: false, error: 'tab is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        await addToFavorites(tab);
-        sendResponse(null);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  removeFromFavorites: (message, sendResponse) => {
-    const { url } = message as { url?: string };
-    if (!url) {
-      sendResponse({ ok: false, error: 'url is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        await removeFromFavorites(url);
-        sendResponse(null);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  toggleFavorite: (message, sendResponse) => {
-    const { tab } = message as { tab?: unknown };
-    if (!isTabEntry(tab)) {
-      sendResponse({ ok: false, error: 'tab is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        const isFavorite = await toggleFavorite(tab);
-        sendResponse(isFavorite);
-      } catch (error) {
-        sendResponse({ ok: false, error: (error as Error).message });
-      }
-    });
-  },
-  reorderFavorites: (message, sendResponse) => {
-    const { favorites } = message as { favorites?: unknown };
-
-    if (!isFavoriteTabArray(favorites)) {
-      sendResponse({ ok: false, error: 'favorites array is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        await reorderFavorites(favorites);
-        sendResponse(null);
-      } catch (error) {
-        sendResponse({ error: error instanceof Error ? error.message : String(error) });
-      }
-    });
-  },
-  openUrlInTab: (message, sendResponse) => {
-    const { url } = message as { url?: string };
-
-    if (!url) {
-      sendResponse({ error: 'URL is required' });
-      return false;
-    }
-
-    return respondAsync(async () => {
-      try {
-        // Check if tab with URL already exists
-        const tabs = await chrome.tabs.query({ url });
-        if (tabs.length > 0 && tabs[0]?.id) {
-          // Tab exists, activate it
-          await chrome.tabs.update(tabs[0].id, { active: true });
-          await chrome.windows.update(tabs[0].windowId, { focused: true });
-        } else {
-          // Tab doesn't exist, create it
-          await chrome.tabs.create({ url, active: true });
-        }
-        sendResponse(null);
-      } catch (error) {
-        sendResponse({ error: error instanceof Error ? error.message : String(error) });
-      }
-    });
-  },
-  getZoomLevel: (_message, sendResponse, sender) => {
-    return respondAsync(async () => {
-      let tabId = sender?.tab?.id;
-      if (!tabId) {
-        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        tabId = tab?.id;
-      }
-
-      if (!tabId) {
-        sendResponse({ ok: false, error: 'No active tab found' });
-        return;
-      }
-      const zoom = await chrome.tabs.getZoom(tabId);
-      sendResponse({ ok: true, zoom });
-    });
-  },
-  createPinnedFolder: (message, sendResponse) => {
-    const { spaceName, title, parentId } = message as {
-      spaceName: string;
-      title: string;
-      parentId?: string;
-    };
-    if (!spaceName || !title)
-      return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
-    return respondAsync(async () => {
-      try {
-        const folder = await createPinnedFolder(spaceName, title, parentId);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true, data: folder });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-  createPinnedTab: (message, sendResponse) => {
-    const { spaceName, title, url, favIconUrl, parentId, index } = message as {
-      spaceName: string;
-      title: string;
-      url: string;
-      favIconUrl?: string;
-      parentId?: string;
-      index?: number;
-    };
-    if (!spaceName || !title || !url)
-      return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
-    return respondAsync(async () => {
-      try {
-        const tab = await createPinnedTab(spaceName, title, url, favIconUrl, parentId, index);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true, data: tab });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-  movePinnedItem: (message, sendResponse) => {
-    const { id, parentId, index, spaceName } = message as {
-      id: string;
-      parentId?: string;
-      index?: number;
-      spaceName?: string;
-    };
-    if (!id) return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
-    return respondAsync(async () => {
-      try {
-        await movePinnedItem(id, { parentId, index, spaceName });
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-  removePinnedItem: (message, sendResponse) => {
-    const { id } = message as { id: string };
-    if (!id) return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
-    return respondAsync(async () => {
-      try {
-        await removePinnedItem(id);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-  updatePinnedItem: (message, sendResponse) => {
-    const { id, changes } = message as { id: string; changes: { title?: string; url?: string } };
-    if (!id) return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
-    return respondAsync(async () => {
-      try {
-        await updatePinnedItem(id, changes);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-  exportSpaceBookmarks: (message, sendResponse) => {
-    const { spaceName } = message as { spaceName: string };
-    if (!spaceName)
-      return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
-    return respondAsync(async () => {
-      try {
-        const html = await exportSpaceBookmarks(spaceName);
-        sendResponse({ ok: true, data: html });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-  importSpaceBookmarks: (message, sendResponse) => {
-    const { spaceName, htmlContent, parentId } = message as {
-      spaceName: string;
-      htmlContent: string;
-      parentId?: string;
-    };
-    if (!spaceName || !htmlContent)
-      return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
-    return respondAsync(async () => {
-      try {
-        await importSpaceBookmarks(spaceName, htmlContent, parentId);
-        await broadcastSpacesSnapshot();
-        sendResponse({ ok: true });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-  searchHistory: (message, sendResponse) => {
-    const { query, maxResults } = message as { query: string; maxResults?: number };
-    return respondAsync(async () => {
-      try {
-        const results = await searchHistory(query, maxResults);
-        sendResponse({ ok: true, data: results });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-  searchBookmarks: (message, sendResponse) => {
-    const { query, maxResults } = message as { query: string; maxResults?: number };
-    return respondAsync(async () => {
-      try {
-        const results = await searchBookmarks(query, maxResults);
-        sendResponse({ ok: true, data: results });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    });
-  },
-};
-
 chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
   if (typeof rawMessage !== 'object' || rawMessage === null) {
     return false;
@@ -959,49 +415,7 @@ chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
   return handler(message, sendResponse, sender);
 });
 
-chrome.tabs.onCreated?.addListener(() => {
-  void broadcastSpacesSnapshot();
-});
-
-chrome.tabs.onUpdated?.addListener(() => {
-  void broadcastSpacesSnapshot();
-});
-
-chrome.tabs.onMoved?.addListener(() => {
-  void broadcastSpacesSnapshot();
-});
-
-chrome.tabs.onDetached?.addListener(() => {
-  void broadcastSpacesSnapshot();
-});
-
-chrome.tabs.onAttached?.addListener(() => {
-  void broadcastSpacesSnapshot();
-});
-
-chrome.tabs.onRemoved?.addListener(() => {
-  void broadcastSpacesSnapshot();
-});
-
-chrome.tabs.onActivated?.addListener(() => {
-  void broadcastSpacesSnapshot();
-});
-
-chrome.windows.onFocusChanged?.addListener(() => {
-  void broadcastSpacesSnapshot();
-});
-
-if (typeof chrome.tabGroups !== 'undefined') {
-  chrome.tabGroups.onCreated?.addListener(() => {
-    void broadcastSpacesSnapshot();
-  });
-  chrome.tabGroups.onUpdated?.addListener(() => {
-    void broadcastSpacesSnapshot();
-  });
-  chrome.tabGroups.onRemoved?.addListener(() => {
-    void broadcastSpacesSnapshot();
-  });
-}
+registerSpacesSnapshotListeners({ broadcastSpacesSnapshot });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' && 'uiMode' in changes) {
