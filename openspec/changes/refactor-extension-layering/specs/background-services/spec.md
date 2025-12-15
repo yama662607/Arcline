@@ -1,0 +1,19 @@
+## ADDED Requirements
+
+### Requirement: Background service worker SHALL be structured for dependency isolation in unit tests
+
+The system SHALL structure background service worker logic so that Chrome API dependencies can be isolated for deterministic unit tests. This requirement is satisfied when the core background logic can be exercised with mocked Chrome API surfaces without requiring a running extension runtime.
+
+#### Scenario: Deterministic unit test setup without extension runtime
+
+- **GIVEN** a unit test environment without an actual extension runtime
+- **WHEN** the background core logic is executed with mocked Chrome API dependencies
+- **THEN** the logic can produce deterministic outputs (e.g. snapshots / responses)
+- **AND** the test does not require a real service worker lifecycle to be active
+
+#### Scenario: Gradual adapter migration
+
+- **GIVEN** background services currently call `chrome.*` directly
+- **WHEN** a new Chrome API adapter is introduced for a subset of APIs (e.g. tabs/runtime)
+- **THEN** the system can migrate call sites incrementally without changing functional behavior
+- **AND** the migrated code paths remain testable via adapter mocks
