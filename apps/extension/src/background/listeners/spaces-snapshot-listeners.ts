@@ -1,46 +1,51 @@
+import { chromeApi as defaultChromeApi, type ChromeApi } from '@/adapters/chrome-api';
+
 export function registerSpacesSnapshotListeners(deps: {
   broadcastSpacesSnapshot: () => Promise<void>;
+  chromeApi?: ChromeApi;
 }): void {
-  chrome.tabs.onCreated?.addListener(() => {
+  const chromeApi = deps.chromeApi ?? defaultChromeApi;
+
+  chromeApi.tabs.onCreated?.addListener(() => {
     void deps.broadcastSpacesSnapshot();
   });
 
-  chrome.tabs.onUpdated?.addListener(() => {
+  chromeApi.tabs.onUpdated?.addListener(() => {
     void deps.broadcastSpacesSnapshot();
   });
 
-  chrome.tabs.onMoved?.addListener(() => {
+  chromeApi.tabs.onMoved?.addListener(() => {
     void deps.broadcastSpacesSnapshot();
   });
 
-  chrome.tabs.onDetached?.addListener(() => {
+  chromeApi.tabs.onDetached?.addListener(() => {
     void deps.broadcastSpacesSnapshot();
   });
 
-  chrome.tabs.onAttached?.addListener(() => {
+  chromeApi.tabs.onAttached?.addListener(() => {
     void deps.broadcastSpacesSnapshot();
   });
 
-  chrome.tabs.onRemoved?.addListener(() => {
+  chromeApi.tabs.onRemoved?.addListener(() => {
     void deps.broadcastSpacesSnapshot();
   });
 
-  chrome.tabs.onActivated?.addListener(() => {
+  chromeApi.tabs.onActivated?.addListener(() => {
     void deps.broadcastSpacesSnapshot();
   });
 
-  chrome.windows.onFocusChanged?.addListener(() => {
+  chromeApi.windows.onFocusChanged?.addListener(() => {
     void deps.broadcastSpacesSnapshot();
   });
 
-  if (typeof chrome.tabGroups !== 'undefined') {
-    chrome.tabGroups.onCreated?.addListener(() => {
+  if (typeof chromeApi.tabGroups !== 'undefined') {
+    chromeApi.tabGroups.onCreated?.addListener(() => {
       void deps.broadcastSpacesSnapshot();
     });
-    chrome.tabGroups.onUpdated?.addListener(() => {
+    chromeApi.tabGroups.onUpdated?.addListener(() => {
       void deps.broadcastSpacesSnapshot();
     });
-    chrome.tabGroups.onRemoved?.addListener(() => {
+    chromeApi.tabGroups.onRemoved?.addListener(() => {
       void deps.broadcastSpacesSnapshot();
     });
   }
