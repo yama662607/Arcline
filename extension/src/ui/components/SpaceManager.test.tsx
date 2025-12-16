@@ -14,6 +14,12 @@ vi.mock('@/store', () => ({
   useSpacesStore: vi.fn(),
 }));
 
+vi.mock('@/ui/components/context-menu/SpaceContextMenu', () => ({
+  SpaceContextMenu: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="space-context-menu">{children}</div>
+  ),
+}));
+
 import { useCreateSpace, useRemoveSpace, useSpacesSnapshot } from '@/hooks/use-spaces-query';
 import { useSpacesStore } from '@/store';
 
