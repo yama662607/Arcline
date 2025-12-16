@@ -47,7 +47,7 @@ pnpm-debug.log*
 lerna-debug.log*
 .turbo/
 extension/**/.turbo/
-legacy/**/.turbo/
+legacy/
 
 # Editor directories and files
 .vscode/*

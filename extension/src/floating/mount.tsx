@@ -145,7 +145,7 @@ const FloatingUiRoot = forwardRef<
         }}
         onPointerLeave={handlePointerLeave}
       />
-      <div className="pointer-events-auto flex h-full w-full max-w-[332px] items-stretch">
+      <div className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch">
         <button
           data-testid="arcline-floating-hotzone"
           type="button"
@@ -189,7 +189,7 @@ const FloatingUiRoot = forwardRef<
             <motion.aside
               key="arcline-floating-panel"
               data-testid="arcline-floating-panel"
-              className="flex h-full flex-1"
+              className="pointer-events-auto flex h-full flex-1"
               style={{ marginLeft: '-8px', marginTop: '4px', marginBottom: '4px' }}
               initial={skipAnimation ? false : { x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
