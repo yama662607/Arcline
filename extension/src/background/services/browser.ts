@@ -565,6 +565,34 @@ export async function broadcastSpacesSnapshot(): Promise<void> {
 }
 
 export async function closeTab(tabId: number): Promise<void> {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.active) {
+      const spaces = await getSpacesSnapshot();
+      let nextTabId: number | undefined;
+
+      for (const space of spaces) {
+        const allTabs = [...space.pinnedTabs, ...space.tabs, ...space.temporaryTabs];
+        const index = allTabs.findIndex((t) => t.id === tabId);
+        if (index !== -1) {
+          // Found the space and the tab
+          // Try next, then previous
+          if (index + 1 < allTabs.length) {
+            nextTabId = allTabs[index + 1]?.id;
+          } else if (index - 1 >= 0) {
+            nextTabId = allTabs[index - 1]?.id;
+          }
+          break;
+        }
+      }
+
+      if (nextTabId) {
+        await chrome.tabs.update(nextTabId, { active: true });
+      }
+    }
+  } catch (_error) {
+    // Ignore error (e.g. tab already closed)
+  }
   await chrome.tabs.remove(tabId);
 }
 
@@ -633,6 +661,38 @@ export async function activateTab(tabId: number): Promise<void> {
     });
     throw error;
   }
+}
+
+// Reorder tabs within a space (updates SpaceState only)
+export async function reorderTab(
+  tabId: number,
+  spaceId: number,
+  newIndex: number,
+  listType: 'pinned' | 'temporary'
+): Promise<void> {
+  const current = await loadSpaceState();
+  const spaceIndex = current.findIndex((s) => s.id === spaceId);
+  if (spaceIndex === -1) return;
+
+  const space = current[spaceIndex];
+  if (!space) return;
+
+  // spaceBookmarks maps to Pinned tabs in UI
+  const listKey = listType === 'pinned' ? 'spaceBookmarks' : 'temporaryTabs';
+  const list = [...(space[listKey] || [])];
+
+  const currentIndex = list.indexOf(tabId);
+  if (currentIndex === -1) return;
+
+  list.splice(currentIndex, 1);
+  list.splice(newIndex, 0, tabId);
+
+  const updatedSpace = { ...space, [listKey]: list };
+  const next = [...current];
+  next[spaceIndex] = updatedSpace;
+
+  await saveSpaceState(next);
+  await broadcastSpacesSnapshot();
 }
 
 // Settings management

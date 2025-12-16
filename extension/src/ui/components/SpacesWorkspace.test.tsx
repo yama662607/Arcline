@@ -53,6 +53,8 @@ vi.mock('@dnd-kit/core', () => ({
 // Mock Hooks
 vi.mock('@/hooks/use-spaces-query', () => ({
   useFavorites: vi.fn(),
+  useReorderTab: vi.fn(() => ({ mutate: vi.fn() })),
+  useToggleTabPinned: vi.fn(() => ({ mutate: vi.fn() })),
 }));
 
 vi.mock('@/store', () => ({

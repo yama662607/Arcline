@@ -30,6 +30,7 @@ vi.mock('./services/browser', () => {
     updatePinnedItem: fn(),
     exportSpaceBookmarks: fn(),
     importSpaceBookmarks: fn(),
+    reorderTab: fn(),
   };
 });
 

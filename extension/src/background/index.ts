@@ -25,6 +25,7 @@ import {
   reloadTab,
   removePinnedItem,
   removeSpace,
+  reorderTab,
   restoreArchivedTab,
   searchBookmarks,
   searchHistory,
@@ -212,6 +213,7 @@ export const commandHandlers: Record<string, CommandHandler> = createCommandHand
   removeFromFavorites,
   toggleFavorite,
   reorderFavorites,
+  reorderTab,
 });
 
 chrome.runtime.onInstalled.addListener(async () => {

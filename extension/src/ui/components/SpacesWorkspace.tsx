@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { useMemo, useState } from 'react';
 
-import { useFavorites } from '@/hooks/use-spaces-query';
+import { useFavorites, useReorderTab, useToggleTabPinned } from '@/hooks/use-spaces-query';
 import type { UiMode } from '@/lib/ui-mode';
 import type { TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
@@ -30,6 +30,9 @@ interface SpacesWorkspaceProps {
 export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'spaces' | 'archive' | 'settings'>('spaces');
   const [activeDragId, setActiveDragId] = useState<number | string | null>(null);
+
+  const { mutate: reorderTab } = useReorderTab();
+  const { mutate: toggleTabPinned } = useToggleTabPinned();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -81,9 +84,43 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveDragId(null);
-    if (!over) return;
-    console.log('Drag end', active.id, over.id);
-    // TODO: Implement actual reordering logic
+
+    if (!over || !activeSpace || active.id === over.id) return;
+
+    const findTab = (id: number | string) => {
+      const numId = Number(id);
+      if (activeSpace.pinnedTabs.find((t) => t.id === numId))
+        return { tab: activeSpace.pinnedTabs.find((t) => t.id === numId), type: 'pinned' as const };
+      if (visibleTemporaryTabs.find((t) => t.id === numId))
+        return {
+          tab: visibleTemporaryTabs.find((t) => t.id === numId),
+          type: 'temporary' as const,
+        };
+      return null;
+    };
+
+    const source = findTab(active.id);
+    const target = findTab(over.id);
+
+    if (!source || !target) return;
+
+    if (source.type === target.type) {
+      // Reorder within same list
+      const list = source.type === 'pinned' ? activeSpace.pinnedTabs : visibleTemporaryTabs;
+      const newIndex = list.findIndex((t) => t.id === target.tab?.id);
+      if (newIndex !== -1) {
+        reorderTab({
+          tabId: Number(active.id),
+          spaceId: activeSpace.id,
+          newIndex,
+          listType: source.type,
+        });
+      }
+    } else {
+      // Move between Pinned and Temporary
+      const shouldPin = target.type === 'pinned';
+      toggleTabPinned({ tabId: Number(active.id), pinned: shouldPin });
+    }
   };
 
   // Helper to find the dragged tab for overlay

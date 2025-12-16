@@ -209,6 +209,19 @@ export class ServiceWorkerBridge {
     }) as Promise<void>;
   }
 
+  async reorderTab(
+    tabId: number,
+    spaceId: number,
+    newIndex: number,
+    listType: 'pinned' | 'temporary'
+  ): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'reorderTab',
+      params: { tabId, spaceId, newIndex, listType },
+    }) as Promise<void>;
+  }
+
   async createSpace(name: string, color?: OptionalTabGroupColor): Promise<number> {
     return this.sendMessage({
       type: 'mutation',

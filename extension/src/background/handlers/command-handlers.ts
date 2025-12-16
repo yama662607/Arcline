@@ -48,6 +48,7 @@ export type CommandHandlersDeps = {
   removeFromFavorites: FavoritesFns['removeFromFavorites'];
   toggleFavorite: FavoritesFns['toggleFavorite'];
   reorderFavorites: FavoritesFns['reorderFavorites'];
+  reorderTab: BrowserFns['reorderTab'];
 };
 
 function isTabEntry(value: unknown): value is TabEntry {
@@ -642,6 +643,32 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
         try {
           const results = await deps.searchBookmarks(query, maxResults);
           sendResponse({ ok: true, data: results });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+      });
+    },
+    reorderTab: (message, sendResponse) => {
+      const { tabId, spaceId, newIndex, listType } = message as {
+        tabId: number;
+        spaceId: number;
+        newIndex: number;
+        listType: 'pinned' | 'temporary';
+      };
+
+      if (
+        typeof tabId !== 'number' ||
+        typeof spaceId !== 'number' ||
+        typeof newIndex !== 'number' ||
+        !listType
+      ) {
+        return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+      }
+
+      return respondAsync(async () => {
+        try {
+          await deps.reorderTab(tabId, spaceId, newIndex, listType);
+          sendResponse({ ok: true });
         } catch (e) {
           sendResponse({ ok: false, error: String(e) });
         }

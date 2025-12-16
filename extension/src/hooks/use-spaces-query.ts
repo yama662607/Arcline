@@ -111,6 +111,24 @@ export function useMoveTabToSpace() {
   });
 }
 
+export function useReorderTab() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    void,
+    Error,
+    { tabId: number; spaceId: number; newIndex: number; listType: 'pinned' | 'temporary' }
+  >({
+    mutationFn: async ({ tabId, spaceId, newIndex, listType }) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.reorderTab(tabId, spaceId, newIndex, listType);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
 export function useCreateSpace() {
   const bridge = useServiceWorkerBridge();
   const queryClient = useQueryClient();
