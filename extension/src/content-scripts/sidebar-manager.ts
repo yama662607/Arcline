@@ -1,8 +1,8 @@
 import '@/dev/reactPreamble';
 
 import { hasChromeRuntime, requestUiMode, type UiMode } from './shared-utils';
-import { applySidebarUiMode, cleanupSidebarOnUnload } from './sidebar-lifecycle';
 import { getSidebarManager } from './sidebar';
+import { applySidebarUiMode, cleanupSidebarOnUnload } from './sidebar-lifecycle';
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

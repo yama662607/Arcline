@@ -61,10 +61,57 @@ export async function addServiceWorkerBridgeMock(page: Page) {
         color: 'blue',
         windowId: 1,
         timestamp: Date.now(),
-        tabs: [],
-        pinnedTabs: [],
+        tabs: [
+          {
+            id: 101,
+            title: 'Example Tab',
+            url: 'https://example.com',
+            pinned: false,
+          },
+          {
+            id: 102,
+            title: 'Google',
+            url: 'https://google.com',
+            pinned: false,
+          },
+        ],
+        pinnedTabs: [
+          {
+            id: 201,
+            title: 'Pinned Tab',
+            url: 'https://pinned.example.com',
+            pinned: true,
+          },
+        ],
         pinnedItems: [],
-        temporaryTabs: [],
+        temporaryTabs: [
+          {
+            id: 301,
+            title: 'Temporary Tab',
+            url: 'https://temp.example.com',
+            pinned: false,
+          },
+        ],
+      },
+    ];
+
+    const mockArchivedTabs = [
+      {
+        id: 'archived-1',
+        url: 'https://archived.example.com',
+        title: 'Archived Tab',
+        spaceId: 1,
+        spaceName: 'Default Space',
+        archivedAt: Date.now() - 86400000,
+      },
+    ];
+
+    const mockFavorites = [
+      {
+        url: 'https://favorite.example.com',
+        title: 'Favorite Site',
+        favIconUrl: '',
+        addedAt: Date.now() - 3600000,
       },
     ];
 
@@ -182,7 +229,7 @@ export async function addServiceWorkerBridgeMock(page: Page) {
     }
 
     function handleGetArchivedTabs(response: { id?: string; data?: unknown }) {
-      response.data = [];
+      response.data = [...mockArchivedTabs];
       return response;
     }
 
@@ -192,7 +239,7 @@ export async function addServiceWorkerBridgeMock(page: Page) {
     }
 
     function handleGetFavorites(response: { id?: string; data?: unknown }) {
-      response.data = [];
+      response.data = [...mockFavorites];
       return response;
     }
 

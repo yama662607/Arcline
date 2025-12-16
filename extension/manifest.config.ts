@@ -4,6 +4,9 @@ const manifest = defineManifest(({ mode }) => {
   const isDev = mode === 'development';
   const isTest = mode === 'test' || process.env.NODE_ENV === 'test';
 
+  const devServerOrigin = 'http://localhost:5175';
+  const devServerWsOrigin = 'ws://localhost:5175';
+
   const manifestBase = {
     manifest_version: 3,
     name: isDev ? 'Arcline (Dev)' : 'Arcline',
@@ -24,6 +27,13 @@ const manifest = defineManifest(({ mode }) => {
       service_worker: 'src/background/index.ts',
       type: 'module',
     },
+    ...(isDev
+      ? {
+          content_security_policy: {
+            extension_pages: `script-src 'self' ${devServerOrigin}; connect-src 'self' ${devServerOrigin} ${devServerWsOrigin}; object-src 'self';`,
+          },
+        }
+      : {}),
     content_scripts: [
       {
         matches: ['<all_urls>'],

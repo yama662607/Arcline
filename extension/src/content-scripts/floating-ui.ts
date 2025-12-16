@@ -336,7 +336,6 @@ function handleWindowMessage(event: MessageEvent) {
 }
 
 async function initialize() {
-  if (window.top !== window) return;
   if (!hasChromeRuntime()) return;
 
   const mode = await requestUiMode().catch(() => 'floating' as const);

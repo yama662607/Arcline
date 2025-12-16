@@ -75,11 +75,11 @@ test.describe('Archive Management', () => {
     await expect(page.getByRole('heading', { name: /Archive \(/i })).toBeVisible();
   });
 
-  test('should show empty state when no archived tabs', async ({ page, extensionId }) => {
+  test('should display archived tabs count', async ({ page, extensionId }) => {
     await addServiceWorkerBridgeMock(page);
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
     await page.getByRole('button', { name: /Archive/i }).click();
 
-    await expect(page.getByText('No archived tabs')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Archive \(1\)/i })).toBeVisible();
   });
 });

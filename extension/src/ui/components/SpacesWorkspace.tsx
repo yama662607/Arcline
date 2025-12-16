@@ -32,6 +32,17 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
     [spaces, activeSpaceId]
   );
 
+  const visibleTemporaryTabs = useMemo(() => {
+    if (!activeSpace) return [];
+    const dedupe = new Map<number, TabEntry>();
+    for (const tab of [...activeSpace.tabs, ...activeSpace.temporaryTabs]) {
+      if (!tab.pinned) {
+        dedupe.set(tab.id, tab);
+      }
+    }
+    return Array.from(dedupe.values());
+  }, [activeSpace]);
+
   const { data: favorites } = useFavorites();
   const favoriteTabs: TabEntry[] = useMemo(() => {
     if (!favorites) return [];
@@ -116,7 +127,7 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
                       onTabContextMenu={handleContextMenu}
                     />
                     <EnhancedTabList
-                      tabs={activeSpace.temporaryTabs}
+                      tabs={visibleTemporaryTabs}
                       title="Temporary"
                       emptyMessage="No temporary tabs"
                       variant={componentVariant}

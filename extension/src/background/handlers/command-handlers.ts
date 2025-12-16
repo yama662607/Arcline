@@ -1,6 +1,6 @@
+import { type ChromeApi, chromeApi as defaultChromeApi } from '@/adapters/chrome-api';
 import type { UiMode } from '@/lib/ui-mode';
 import type { ArchivedTab, Settings, SpaceCreateRequest, TabEntry } from '@/shared/types';
-import { chromeApi as defaultChromeApi, type ChromeApi } from '@/adapters/chrome-api';
 
 type RuntimeSendResponse = (response?: unknown) => void;
 

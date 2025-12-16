@@ -1,7 +1,6 @@
 /// <reference types="chrome" />
 
 import type { TabGroupColor } from '@/shared/chrome-types';
-import type { ArchivedTab, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 import {
   defaultSettings,
   SETTINGS_MIGRATED_TO_LOCAL_KEY,
@@ -9,6 +8,7 @@ import {
   SETTINGS_STORAGE_KEY,
   settingsSchema,
 } from '@/shared/settings';
+import type { ArchivedTab, PinnedItem, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 import {
   createPinnedFolder,
   createPinnedTab,
@@ -51,7 +51,6 @@ type SpaceSnapshotInit = {
 };
 
 // Helper to recursively link PinnedItems to open tabs
-import type { PinnedItem } from '@/shared/types';
 
 function linkPinnedItemsToOpenTabs(items: PinnedItem[], openTabs: TabEntry[]) {
   for (const item of items) {

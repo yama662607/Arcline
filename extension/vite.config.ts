@@ -44,4 +44,8 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  watch: {
+    usePolling: false,
+    interval: 1000,
+  },
 }));

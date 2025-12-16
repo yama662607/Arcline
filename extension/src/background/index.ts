@@ -1,8 +1,8 @@
 /// <reference types="chrome" />
 import type { UiMode } from '@/lib/ui-mode';
-import type { Settings } from '@/shared/types';
 import { SETTINGS_STORAGE_KEY } from '@/shared/settings';
-import { createCommandHandlers, type CommandHandler } from './handlers/command-handlers';
+import type { Settings } from '@/shared/types';
+import { type CommandHandler, createCommandHandlers } from './handlers/command-handlers';
 import { registerSpacesSnapshotListeners } from './listeners/spaces-snapshot-listeners';
 import { initializeAutoArchive, setupAutoArchiveAlarm } from './services/auto-archive';
 import {

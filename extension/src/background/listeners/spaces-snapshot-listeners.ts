@@ -1,4 +1,4 @@
-import { chromeApi as defaultChromeApi, type ChromeApi } from '@/adapters/chrome-api';
+import { type ChromeApi, chromeApi as defaultChromeApi } from '@/adapters/chrome-api';
 
 export function registerSpacesSnapshotListeners(deps: {
   broadcastSpacesSnapshot: () => Promise<void>;
