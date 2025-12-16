@@ -62,3 +62,4 @@ legacy/**/.turbo/
 .config/
 
 .chrome-dev-profile/
+apps/
