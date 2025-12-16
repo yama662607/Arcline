@@ -1,3 +1,13 @@
+import {
+  DndContext,
+  DragOverlay,
+  type DragEndEvent,
+  type DragStartEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { useMemo, useState } from 'react';
 
 import { useFavorites } from '@/hooks/use-spaces-query';
@@ -10,7 +20,7 @@ import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
 import { FavoritesBar } from '@/ui/components/FavoritesBar';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceManager } from '@/ui/components/SpaceManager';
-import { TabContextMenu } from '@/ui/components/TabContextMenu';
+import { TabRow } from '@/ui/components/TabRow';
 
 interface SpacesWorkspaceProps {
   variant: 'sidepanel' | 'floating';
@@ -19,11 +29,15 @@ interface SpacesWorkspaceProps {
 
 export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'spaces' | 'archive' | 'settings'>('spaces');
-  const [contextMenu, setContextMenu] = useState<{
-    tab: TabEntry;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [activeDragId, setActiveDragId] = useState<number | string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const spaces = useSpacesStore((state) => state.spaces);
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
@@ -60,103 +74,107 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
 
   const componentVariant = variant === 'floating' ? 'floating' : 'standalone';
 
-  const handleContextMenu = (tab: TabEntry, event: React.MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (variant === 'floating') {
-      const rect = (event.target as HTMLElement).getBoundingClientRect();
-      setContextMenu({
-        tab,
-        x: rect.left,
-        y: rect.top,
-      });
-      return;
-    }
-
-    const x = Math.min(event.clientX, window.innerWidth - 220);
-    const y = Math.min(event.clientY, window.innerHeight - 160);
-    setContextMenu({ tab, x, y });
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id);
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+    if (!over) return;
+    console.log('Drag end', active.id, over.id);
+    // TODO: Implement actual reordering logic
+  };
+
+  // Helper to find the dragged tab for overlay
+  const dragOverlayTab = useMemo(() => {
+    if (!activeDragId || !activeSpace) return null;
+    const allTabs = [...activeSpace.pinnedTabs, ...visibleTemporaryTabs];
+    return allTabs.find((t) => t.id === activeDragId);
+  }, [activeDragId, activeSpace, visibleTemporaryTabs]);
+
   return (
-    <div className="space-y-6">
-      <ActiveTabHeader />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="space-y-6">
+        <ActiveTabHeader />
 
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-medium text-white">Arcline</h2>
-          <div className="text-sm text-slate-400">
-            UI Mode:{' '}
-            <span className="font-mono">
-              {uiMode ?? (variant === 'floating' ? 'floating' : 'side-panel')}
-            </span>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-surface-light">
-          <div className="flex border-b border-surface-light">
-            {(['spaces', 'archive', 'settings'] as const).map((tab) => (
-              <button
-                type="button"
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'text-white bg-surface-light'
-                    : 'text-slate-400 hover:text-slate-300'
-                }`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-medium text-white">Arcline</h2>
+            <div className="text-sm text-slate-400">
+              UI Mode:{' '}
+              <span className="font-mono">
+                {uiMode ?? (variant === 'floating' ? 'floating' : 'side-panel')}
+              </span>
+            </div>
           </div>
 
-          <div className="p-4">
-            {activeTab === 'spaces' && (
-              <div className="space-y-4">
-                <FavoritesBar pinnedTabs={favoriteTabs} onTabContextMenu={handleContextMenu} />
-                <SpaceManager variant={componentVariant} />
+          <div className="rounded-lg border border-surface-light">
+            <div className="flex border-b border-surface-light">
+              {(['spaces', 'archive', 'settings'] as const).map((tab) => (
+                <button
+                  type="button"
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                    activeTab === tab
+                      ? 'text-white bg-surface-light'
+                      : 'text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
 
-                {activeSpace ? (
-                  <div className="space-y-3">
-                    <EnhancedTabList
-                      tabs={activeSpace.pinnedTabs}
-                      title="Pinned"
-                      emptyMessage="No pinned tabs"
-                      variant={componentVariant}
-                      floatingContext={variant === 'floating' ? 'pinned' : undefined}
-                      onTabContextMenu={handleContextMenu}
-                    />
-                    <EnhancedTabList
-                      tabs={visibleTemporaryTabs}
-                      title="Temporary"
-                      emptyMessage="No temporary tabs"
-                      variant={componentVariant}
-                      floatingContext={variant === 'floating' ? 'temporary' : undefined}
-                      onTabContextMenu={handleContextMenu}
-                    />
-                  </div>
-                ) : (
-                  <div className="px-4 py-8 text-center text-xs text-slate-500">
-                    No spaces available. Create a space to get started.
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="p-4">
+              {activeTab === 'spaces' && (
+                <div className="space-y-4">
+                  <FavoritesBar pinnedTabs={favoriteTabs} />
+                  <SpaceManager variant={componentVariant} />
 
-            {activeTab === 'archive' && <ArchiveManager variant={componentVariant} />}
-            {activeTab === 'settings' && <SettingsPanel variant={componentVariant} />}
+                  {activeSpace ? (
+                    <div className="space-y-3">
+                      <EnhancedTabList
+                        tabs={activeSpace.pinnedTabs}
+                        title="Pinned"
+                        emptyMessage="No pinned tabs"
+                        variant={componentVariant}
+                        floatingContext={variant === 'floating' ? 'pinned' : undefined}
+                      />
+                      <EnhancedTabList
+                        tabs={visibleTemporaryTabs}
+                        title="Temporary"
+                        emptyMessage="No temporary tabs"
+                        variant={componentVariant}
+                        floatingContext={variant === 'floating' ? 'temporary' : undefined}
+                      />
+                    </div>
+                  ) : (
+                    <div className="px-4 py-8 text-center text-xs text-slate-500">
+                      No spaces available. Create a space to get started.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'archive' && <ArchiveManager variant={componentVariant} />}
+              {activeTab === 'settings' && <SettingsPanel variant={componentVariant} />}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {contextMenu && (
-        <TabContextMenu
-          tab={contextMenu.tab}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
-    </div>
+        <DragOverlay>
+          {dragOverlayTab ? (
+            <TabRow tab={dragOverlayTab} compact={false} variant={componentVariant} />
+          ) : null}
+        </DragOverlay>
+      </div>
+    </DndContext>
   );
 }

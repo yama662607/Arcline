@@ -6,28 +6,86 @@
 }
 
 @theme {
-  --color-background: #0f172a;
-  --color-foreground: #f1f5f9;
-  --color-card: #0f172a;
-  --color-card-foreground: #f1f5f9;
-  --color-popover: #0f172a;
-  --color-popover-foreground: #f1f5f9;
-  --color-primary: #f1f5f9;
-  --color-primary-foreground: #0f172a;
-  --color-secondary: #1e293b;
-  --color-secondary-foreground: #f1f5f9;
-  --color-muted: #1e293b;
-  --color-muted-foreground: #94a3b8;
-  --color-accent: #1e293b;
-  --color-accent-foreground: #f1f5f9;
-  --color-destructive: #dc2626;
-  --color-destructive-foreground: #f1f5f9;
-  --color-border: #1e293b;
-  --color-input: #1e293b;
-  --color-ring: #94a3b8;
-  --color-surface: #0f172a;
-  --color-surface-light: #1e293b;
-  --radius: 8px;
+  /* Core layout colors - semantic mapping for runtime theming */
+  --color-background: var(--theme-bg);
+  --color-foreground: var(--theme-text);
+
+  --color-card: var(--theme-surface);
+  --color-card-foreground: var(--theme-text);
+
+  --color-popover: var(--theme-surface);
+  --color-popover-foreground: var(--theme-text);
+
+  --color-primary: var(--theme-accent);
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: var(--theme-bg-hover);
+  --color-secondary-foreground: var(--theme-text);
+
+  --color-muted: var(--theme-bg-muted);
+  --color-muted-foreground: var(--theme-text-muted);
+
+  --color-accent: var(--theme-accent);
+  --color-accent-foreground: #ffffff;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+
+  --color-border: var(--theme-border);
+  --color-input: var(--theme-border);
+  --color-ring: var(--theme-accent);
+
+  /* Radius tokens */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Animations */
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-up: slide-up 0.3s ease-out;
+}
+
+@layer base {
+  :root {
+    /* Base Color Palette (Arc Legacy) */
+    --arc-grey: #cccccc;
+    --arc-blue: #8bb3f3;
+    --arc-red: #ff9e97;
+    --arc-yellow: #ffe29f;
+    --arc-green: #8bda99;
+    --arc-pink: #fbaad7;
+    --arc-purple: #d6a6ff;
+    --arc-cyan: #a5e2ea;
+
+    /* Theme Tokens (Default: Dark/Purple) */
+    --theme-base-hue: 260; /* Purple hue */
+    --theme-base-sat: 20%;
+    --theme-base-light: 15%;
+
+    /* Semantic mapping to HSL/Hex for Tailwind */
+    --theme-bg: #1e1e24; /* Fallback dark */
+    --theme-bg-hover: rgba(255, 255, 255, 0.1);
+    --theme-bg-muted: rgba(0, 0, 0, 0.2);
+    --theme-surface: rgba(40, 40, 45, 0.9);
+
+    --theme-text: #ffffff;
+    --theme-text-muted: rgba(255, 255, 255, 0.6);
+
+    --theme-accent: var(--arc-purple);
+    --theme-border: rgba(255, 255, 255, 0.1);
+
+    --radius: 12px;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 :host {

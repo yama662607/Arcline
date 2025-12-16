@@ -1,10 +1,5 @@
 import { Pin, PinOff } from 'lucide-react';
-import type {
-  DragEvent as ReactDragEvent,
-  KeyboardEvent as ReactKeyboardEvent,
-  MouseEvent as ReactMouseEvent,
-} from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import {
   useActivateTab,
@@ -12,6 +7,7 @@ import {
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
 import type { TabEntry } from '@/shared/types';
+import { TabContextMenu } from '@/ui/components/context-menu/TabContextMenu';
 import { getDragData, setDragData } from '@/ui/hooks/use-tab-drag-drop';
 
 interface GlobalPinnedTabsProps {
@@ -19,7 +15,6 @@ interface GlobalPinnedTabsProps {
   compact: boolean;
   showFavicons: boolean;
   variant: 'standalone' | 'floating';
-  onTabContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void;
 }
 
 function safeHostname(url: string): string {
@@ -30,52 +25,45 @@ function safeHostname(url: string): string {
   }
 }
 
-function PinnedTabRow({
-  tab,
-  compact,
-  variant,
-  showFavicons,
-  onSelect,
-  onContextMenu,
-  onPinToggle,
-}: {
+const PinnedTabRow = React.forwardRef<HTMLDivElement, {
   tab: TabEntry;
   compact: boolean;
   variant: 'standalone' | 'floating';
   showFavicons: boolean;
-  onSelect: (tab: TabEntry) => void;
-  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void;
-  onPinToggle: (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
-}) {
+  onTabSelect: (tab: TabEntry) => void;
+  // onContextMenu remove or compatibility?
+  onPinToggle: (event: React.MouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
+} & React.HTMLAttributes<HTMLDivElement>>(({
+  tab,
+  compact,
+  variant,
+  showFavicons,
+  onTabSelect,
+  onPinToggle,
+  ...props
+}, ref) => {
   const [isDragging, setIsDragging] = useState(false);
   const hostname = useMemo(() => safeHostname(tab.url), [tab.url]);
 
-  const handleContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      onContextMenu?.(tab, event);
-    },
-    [onContextMenu, tab]
-  );
-
   const handlePinToggle = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
+    (event: React.MouseEvent<HTMLButtonElement>) => {
       onPinToggle(event, tab);
     },
     [onPinToggle, tab]
   );
 
   const handleKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        onSelect(tab);
+        onTabSelect(tab);
       }
     },
-    [onSelect, tab]
+    [onTabSelect, tab]
   );
 
   const handleDragStart = useCallback(
-    (e: ReactDragEvent<HTMLDivElement>) => {
+    (e: React.DragEvent<HTMLDivElement>) => {
       console.log('[GlobalPinnedTabs] DragStart from pinned:', tab.title);
       setIsDragging(true);
       setDragData(e, tab, 'pinned');
@@ -89,17 +77,19 @@ function PinnedTabRow({
 
   return (
     <div
+      ref={ref}
       className={`group relative flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-2 transition-all hover:bg-blue-100/50 hover:shadow-sm w-full text-left overflow-x-hidden cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
         variant === 'floating' ? 'mb-1' : 'mb-2'
       } ${isDragging ? 'opacity-50' : ''}`}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onClick={() => onSelect(tab)}
-      onContextMenu={handleContextMenu}
+      onClick={() => onTabSelect(tab)}
+      // onContextMenu handled by Radix via props
       onKeyDown={handleKeyDown}
       tabIndex={0}
       role="button"
+      {...props}
     >
       {/* Pin icon indicator */}
       <div className="flex items-center justify-center">
@@ -147,14 +137,13 @@ function PinnedTabRow({
       </div>
     </div>
   );
-}
+});
 
 export function GlobalPinnedTabs({
   tabs,
   compact,
   showFavicons,
   variant,
-  onTabContextMenu,
 }: GlobalPinnedTabsProps) {
   const { mutate: activateTab } = useActivateTab();
   const { mutate: toggleTabPinned } = useToggleTabPinned();
@@ -169,14 +158,14 @@ export function GlobalPinnedTabs({
   );
 
   const handlePinToggle = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>, tab: TabEntry) => {
+    (event: React.MouseEvent<HTMLButtonElement>, tab: TabEntry) => {
       event.stopPropagation();
       toggleTabPinned({ tabId: tab.id, pinned: !tab.pinned });
     },
     [toggleTabPinned]
   );
 
-  const handleDragOver = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
@@ -188,7 +177,7 @@ export function GlobalPinnedTabs({
   }, []);
 
   const handleDrop = useCallback(
-    (e: ReactDragEvent<HTMLDivElement>) => {
+    (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragOver(false);
@@ -262,16 +251,16 @@ export function GlobalPinnedTabs({
       ) : (
         <div className="space-y-1">
           {tabs.map((tab) => (
-            <PinnedTabRow
-              key={tab.id}
-              tab={tab}
-              compact={compact}
-              variant={variant}
-              showFavicons={showFavicons}
-              onSelect={handleSelectTab}
-              onContextMenu={onTabContextMenu}
-              onPinToggle={handlePinToggle}
-            />
+            <TabContextMenu key={tab.id} tab={tab}>
+              <PinnedTabRow
+                tab={tab}
+                compact={compact}
+                variant={variant}
+                showFavicons={showFavicons}
+                onTabSelect={handleSelectTab}
+                onPinToggle={handlePinToggle}
+              />
+            </TabContextMenu>
           ))}
         </div>
       )}

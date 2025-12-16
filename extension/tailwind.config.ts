@@ -87,9 +87,9 @@ export default {
       // but keeping core layout metrics in px is key.
       colors: {
         surface: {
-          DEFAULT: '#1e293b', // slate-800
-          light: '#334155', // slate-700
-          dark: '#0f172a', // slate-900
+          DEFAULT: 'var(--theme-surface)',
+          light: 'var(--theme-surface)', // Fallback or map to another var if needed
+          dark: 'var(--theme-surface)',  // Fallback
         },
       },
       // Note: minWidth defaults to referencing spacing, so it's covered.

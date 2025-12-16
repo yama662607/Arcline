@@ -1,7 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Star, X } from 'lucide-react';
-import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import {
   useAddToFavorites,
@@ -10,6 +9,7 @@ import {
 } from '@/hooks/use-spaces-query';
 import { ServiceWorkerBridge } from '@/lib/service-worker-bridge';
 import type { TabEntry } from '@/shared/types';
+import { TabContextMenu } from '@/ui/components/context-menu/TabContextMenu';
 import { getDragData, setDragData } from '@/ui/hooks/use-tab-drag-drop';
 
 /**
@@ -26,26 +26,24 @@ function calculateIconSize(count: number): { size: number; cols: number; rows: n
 
 interface FavoritesBarProps {
   pinnedTabs: TabEntry[];
-  onTabContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void;
 }
 
-function FaviconItem({
-  tab,
-  size,
-  onSelect,
-  onRemove,
-  onContextMenu,
-}: {
+const FaviconItem = React.forwardRef<HTMLDivElement, {
   tab: TabEntry;
   size: number;
-  onSelect: (tab: TabEntry) => void;
-  onRemove: (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => void;
-  onContextMenu?: (tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void;
-}) {
+  onTabSelect: (tab: TabEntry) => void;
+  onRemove: (tab: TabEntry, event: React.MouseEvent<HTMLButtonElement>) => void;
+} & React.HTMLAttributes<HTMLDivElement>>(({
+  tab,
+  size,
+  onTabSelect,
+  onRemove,
+  ...props
+}, ref) => {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragStart = useCallback(
-    (e: ReactDragEvent<HTMLDivElement>) => {
+    (e: React.DragEvent<HTMLDivElement>) => {
       console.log('[FavoritesBar] DragStart from favorite:', tab.title);
       setIsDragging(true);
       setDragData(e, tab, 'favorite');
@@ -57,28 +55,21 @@ function FaviconItem({
     setIsDragging(false);
   }, []);
 
-  const handleContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      onContextMenu?.(tab, event);
-    },
-    [onContextMenu, tab]
-  );
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        onSelect(tab);
+        onTabSelect(tab);
       }
     },
-    [onSelect, tab]
+    [onTabSelect, tab]
   );
 
   const iconSize = Math.floor(size * 0.5); // Icon is 50% of container
 
   return (
     <div
+      ref={ref}
       className={`group relative flex flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 transition-all hover:bg-amber-500/20 hover:shadow-sm ${
         isDragging ? 'opacity-50' : ''
       }`}
@@ -86,12 +77,13 @@ function FaviconItem({
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onClick={() => onSelect(tab)}
+      onClick={() => onTabSelect(tab)}
+      // onContextMenu handled by Radix via props
       onKeyDown={handleKeyDown}
-      onContextMenu={handleContextMenu}
       title={`${tab.title}\n${tab.url}`}
       role="button"
       tabIndex={0}
+      {...props}
     >
       {/* Favicon */}
       {tab.favIconUrl ? (
@@ -126,7 +118,7 @@ function FaviconItem({
       </button>
     </div>
   );
-}
+});
 
 function Placeholder({ onClose }: { onClose?: () => void }) {
   return (
@@ -150,7 +142,7 @@ function Placeholder({ onClose }: { onClose?: () => void }) {
   );
 }
 
-export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps) {
+export function FavoritesBar({ pinnedTabs }: FavoritesBarProps) {
   const queryClient = useQueryClient();
   const bridge = useMemo(() => new ServiceWorkerBridge(queryClient), [queryClient]);
   const { mutate: addToFavorites } = useAddToFavorites();
@@ -179,14 +171,14 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
   );
 
   const handleRemoveTab = useCallback(
-    (tab: TabEntry, event: ReactMouseEvent<HTMLButtonElement>) => {
+    (tab: TabEntry, event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
       removeFromFavorites(tab.url);
     },
     [removeFromFavorites]
   );
 
-  const handleDragOver = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
@@ -199,7 +191,7 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
   }, []);
 
   const handleDrop = useCallback(
-    (e: ReactDragEvent<HTMLDivElement>) => {
+    (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragOver(false);
@@ -286,14 +278,14 @@ export function FavoritesBar({ pinnedTabs, onTabContextMenu }: FavoritesBarProps
             }}
           >
             {pinnedTabs.map((tab) => (
-              <FaviconItem
-                key={tab.id}
-                tab={tab}
-                size={iconSize}
-                onSelect={handleSelectTab}
-                onRemove={handleRemoveTab}
-                onContextMenu={onTabContextMenu}
-              />
+              <TabContextMenu key={tab.id} tab={tab}>
+                <FaviconItem
+                  tab={tab}
+                  size={iconSize}
+                  onTabSelect={handleSelectTab}
+                  onRemove={handleRemoveTab}
+                />
+              </TabContextMenu>
             ))}
           </div>
         )}
