@@ -40,6 +40,16 @@ vi.mock('@/ui/components/TabContextMenu', () => ({
   TabContextMenu: () => <div data-testid="context-menu">Context Menu</div>,
 }));
 
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  // Mock other exports used
+  DragOverlay: () => <div data-testid="drag-overlay" />,
+  PointerSensor: class {},
+  useSensor: vi.fn(),
+  useSensors: vi.fn(),
+  closestCenter: vi.fn(),
+}));
+
 // Mock Hooks
 vi.mock('@/hooks/use-spaces-query', () => ({
   useFavorites: vi.fn(),

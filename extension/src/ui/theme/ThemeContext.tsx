@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import type React from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 // Define available theme colors based on Arc's palette
 export const THEME_COLORS = {
@@ -39,7 +40,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     chrome.storage.local.get(STORAGE_KEY, (result) => {
       if (result[STORAGE_KEY]) {
-        setThemeState(result[STORAGE_KEY]);
+        setThemeState(result[STORAGE_KEY] as ThemeSettings);
       }
     });
   }, []);
@@ -69,7 +70,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Persist
     chrome.storage.local.set({ [STORAGE_KEY]: theme });
-
   }, [theme]);
 
   const setTheme = (settings: Partial<ThemeSettings>) => {

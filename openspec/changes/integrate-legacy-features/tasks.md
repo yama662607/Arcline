@@ -8,7 +8,7 @@
 - [x] 2.1 Set up `DndContext` in `SpacesWorkspace`.
 - [x] 2.2 Create `SortableTabRow` wrapper.
 - [x] 2.3 Integrate `SortableContext` into `EnhancedTabList`.
-- [ ] 2.4 Implement reordering logic (mutations) for Pinned/Temporary tabs.gEnd` logic to handle reordering and moving between folders.
+- [ ] 2.4 Implement reordering logic (mutations) for Pinned/Temporary tabs and moving between folders.
 
 ## 3. Navigation & Onboarding
 - [ ] 3.1 Implement `NextTabInSpace` logic in background.

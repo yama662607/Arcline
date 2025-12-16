@@ -15,12 +15,21 @@ vi.mock('@/hooks/use-spaces-query', () => ({
   useActivateTab: vi.fn(),
   useRemoveFromFavorites: vi.fn(),
   useToggleTabPinned: vi.fn(),
+  useCloseTab: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useFavorites: vi.fn(() => ({ data: [] })),
+  useToggleFavorite: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useMoveTabToSpace: vi.fn(() => ({ mutateAsync: vi.fn() })),
 }));
 
 // Mock Drag Drop Helper
 vi.mock('@/ui/hooks/use-tab-drag-drop', () => ({
   getDragData: vi.fn(),
   setDragData: vi.fn(),
+}));
+
+// Mock Store
+vi.mock('@/store', () => ({
+  useSpacesStore: vi.fn((selector) => selector({ spaces: [] })),
 }));
 
 const mockTabs = [

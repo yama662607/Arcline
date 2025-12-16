@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 interface SortableTabRowProps {
   id: number | string;
@@ -10,14 +10,9 @@ interface SortableTabRowProps {
 }
 
 export function SortableTabRow({ id, children, className, style: propStyle }: SortableTabRowProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -29,13 +24,7 @@ export function SortableTabRow({ id, children, className, style: propStyle }: So
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={className}
-    >
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={className}>
       {children}
     </div>
   );

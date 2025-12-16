@@ -1,11 +1,13 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import { Check, ChevronRight } from 'lucide-react';
-import React, { useMemo } from 'react';
+import { ChevronRight } from 'lucide-react';
+import type React from 'react';
+import { useMemo } from 'react';
 
 import {
   useActivateTab,
   useCloseTab,
   useFavorites,
+  useMoveTabToSpace,
   useToggleFavorite,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
@@ -23,37 +25,25 @@ export function TabContextMenu({ children, tab }: TabContextMenuProps) {
   const { mutateAsync: toggleFavorite } = useToggleFavorite();
   const { mutateAsync: activate } = useActivateTab();
   const { mutateAsync: close } = useCloseTab();
+  const { mutateAsync: moveTab } = useMoveTabToSpace();
 
   const spaces = useSpacesStore((state) => state.spaces);
-  const addTabToSpace = useSpacesStore((state) => state.addTabToSpace);
 
   const isFavorite = useMemo(
     () => favorites?.some((fav) => fav.url === tab.url),
     [favorites, tab.url]
   );
 
-  const handleMoveToSpace = async (spaceId: string) => {
-    // This logic relies on the store action.
-    // Ideally we should have a mutation or store action to generic "move tab to space"
-    // which handles closing in current and opening in new.
-    // For now assuming we just add it to the new space.
-    addTabToSpace(spaceId, tab);
-    // Optionally close in current if it's a move? The requirement says "Move".
-    // Since implementing "Move" across spaces might be complex (syncing state),
-    // let's stick to "Add" logic for now or simple close+add if possible.
-    // Spec says: "the tab is moved to that space's temporary list and activated"
+  const handleMoveToSpace = async (spaceId: number) => {
+    await moveTab({ tabId: tab.id, spaceId });
   };
 
   return (
     <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
-        {children}
-      </ContextMenu.Trigger>
+      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
 
       <ContextMenu.Portal>
-        <ContextMenu.Content
-          className="min-w-[220px] rounded-lg border border-white/10 bg-slate-900/95 p-1.5 text-sm text-slate-200 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
-        >
+        <ContextMenu.Content className="min-w-[220px] rounded-lg border border-white/10 bg-slate-900/95 p-1.5 text-sm text-slate-200 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
           <ContextMenu.Item
             className="flex cursor-pointer select-none items-center rounded py-1.5 px-2 outline-none hover:bg-white/10 data-[highlighted]:bg-white/10"
             onSelect={() => activate(tab.id)}
@@ -65,7 +55,7 @@ export function TabContextMenu({ children, tab }: TabContextMenuProps) {
             className="flex cursor-pointer select-none items-center rounded py-1.5 px-2 outline-none hover:bg-white/10 data-[highlighted]:bg-white/10"
             onSelect={() => toggleFavorite(tab)}
           >
-             {isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+            {isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
           </ContextMenu.Item>
 
           <ContextMenu.Item
@@ -82,15 +72,18 @@ export function TabContextMenu({ children, tab }: TabContextMenuProps) {
             </ContextMenu.SubTrigger>
             <ContextMenu.Portal>
               <ContextMenu.SubContent className="min-w-[180px] rounded-lg border border-white/10 bg-slate-900/95 p-1.5 text-sm text-slate-200 shadow-xl backdrop-blur-md animate-in slide-in-from-left-1 duration-100">
-                {spaces.map(space => (
-                   <ContextMenu.Item
-                      key={space.id}
-                      className="flex cursor-pointer select-none items-center rounded py-1.5 px-2 outline-none hover:bg-white/10 data-[highlighted]:bg-white/10"
-                      onSelect={() => handleMoveToSpace(space.id)}
-                   >
-                     <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: space.theme.color }} />
-                     {space.name}
-                   </ContextMenu.Item>
+                {spaces.map((space) => (
+                  <ContextMenu.Item
+                    key={space.id}
+                    className="flex cursor-pointer select-none items-center rounded py-1.5 px-2 outline-none hover:bg-white/10 data-[highlighted]:bg-white/10"
+                    onSelect={() => handleMoveToSpace(space.id)}
+                  >
+                    <span
+                      className="w-3 h-3 rounded-full mr-2"
+                      style={{ backgroundColor: space.color }}
+                    />
+                    {space.name}
+                  </ContextMenu.Item>
                 ))}
               </ContextMenu.SubContent>
             </ContextMenu.Portal>

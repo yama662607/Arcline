@@ -1,24 +1,17 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
-import type { DragEvent as ReactDragEvent } from 'react';
-import { useRef, useState } from 'react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { SortableTabRow } from './SortableTabRow';
-
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useRef } from 'react';
 import {
   useActivateTab,
   useArchiveTab,
   useCloseTab,
-  useMoveTabToSpace,
-  useRemoveFromFavorites,
-  useSpacesSnapshot,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
 import type { TabEntry } from '@/shared/types';
+import { TabContextMenu } from '@/ui/components/context-menu/TabContextMenu';
 import { GlobalPinnedTabs } from '@/ui/components/GlobalPinnedTabs';
 import { TabRow } from '@/ui/components/TabRow';
-import { TabContextMenu } from '@/ui/components/context-menu/TabContextMenu';
-import type { DragData, TabSource } from '@/ui/hooks/use-tab-drag-drop';
-import { getDragData, setDragData } from '@/ui/hooks/use-tab-drag-drop';
+import { SortableTabRow } from './SortableTabRow';
 
 export type FloatingListContext = 'pinned' | 'temporary';
 
@@ -43,16 +36,17 @@ export function EnhancedTabList({
   compact = false,
   floatingContext,
 }: EnhancedTabListProps) {
-  const [draggedTab, setDraggedTab] = useState<TabEntry | null>(null);
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  // const [draggedTab, setDraggedTab] = useState<TabEntry | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
 
-  const { data: spaces = [] } = useSpacesSnapshot();
+  // const { data: spaces = [] } = useSpacesSnapshot();
   const togglePinMutation = useToggleTabPinned();
-  const moveTabMutation = useMoveTabToSpace();
+  // const moveTabMutation = useMoveTabToSpace();
   const closeTabMutation = useCloseTab();
   const activateTabMutation = useActivateTab();
   const archiveTabMutation = useArchiveTab();
-  const { mutate: removeFromFavorites } = useRemoveFromFavorites();
+  // const { mutate: removeFromFavorites } = useRemoveFromFavorites();
 
   // Separate pinned tabs from regular tabs
   const pinnedTabs = tabs.filter((tab) => tab.pinned);
@@ -85,19 +79,6 @@ export function EnhancedTabList({
   };
 
   const isFloatingVariant = variant === 'floating';
-  // Legacy drag logic (optional to keep for external drag??)
-  // For now we assume dnd-kit handles internal sort.
-  // We can keep these empty or refactor.
-  // To avoid unused warnings, we can remove them if not used.
-
-  const handleDragStart = (e: React.DragEvent, tab: TabEntry) => {
-    setDraggedTab(tab);
-    // Legacy support if needed?
-  };
-
-  const handleDragEnd = () => {
-    setDraggedTab(null);
-  };
 
   if (isFloatingVariant) {
     const dropZoneAriaLabel =
@@ -135,13 +116,7 @@ export function EnhancedTabList({
                       onPinToggle={handlePinToggle}
                       onArchive={handleTabArchive}
                       onClose={handleTabClose}
-                      isDragged={draggedTab?.id === tab.id}
-                      // Use legacy handlers if we still want drag data tracking
-                      // (Though dnd-kit should handle reordering, side effects like 'drop to space' need drag data)
-                      // onLegacyDragStart={handleDragStart}
-                      // onLegacyDragEnd={handleDragEnd}
-                      // onLegacyDragOver={handleDragOver}
-                      // onLegacyDrop={handleDrop}
+                      isDragged={false}
                     />
                   </TabContextMenu>
                 </SortableTabRow>
@@ -211,7 +186,10 @@ export function EnhancedTabList({
                     position: 'relative',
                   }}
                 >
-                  <SortableContext items={regularTabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext
+                    items={regularTabs.map((t) => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
                     {virtualizer.getVirtualItems().map((virtualItem) => {
                       const currentTab = regularTabs[virtualItem.index];
                       if (!currentTab) {
@@ -239,7 +217,7 @@ export function EnhancedTabList({
                               onPinToggle={handlePinToggle}
                               onArchive={handleTabArchive}
                               onClose={handleTabClose}
-                              isDragged={draggedTab?.id === currentTab.id}
+                              isDragged={false}
                             />
                           </TabContextMenu>
                         </SortableTabRow>

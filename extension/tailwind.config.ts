@@ -89,7 +89,7 @@ export default {
         surface: {
           DEFAULT: 'var(--theme-surface)',
           light: 'var(--theme-surface)', // Fallback or map to another var if needed
-          dark: 'var(--theme-surface)',  // Fallback
+          dark: 'var(--theme-surface)', // Fallback
         },
       },
       // Note: minWidth defaults to referencing spacing, so it's covered.

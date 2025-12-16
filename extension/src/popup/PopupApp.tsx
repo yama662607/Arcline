@@ -11,7 +11,6 @@ import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
 import { FavoritesBar } from '@/ui/components/FavoritesBar';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceManager } from '@/ui/components/SpaceManager';
-import { TabContextMenu } from '@/ui/components/TabContextMenu';
 
 function PopupAppContent() {
   const [activeTab, setActiveTab] = useState<'spaces' | 'archive' | 'settings'>('spaces');
@@ -41,11 +40,12 @@ function PopupAppContent() {
       groupId: -1,
     }));
   }, [favorites]);
-  const [contextMenu, setContextMenu] = useState<{
-    tab: TabEntry;
-    x: number;
-    y: number;
-  } | null>(null);
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  // const [contextMenu, setContextMenu] = useState<{
+  //   tab: TabEntry;
+  //   x: number;
+  //   y: number;
+  // } | null>(null);
 
   return (
     <div className="w-80 h-96 flex flex-col text-slate-100 bg-surface">
@@ -83,14 +83,7 @@ function PopupAppContent() {
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'spaces' && (
           <div className="space-y-3">
-            <FavoritesBar
-              pinnedTabs={favoriteTabs}
-              onTabContextMenu={(tab, event) => {
-                const x = Math.min(event.clientX, window.innerWidth - 220);
-                const y = Math.min(event.clientY, window.innerHeight - 160);
-                setContextMenu({ tab, x, y });
-              }}
-            />
+            <FavoritesBar pinnedTabs={favoriteTabs} />
             <SpaceManager variant="floating" />
 
             {activeSpace && (
@@ -100,28 +93,12 @@ function PopupAppContent() {
                   title="Pinned"
                   emptyMessage="No pinned tabs"
                   variant="floating"
-                  onTabContextMenu={(tab, event) => {
-                    const rect = (event.target as HTMLElement).getBoundingClientRect();
-                    setContextMenu({
-                      tab,
-                      x: rect.left,
-                      y: rect.top,
-                    });
-                  }}
                 />
                 <EnhancedTabList
                   tabs={activeSpace.temporaryTabs}
                   title="Temporary"
                   emptyMessage="No temporary tabs"
                   variant="floating"
-                  onTabContextMenu={(tab, event) => {
-                    const rect = (event.target as HTMLElement).getBoundingClientRect();
-                    setContextMenu({
-                      tab,
-                      x: rect.left,
-                      y: rect.top,
-                    });
-                  }}
                 />
               </div>
             )}
@@ -158,15 +135,6 @@ function PopupAppContent() {
           Source
         </a>
       </footer>
-
-      {contextMenu && (
-        <TabContextMenu
-          tab={contextMenu.tab}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
     </div>
   );
 }

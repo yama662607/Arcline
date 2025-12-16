@@ -36,7 +36,9 @@ export function safeHostname(url: string): string {
 export function useTabRowHandlers(
   tab: TabEntry,
   onTabSelect: ((tab: TabEntry) => void) | undefined,
-  onContextMenuCustom: ((tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void) | undefined,
+  onContextMenuCustom:
+    | ((tab: TabEntry, event: ReactMouseEvent<HTMLDivElement>) => void)
+    | undefined,
   onLegacyDragStart?: (event: ReactDragEvent<HTMLDivElement>, tab: TabEntry) => void,
   onLegacyDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void,
   onLegacyDrop?: (event: ReactDragEvent<HTMLDivElement>, targetTab: TabEntry) => void,
@@ -80,11 +82,12 @@ export function useTabRowHandlers(
   // Handle legacy context menu if provided and no external handler overrides it
   const handleContextMenuLegacy = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
-        if (onContextMenuCustom) {
-            event.preventDefault();
-            onContextMenuCustom(tab, event);
-        }
-    }, [onContextMenuCustom, tab]
+      if (onContextMenuCustom) {
+        event.preventDefault();
+        onContextMenuCustom(tab, event);
+      }
+    },
+    [onContextMenuCustom, tab]
   );
 
   return {
@@ -97,24 +100,27 @@ export function useTabRowHandlers(
   };
 }
 
-export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow({
-  tab,
-  compact,
-  variant,
-  isDragged,
-  showFavicons,
-  onTabSelect,
-  onContextMenuCustom,
-  onPinToggle,
-  onArchive,
-  onClose,
-  onLegacyDragStart,
-  onLegacyDragOver,
-  onLegacyDrop,
-  onLegacyDragEnd,
-  className,
-  ...props
-}, ref) {
+export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
+  {
+    tab,
+    compact,
+    variant,
+    isDragged,
+    showFavicons,
+    onTabSelect,
+    onContextMenuCustom,
+    onPinToggle,
+    onArchive,
+    onClose,
+    onLegacyDragStart,
+    onLegacyDragOver,
+    onLegacyDrop,
+    onLegacyDragEnd,
+    className,
+    ...props
+  },
+  ref
+) {
   const {
     handleKeyDown,
     handleContextMenuLegacy,
@@ -122,7 +128,15 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow({
     handleDragOver,
     handleDrop,
     handleDragEnd,
-  } = useTabRowHandlers(tab, onTabSelect, onContextMenuCustom, onLegacyDragStart, onLegacyDragOver, onLegacyDrop, onLegacyDragEnd);
+  } = useTabRowHandlers(
+    tab,
+    onTabSelect,
+    onContextMenuCustom,
+    onLegacyDragStart,
+    onLegacyDragOver,
+    onLegacyDrop,
+    onLegacyDragEnd
+  );
 
   const containerClasses = [
     variant === 'floating'
@@ -130,7 +144,7 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow({
       : `group relative flex items-center gap-0 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light border-b border-surface-light/50`,
     tab.active ? 'bg-surface-light' : '',
     isDragged ? 'opacity-50' : '',
-    className // Merge external className if provided
+    className, // Merge external className if provided
   ]
     .filter(Boolean)
     .join(' ');
@@ -154,6 +168,7 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow({
       ref={ref}
       className={containerClasses}
       onContextMenu={props.onContextMenu || handleContextMenuLegacy} // Use prop (Radix) if available, else legacy
+      role="group"
       {...props}
     >
       <div

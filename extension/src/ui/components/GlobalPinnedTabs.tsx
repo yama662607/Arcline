@@ -25,23 +25,18 @@ function safeHostname(url: string): string {
   }
 }
 
-const PinnedTabRow = React.forwardRef<HTMLDivElement, {
-  tab: TabEntry;
-  compact: boolean;
-  variant: 'standalone' | 'floating';
-  showFavicons: boolean;
-  onTabSelect: (tab: TabEntry) => void;
-  // onContextMenu remove or compatibility?
-  onPinToggle: (event: React.MouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
-} & React.HTMLAttributes<HTMLDivElement>>(({
-  tab,
-  compact,
-  variant,
-  showFavicons,
-  onTabSelect,
-  onPinToggle,
-  ...props
-}, ref) => {
+const PinnedTabRow = React.forwardRef<
+  HTMLDivElement,
+  {
+    tab: TabEntry;
+    compact: boolean;
+    variant: 'standalone' | 'floating';
+    showFavicons: boolean;
+    onTabSelect: (tab: TabEntry) => void;
+    // onContextMenu remove or compatibility?
+    onPinToggle: (event: React.MouseEvent<HTMLButtonElement>, tab: TabEntry) => void;
+  } & React.HTMLAttributes<HTMLDivElement>
+>(({ tab, compact, variant, showFavicons, onTabSelect, onPinToggle, ...props }, ref) => {
   const [isDragging, setIsDragging] = useState(false);
   const hostname = useMemo(() => safeHostname(tab.url), [tab.url]);
 
@@ -139,12 +134,7 @@ const PinnedTabRow = React.forwardRef<HTMLDivElement, {
   );
 });
 
-export function GlobalPinnedTabs({
-  tabs,
-  compact,
-  showFavicons,
-  variant,
-}: GlobalPinnedTabsProps) {
+export function GlobalPinnedTabs({ tabs, compact, showFavicons, variant }: GlobalPinnedTabsProps) {
   const { mutate: activateTab } = useActivateTab();
   const { mutate: toggleTabPinned } = useToggleTabPinned();
   const { mutate: removeFromFavorites } = useRemoveFromFavorites();

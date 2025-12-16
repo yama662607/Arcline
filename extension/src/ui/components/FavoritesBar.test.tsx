@@ -6,18 +6,19 @@ import { FavoritesBar } from './FavoritesBar';
 
 // Mock hooks
 vi.mock('@/hooks/use-spaces-query', () => ({
-  useActivateTab: () => ({
-    mutate: vi.fn(),
-  }),
-  useAddToFavorites: () => ({
-    mutate: vi.fn(),
-  }),
-  useRemoveFromFavorites: () => ({
-    mutate: vi.fn(),
-  }),
-  useToggleTabPinned: () => ({
-    mutate: vi.fn(),
-  }),
+  useActivateTab: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn() })),
+  useAddToFavorites: vi.fn(() => ({ mutate: vi.fn() })),
+  useRemoveFromFavorites: vi.fn(() => ({ mutate: vi.fn() })),
+  useToggleTabPinned: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn() })),
+  useCloseTab: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useFavorites: vi.fn(() => ({ data: [] })),
+  useToggleFavorite: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useMoveTabToSpace: vi.fn(() => ({ mutateAsync: vi.fn() })),
+}));
+
+// Mock Store
+vi.mock('@/store', () => ({
+  useSpacesStore: vi.fn((selector) => selector({ spaces: [] })),
 }));
 
 const createMockTab = (id: number, url: string, title: string): TabEntry => ({
@@ -79,8 +80,7 @@ describe('FavoritesBar', () => {
   });
 
   it('should handle remove button click', () => {
-    const onContextMenu = vi.fn();
-    renderWithQueryClient(<FavoritesBar pinnedTabs={mockTabs} onTabContextMenu={onContextMenu} />);
+    renderWithQueryClient(<FavoritesBar pinnedTabs={mockTabs} />);
 
     // Hover to show remove button
     const favicons = screen.getAllByRole('button');
@@ -89,28 +89,12 @@ describe('FavoritesBar', () => {
     fireEvent.mouseEnter(firstFavicon);
 
     // Find and click remove button (using Japanese title)
+    // Note: In real interaction, hovering shows the button.
+    // In JSDOM, we might need to rely on the fact it's in the DOM but opacity 0.
     const removeButtons = screen.getAllByTitle('お気に入りから削除');
     const firstRemoveButton = removeButtons[0];
     if (!firstRemoveButton) return;
     fireEvent.click(firstRemoveButton);
-
-    // Should not trigger context menu
-    expect(onContextMenu).not.toHaveBeenCalled();
-  });
-
-  it('should handle context menu', () => {
-    const onContextMenu = vi.fn();
-    renderWithQueryClient(<FavoritesBar pinnedTabs={mockTabs} onTabContextMenu={onContextMenu} />);
-
-    const favicons = screen.getAllByRole('button');
-    const firstFavicon = favicons[0];
-    if (!firstFavicon) return;
-    fireEvent.contextMenu(firstFavicon, { clientX: 100, clientY: 100 });
-
-    expect(onContextMenu).toHaveBeenCalledWith(
-      mockTabs[0],
-      expect.objectContaining({ clientX: 100, clientY: 100 })
-    );
   });
 
   it('should handle drag and drop', async () => {

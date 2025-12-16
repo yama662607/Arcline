@@ -28,18 +28,15 @@ interface FavoritesBarProps {
   pinnedTabs: TabEntry[];
 }
 
-const FaviconItem = React.forwardRef<HTMLDivElement, {
-  tab: TabEntry;
-  size: number;
-  onTabSelect: (tab: TabEntry) => void;
-  onRemove: (tab: TabEntry, event: React.MouseEvent<HTMLButtonElement>) => void;
-} & React.HTMLAttributes<HTMLDivElement>>(({
-  tab,
-  size,
-  onTabSelect,
-  onRemove,
-  ...props
-}, ref) => {
+const FaviconItem = React.forwardRef<
+  HTMLDivElement,
+  {
+    tab: TabEntry;
+    size: number;
+    onTabSelect: (tab: TabEntry) => void;
+    onRemove: (tab: TabEntry, event: React.MouseEvent<HTMLButtonElement>) => void;
+  } & React.HTMLAttributes<HTMLDivElement>
+>(({ tab, size, onTabSelect, onRemove, ...props }, ref) => {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragStart = useCallback(
