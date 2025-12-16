@@ -139,10 +139,31 @@ function PopupAppContent() {
   );
 }
 
+import { Onboarding } from '@/ui/components/Onboarding';
+import { useOnboardingStatus } from '@/ui/hooks/use-onboarding-status';
+
 export default function PopupApp() {
   return (
     <QueryClientProvider client={queryClient}>
-      <PopupAppContent />
+      <PopupAppWrapper />
     </QueryClientProvider>
   );
+}
+
+function PopupAppWrapper() {
+  const { hasSeenOnboarding, setHasSeenOnboarding, isLoading } = useOnboardingStatus();
+
+  if (isLoading) {
+    return <div className="h-96 w-80 bg-surface" />;
+  }
+
+  if (!hasSeenOnboarding) {
+    return (
+      <div className="h-96 w-80 overflow-hidden bg-surface">
+        <Onboarding onFinish={() => setHasSeenOnboarding(true)} />
+      </div>
+    );
+  }
+
+  return <PopupAppContent />;
 }

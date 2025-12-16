@@ -63,12 +63,29 @@ function AppContent() {
   return <SidePanelView initialUiMode={uiMode} />;
 }
 
+import { Onboarding } from '@/ui/components/Onboarding';
+import { useOnboardingStatus } from '@/ui/hooks/use-onboarding-status';
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AppContent />
+        <AppWrapper />
       </ThemeProvider>
     </QueryClientProvider>
   );
+}
+
+function AppWrapper() {
+  const { hasSeenOnboarding, setHasSeenOnboarding, isLoading } = useOnboardingStatus();
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
+  if (!hasSeenOnboarding) {
+    return <Onboarding onFinish={() => setHasSeenOnboarding(true)} />;
+  }
+
+  return <AppContent />;
 }
