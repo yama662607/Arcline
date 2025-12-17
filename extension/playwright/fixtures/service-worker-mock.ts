@@ -53,6 +53,8 @@ export async function addServiceWorkerBridgeMock(page: Page) {
       compactMode: false,
       enableAnimations: true,
       theme: 'auto',
+      gesturesEnabled: true,
+      gestureSensitivity: 100,
     };
     const mockSpaces: MockSpace[] = [
       {
@@ -145,13 +147,25 @@ export async function addServiceWorkerBridgeMock(page: Page) {
           // Notify message listeners
           messageListeners.forEach((listener) => {
             try {
-              listener(response, {}, () => {});
+              listener(response, {}, () => { });
             } catch (_e) {
               // Silently handle listener errors
             }
           });
         }, 10);
 
+        return;
+        return;
+      }
+
+      // Handle legacy commands
+      if (typeof payload.command === 'string') {
+        setTimeout(() => {
+          if (payload.command === 'requestUiMode') {
+            if (callback) callback({ mode: mockSettings.uiMode });
+          }
+          // Add other legacy commands if needed
+        }, 10);
         return;
       }
 
@@ -199,9 +213,22 @@ export async function addServiceWorkerBridgeMock(page: Page) {
         case 'activateTab':
         case 'archiveTab':
           return handleTabOperations(response);
+        case 'navigateSpace':
+          return handleNavigateSpace(response, message);
         default:
           return handleUnknownMethod(response, method);
       }
+    }
+
+    function handleNavigateSpace(
+      response: { id?: string; data?: unknown },
+      message: Record<string, unknown>
+    ) {
+      if ((window as any).onNavigateSpace) {
+        (window as any).onNavigateSpace(message.params);
+      }
+      response.data = true;
+      return response;
     }
 
     function handleGetSpacesSnapshot(

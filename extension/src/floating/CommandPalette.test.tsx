@@ -9,7 +9,7 @@ class ResizeObserverMock {
 global.ResizeObserver = ResizeObserverMock;
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 import { CommandPalette } from './CommandPalette';
 
@@ -94,5 +94,37 @@ describe('CommandPalette', () => {
 
     expect(screen.getByText('Test Tab')).toBeInTheDocument();
     expect(screen.getByText('Test Bookmark')).toBeInTheDocument();
+  });
+
+  it('calls activateTab when clicking a tab result', () => {
+    (useUniversalSearch as ReturnType<typeof vi.fn>).mockReturnValue({
+      results: [
+        { id: 101, title: 'Tab 101', type: 'tab', url: 'http://tab.com' },
+      ],
+      isLoading: false,
+    });
+    renderComponent(true);
+
+    const resultItem = screen.getByText('Tab 101');
+    fireEvent.click(resultItem);
+
+    expect(mockBridge.activateTab).toHaveBeenCalledWith(101);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('calls openUrlInTab when clicking a bookmark result', () => {
+    (useUniversalSearch as ReturnType<typeof vi.fn>).mockReturnValue({
+      results: [
+        { id: 'b1', title: 'Start Page', type: 'bookmark', url: 'http://start.com' },
+      ],
+      isLoading: false,
+    });
+    renderComponent(true);
+
+    const resultItem = screen.getByText('Start Page');
+    fireEvent.click(resultItem);
+
+    expect(mockBridge.openUrlInTab).toHaveBeenCalledWith('http://start.com');
+    expect(onClose).toHaveBeenCalled();
   });
 });
