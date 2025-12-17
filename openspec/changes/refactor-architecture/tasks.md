@@ -18,21 +18,21 @@
 
 ---
 
-## Phase 2: Bridge & Hooks 統合（残タスク）
+## Phase 2: Bridge & Hooks 統合（完了）
 
 ### 3. Bridge & hooks
 
-- [ ] 3.1 `ServiceWorkerBridge` と background handlers の payload/response shape を統一
-- [ ] 3.2 `use-spaces-query` hooks を Bridge-backed operations に統一
-- [ ] 3.3 `useSpacesSync` / `requestSpacesSnapshot` を整理・簡素化
+- [x] 3.1 `ServiceWorkerBridge` と background handlers の payload/response shape を統一（実装済み）
+- [x] 3.2 `use-spaces-query` hooks を Bridge-backed operations に統一（実装済み）
+- [x] 3.3 `useSpacesSync` は `useSpacesSnapshot` を使用して整理済み
 
 ### 4. UI integration
 
-- [ ] 4.1 `SpaceManager` の改善
+- [x] 4.1 `SpaceManager` の改善
   - エラー/ローディング時もヘッダー + "+ New" ボタンを常に表示
   - loading/error states をインラインで表示
   - `useSpacesSnapshot` を single source of truth として使用
-- [ ] 4.2 E2E tests を新しい動作に合わせて調整
+- [x] 4.2 E2E tests が新しい動作で通過することを確認 (Space Management 2 passed)
 
 ---
 
