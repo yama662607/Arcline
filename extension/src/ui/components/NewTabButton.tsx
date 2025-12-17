@@ -26,14 +26,14 @@ export function NewTabButton({ variant = 'standalone' }: NewTabButtonProps) {
     <button
       type="button"
       onClick={handleClick}
-      className={`flex w-full items-center justify-center gap-2 rounded-lg transition-all duration-200 ${
+      className={`flex w-full items-center justify-center gap-2 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/10 ${
         isFloating
-          ? 'py-2 text-sm bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white'
-          : 'py-2.5 text-base bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white'
+          ? 'py-2 text-sm bg-black/20 hover:bg-black/30 text-white/70 hover:text-white'
+          : 'py-2.5 text-base bg-black/20 hover:bg-black/30 text-white/80 hover:text-white'
       }`}
     >
       <Plus className={isFloating ? 'h-4 w-4' : 'h-5 w-5'} />
-      <span>New Tab</span>
+      <span className="font-medium">New Tab</span>
     </button>
   );
 }

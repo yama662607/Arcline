@@ -172,7 +172,8 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
       <div
         className="flex flex-col h-full min-h-0 transition-all duration-500"
         style={{
-          background: spaceTheme.gradient,
+          // Floating UI applies gradient at FloatingApp level, sidepanel applies here
+          background: variant === 'floating' ? 'transparent' : spaceTheme.gradient,
         }}
       >
         {/* Search Bar - Always visible at top */}
@@ -189,17 +190,17 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="h-full overflow-y-auto px-3">
             {/* Tab Navigation */}
-            <div className="sticky top-0 z-10 bg-black/20 backdrop-blur-sm rounded-lg mb-3">
-              <div className="flex">
+            <div className="sticky top-0 z-10 bg-black/30 backdrop-blur-md rounded-xl mb-3 border border-white/5 p-1">
+              <div className="flex gap-1">
                 {(['spaces', 'archive', 'settings'] as const).map((tab) => (
                   <button
                     type="button"
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+                    className={`flex-1 px-3 py-1.5 text-sm font-medium transition-all rounded-lg ${
                       activeTab === tab
-                        ? 'text-white bg-white/20'
-                        : 'text-white/60 hover:text-white/80'
+                        ? 'text-white bg-white/20 shadow-sm'
+                        : 'text-white/50 hover:text-white/80 hover:bg-white/5'
                     }`}
                   >
                     {tab.charAt(0).toUpperCase() + tab.slice(1)}

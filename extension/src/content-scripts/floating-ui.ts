@@ -216,11 +216,12 @@ function setupTrackpadGestures() {
       return;
     }
 
+    // Prevent browser's back/forward navigation gesture for ALL horizontal scrolls
+    // This must be called before processing to block browser gestures during accumulation
+    e.preventDefault();
+
     const direction = swipeDetector.process(e);
     if (direction) {
-      // Prevent browser's back/forward navigation gesture
-      e.preventDefault();
-
       if (typeof crypto.randomUUID !== 'function') return;
 
       chrome.runtime.sendMessage(

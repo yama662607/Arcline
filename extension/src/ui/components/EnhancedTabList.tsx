@@ -106,24 +106,24 @@ export function EnhancedTabList({
 
     return (
       <div
-        className={`space-y-2 rounded-lg transition-colors`}
+        className="rounded-xl bg-black/20 backdrop-blur-sm border border-white/5 overflow-hidden transition-colors"
         role="region"
         aria-label={dropZoneAriaLabel}
       >
-        <div className="px-3 py-2">
-          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+        <div className="px-3 py-2 bg-black/10">
+          <h3 className="text-xs font-medium text-white/70 uppercase tracking-wider drop-shadow-sm">
             {title} ({tabs.length})
           </h3>
         </div>
 
         {tabs.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-slate-500 border-2 border-dashed border-slate-600 rounded-lg">
+          <div className="px-3 py-4 text-center text-xs text-white/40 border-t border-white/5">
             {emptyMessage}
           </div>
         ) : (
           <div
             ref={parentRef}
-            className="space-y-1 overflow-x-hidden max-h-[50vh] overflow-y-auto"
+            className="space-y-0.5 overflow-x-hidden max-h-[50vh] overflow-y-auto p-1"
             onScroll={handleScroll}
           >
             <SortableContext items={tabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>

@@ -143,9 +143,9 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
 
   const containerClasses = [
     variant === 'floating'
-      ? `group relative flex items-center gap-0 px-4 ${compact ? 'py-1.5' : 'py-2'} rounded hover:bg-surface-light`
+      ? `group relative flex items-center gap-0 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded-lg hover:bg-white/10 transition-colors`
       : `group relative flex items-center gap-0 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light border-b border-surface-light/50`,
-    tab.active ? 'bg-surface-light' : '',
+    tab.active ? (variant === 'floating' ? 'bg-white/15' : 'bg-surface-light') : '',
     isDragged ? 'opacity-50' : '',
     className, // Merge external className if provided
   ]
@@ -201,11 +201,14 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
         </div>
 
         <div className="flex-1 min-w-0 overflow-hidden">
-          <div className="text-sm text-slate-200 truncate" title={tab.title}>
+          <div
+            className={`text-sm truncate ${variant === 'floating' ? 'text-white font-medium drop-shadow-sm' : 'text-slate-200'}`}
+            title={tab.title}
+          >
             {tab.title}
           </div>
           <div
-            className="text-xs text-slate-500 truncate"
+            className={`text-xs truncate ${variant === 'floating' ? 'text-white/50' : 'text-slate-500'}`}
             title={tab.url ? safeHostname(tab.url) : ''}
           >
             {tab.url ? safeHostname(tab.url) : ''}

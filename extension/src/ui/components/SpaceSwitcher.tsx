@@ -60,7 +60,9 @@ export function SpaceSwitcher({ variant = 'standalone' }: SpaceSwitcherProps) {
 
   return (
     <div className="relative">
-      <div className={`flex items-center justify-center gap-2 ${isFloating ? 'py-2' : 'py-3'}`}>
+      <div
+        className={`flex items-center justify-center gap-2 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5 ${isFloating ? 'py-2 px-3' : 'py-3 px-4'}`}
+      >
         {/* Space dots */}
         <div className="flex items-center gap-1.5">
           {spaces.map((space) => {
