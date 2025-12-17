@@ -69,36 +69,15 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
     'cyan',
   ];
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4" data-testid="loading-spinner">
-        <div className="animate-pulse">
-          <div className="h-4 bg-surface-light rounded w-1/4 mb-4" />
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 bg-surface-light rounded" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-red-400 text-sm">
-        スペースの読み込みに失敗しました: {(error as Error).message}
-      </div>
-    );
-  }
-
   if (variant === 'floating') {
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between px-3 py-2">
           <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             Spaces
-            <span className="ml-1 text-[10px] font-normal text-slate-500">({spaces.length})</span>
+            {!isLoading && !error && (
+              <span className="ml-1 text-[10px] font-normal text-slate-500">({spaces.length})</span>
+            )}
           </h3>
           <button
             type="button"
@@ -111,45 +90,63 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
           </button>
         </div>
 
-        <div className="space-y-1">
-          {spaces.map((space) => (
-            <SpaceContextMenu key={space.id} space={space}>
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => handleSwitchSpace(space.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    handleSwitchSpace(space.id);
-                  }
-                }}
-                className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-              >
+        {isLoading && (
+          <div className="px-3 py-2" data-testid="loading-spinner">
+            <div className="animate-pulse space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-8 bg-surface-light rounded" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="px-3 py-2 text-red-400 text-xs">
+            読み込みエラー: {(error as Error).message}
+          </div>
+        )}
+
+        {!isLoading && !error && (
+          <div className="space-y-1">
+            {spaces.map((space) => (
+              <SpaceContextMenu key={space.id} space={space}>
                 <div
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: space.color }}
-                  aria-hidden="true"
-                />
-                <span className="text-sm text-slate-200 truncate">{space.name}</span>
-                {spaces.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveSpace(space.id);
-                    }}
-                    className="ml-auto text-xs text-slate-500 hover:text-red-400 transition-colors"
-                    title="Remove space"
-                    aria-label="Remove space"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            </SpaceContextMenu>
-          ))}
-        </div>
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleSwitchSpace(space.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleSwitchSpace(space.id);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                >
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: space.color }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-sm text-slate-200 truncate">{space.name}</span>
+                  {spaces.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveSpace(space.id);
+                      }}
+                      className="ml-auto text-xs text-slate-500 hover:text-red-400 transition-colors"
+                      title="Remove space"
+                      aria-label="Remove space"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </SpaceContextMenu>
+            ))}
+          </div>
+        )}
 
         {isCreatingSpace && (
           <div className="px-3 py-2 border-t border-surface-light">
@@ -203,12 +200,15 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
     );
   }
 
+  // Standalone variant
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-medium text-white">
           Spaces
-          <span className="ml-2 text-sm font-normal text-slate-400">({spaces.length})</span>
+          {!isLoading && !error && (
+            <span className="ml-2 text-sm font-normal text-slate-400">({spaces.length})</span>
+          )}
         </h2>
         <button
           type="button"
@@ -219,68 +219,86 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
         </button>
       </div>
 
-      <div className="grid gap-3">
-        {spaces.map((space) => (
-          <SpaceContextMenu key={space.id} space={space}>
-            <div
-              role="button"
-              tabIndex={0}
-              className="p-4 rounded-lg border border-surface-light bg-surface/50 hover:bg-surface transition-all cursor-pointer group w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-              onClick={() => handleSwitchSpace(space.id)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  handleSwitchSpace(space.id);
-                }
-              }}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-4 h-4 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: space.color }}
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <h3 className="font-medium text-white">{space.name}</h3>
-                    <p className="text-sm text-slate-400">
-                      {space.pinnedTabs?.length ?? 0} pinned, {space.temporaryTabs?.length ?? 0}{' '}
-                      temporary
-                    </p>
-                  </div>
-                </div>
+      {isLoading && (
+        <div data-testid="loading-spinner">
+          <div className="animate-pulse space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-surface-light rounded-lg" />
+            ))}
+          </div>
+        </div>
+      )}
 
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSwitchSpace(space.id);
-                    }}
-                    className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Switch
-                  </button>
-                  {spaces.length > 1 && (
+      {error && (
+        <div className="p-4 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-sm">
+          スペースの読み込みに失敗しました: {(error as Error).message}
+        </div>
+      )}
+
+      {!isLoading && !error && (
+        <div className="grid gap-3">
+          {spaces.map((space) => (
+            <SpaceContextMenu key={space.id} space={space}>
+              <div
+                role="button"
+                tabIndex={0}
+                className="p-4 rounded-lg border border-surface-light bg-surface/50 hover:bg-surface transition-all cursor-pointer group w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                onClick={() => handleSwitchSpace(space.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleSwitchSpace(space.id);
+                  }
+                }}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: space.color }}
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <h3 className="font-medium text-white">{space.name}</h3>
+                      <p className="text-sm text-slate-400">
+                        {space.pinnedTabs?.length ?? 0} pinned, {space.temporaryTabs?.length ?? 0}{' '}
+                        temporary
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRemoveSpace(space.id);
+                        handleSwitchSpace(space.id);
                       }}
-                      className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                      title="Remove space"
-                      aria-label="Remove space"
+                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
-                      Remove
+                      Switch
                     </button>
-                  )}
+                    {spaces.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveSpace(space.id);
+                        }}
+                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                        title="Remove space"
+                        aria-label="Remove space"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </SpaceContextMenu>
-        ))}
-      </div>
+            </SpaceContextMenu>
+          ))}
+        </div>
+      )}
 
       {isCreatingSpace && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
