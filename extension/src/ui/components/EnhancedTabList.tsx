@@ -1,12 +1,14 @@
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
+
 import {
   useActivateTab,
   useArchiveTab,
   useCloseTab,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
+import { useUiStore } from '@/store';
 import type { TabEntry } from '@/shared/types';
 import { TabContextMenu } from '@/ui/components/context-menu/TabContextMenu';
 import { GlobalPinnedTabs } from '@/ui/components/GlobalPinnedTabs';
@@ -38,9 +40,25 @@ export function EnhancedTabList({
   floatingContext,
   onLegacyDragStart,
 }: EnhancedTabListProps) {
-  /* eslint-disable @typescript-eslint/no-unused-vars */
-  // const [draggedTab, setDraggedTab] = useState<TabEntry | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+  const hasRestoredScroll = useRef(false);
+
+  const scrollKey = floatingContext === 'pinned' ? 'pinnedList' : 'temporaryList';
+  const setScrollPosition = useUiStore((state) => state.setScrollPosition);
+  const savedScrollPosition = useUiStore((state) => state.scrollPositions[scrollKey]);
+
+  useEffect(() => {
+    if (parentRef.current && !hasRestoredScroll.current && savedScrollPosition > 0) {
+      parentRef.current.scrollTop = savedScrollPosition;
+      hasRestoredScroll.current = true;
+    }
+  }, [savedScrollPosition]);
+
+  const handleScroll = () => {
+    if (parentRef.current) {
+      setScrollPosition(scrollKey, parentRef.current.scrollTop);
+    }
+  };
 
   // const { data: spaces = [] } = useSpacesSnapshot();
   const togglePinMutation = useToggleTabPinned();
@@ -103,7 +121,11 @@ export function EnhancedTabList({
             {emptyMessage}
           </div>
         ) : (
-          <div className="space-y-1 overflow-x-hidden">
+          <div
+            ref={parentRef}
+            className="space-y-1 overflow-x-hidden max-h-[50vh] overflow-y-auto"
+            onScroll={handleScroll}
+          >
             <SortableContext items={tabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>
               {tabs.map((tab) => (
                 <SortableTabRow key={tab.id} id={tab.id}>

@@ -4,8 +4,12 @@ import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
 import { useSettings, useUpdateSettings } from '@/hooks/use-spaces-query';
+import type { ImportedBookmark, ImportResult } from '@/lib/bookmark-import';
+import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
 import { settingsFormSchema } from '@/shared/settings';
 import type { Settings } from '@/shared/types';
+import { BookmarkImport } from './BookmarkImport';
+import { BookmarkImportPreview } from './BookmarkImportPreview';
 
 type SettingsFormData = z.input<typeof settingsFormSchema>;
 
@@ -14,9 +18,11 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'archive' | 'appearance' | 'gestures'>(
-    'general'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'general' | 'archive' | 'appearance' | 'gestures' | 'import'
+  >('general');
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const { data: settings, isLoading, error } = useSettings();
   const updateSettingsMutation = useUpdateSettings();
 
@@ -42,6 +48,46 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
   const handleReset = () => {
     reset(settings);
+  };
+
+  const bridge = useServiceWorkerBridge();
+
+  const handleImportConfirm = async (selectedBookmarks: ImportedBookmark[]) => {
+    if (!bridge) return;
+
+    try {
+      let importedCount = 0;
+
+      const importBookmark = async (bookmark: ImportedBookmark, spaceName: string) => {
+        if (bookmark.isFolder && bookmark.children) {
+          for (const child of bookmark.children) {
+            await importBookmark(child, spaceName);
+          }
+        } else if (bookmark.url) {
+          await bridge.createPinnedTab(spaceName, bookmark.title, bookmark.url);
+          importedCount++;
+        }
+      };
+
+      const defaultSpaceName = settings?.defaultSpaceName || 'Home';
+
+      for (const bookmark of selectedBookmarks) {
+        if (bookmark.isFolder && bookmark.children) {
+          const spaceName = bookmark.title || defaultSpaceName;
+          for (const child of bookmark.children) {
+            await importBookmark(child, spaceName);
+          }
+        } else if (bookmark.url) {
+          await importBookmark(bookmark, defaultSpaceName);
+        }
+      }
+
+      setImportResult(null);
+      setImportSuccess(`Successfully imported ${importedCount} bookmarks!`);
+    } catch (error) {
+      console.error('Failed to import bookmarks:', error);
+      setImportSuccess(null);
+    }
   };
 
   if (isLoading) {
@@ -217,7 +263,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
       <div className="border border-surface-light rounded-lg">
         <div className="flex border-b border-surface-light">
-          {(['general', 'archive', 'appearance', 'gestures'] as const).map((tab) => (
+          {(['general', 'archive', 'appearance', 'gestures', 'import'] as const).map((tab) => (
             <button
               type="button"
               key={tab}
@@ -427,6 +473,30 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
             </>
           )}
         </form>
+
+        {activeTab === 'import' && (
+          <div className="p-6">
+            {importSuccess && (
+              <div className="mb-4 rounded-lg bg-green-500/10 border border-green-500/20 p-3 text-sm text-green-400">
+                {importSuccess}
+              </div>
+            )}
+            {importResult ? (
+              <BookmarkImportPreview
+                result={importResult}
+                onConfirm={handleImportConfirm}
+                onCancel={() => setImportResult(null)}
+              />
+            ) : (
+              <BookmarkImport
+                onImport={(result) => {
+                  setImportResult(result);
+                  setImportSuccess(null);
+                }}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       <div className="text-xs text-slate-500">
