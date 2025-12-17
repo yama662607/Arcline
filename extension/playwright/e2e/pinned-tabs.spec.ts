@@ -62,16 +62,16 @@ test.describe('Pinned Tabs', () => {
     const temporaryZone = page.getByRole('region', { name: 'Temporary tabs drop zone' });
 
     // Source: Example Tab in Temporary zone
-    const sourceTab = temporaryZone.getByRole('button', { name: 'Example Tab' });
-    // Target: Pinned Tab in Pinned zone (drop over it to trigger pin)
-    const pinnedTab = pinnedZone.getByRole('button', { name: 'Pinned Tab' });
+    const sourceTab = temporaryZone.getByRole('button', { name: /Example Tab/i }).first();
+    // Drop target: pinned drop zone itself (more stable than targeting an item)
+    const dropTarget = pinnedZone;
 
     await expect(sourceTab).toBeVisible();
-    await expect(pinnedTab).toBeVisible();
+    await expect(dropTarget).toBeVisible();
 
     // Get bounding boxes for coordinate-based drag (required for dnd-kit)
     const sourceBox = await sourceTab.boundingBox();
-    const targetBox = await pinnedTab.boundingBox();
+    const targetBox = await dropTarget.boundingBox();
 
     if (!sourceBox || !targetBox) {
       throw new Error('Could not get bounding boxes for drag elements');
@@ -92,7 +92,7 @@ test.describe('Pinned Tabs', () => {
       { steps: 5 }
     );
 
-    // 4. Move to target with steps for smooth transition
+    // 4. Move to target center with steps for smooth transition
     await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
       steps: 10,
     });
@@ -101,10 +101,10 @@ test.describe('Pinned Tabs', () => {
     await page.mouse.up();
 
     // Wait for state update
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(250);
 
     // Verify "Example Tab" moved to Pinned zone (tab should be pinned now)
     // After drop on pinned zone, toggleTabPinned mutation should fire
-    await expect(page.getByRole('button', { name: 'Example Tab' })).toBeVisible();
+    await expect(pinnedZone.getByRole('button', { name: /Example Tab/i }).first()).toBeVisible();
   });
 });

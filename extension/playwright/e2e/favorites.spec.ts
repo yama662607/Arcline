@@ -30,7 +30,7 @@ test.describe('Favorites Management', () => {
     await expect(page.getByRole('button', { name: 'Favorite Site' })).toBeVisible();
 
     // Find a tab to drag (Example Tab) in Temporary list
-    const sourceTab = page.getByRole('button', { name: 'Example Tab' }).first();
+    const sourceTab = page.getByRole('button', { name: /Example Tab/i }).first();
     await expect(sourceTab).toBeVisible();
 
     // Get bounding boxes for coordinate-based drag (required for dnd-kit)
@@ -67,7 +67,7 @@ test.describe('Favorites Management', () => {
     await page.waitForTimeout(100);
 
     // Verify tab is still visible (addToFavorites mutation should have fired)
-    await expect(page.getByRole('button', { name: 'Example Tab' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Example Tab/i }).first()).toBeVisible();
   });
 
   test('should remove a favorite', async ({ page }) => {

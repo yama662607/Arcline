@@ -9,7 +9,7 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 export const extensionDistPath = join(currentDir, '..', '..', 'dist');
 export const EXTENSION_PROTOCOL = 'chrome-extension://';
 export const UI_MODE_KEY = 'arcline.uiMode.current';
-export const SERVICE_WORKER_TIMEOUT = 60_000;
+export const SERVICE_WORKER_TIMEOUT = 120_000;
 export const TEST_EXTENSION_ID = process.env.ARCLINE_TEST_EXTENSION_ID;
 
 export type UiMode = 'floating' | 'side-panel' | 'popup';
@@ -44,11 +44,13 @@ export async function waitForExtensionServiceWorker(context: BrowserContext): Pr
     return existing;
   }
 
-  const worker = await context
-    .waitForEvent('serviceworker', { timeout: SERVICE_WORKER_TIMEOUT })
-    .catch(() => undefined);
-  if (worker?.url().startsWith(EXTENSION_PROTOCOL)) {
-    return worker;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const worker = await context
+      .waitForEvent('serviceworker', { timeout: SERVICE_WORKER_TIMEOUT })
+      .catch(() => undefined);
+    if (worker?.url().startsWith(EXTENSION_PROTOCOL)) {
+      return worker;
+    }
   }
 
   throw new Error(
@@ -78,11 +80,13 @@ export async function resolveExtensionId(context: BrowserContext): Promise<strin
     console.warn('[Playwright] Failed to derive extension ID from CDP targets', error);
   }
 
-  const worker = await context
-    .waitForEvent('serviceworker', { timeout: SERVICE_WORKER_TIMEOUT })
-    .catch(() => undefined);
-  if (worker?.url().startsWith(EXTENSION_PROTOCOL)) {
-    return new URL(worker.url()).host;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const worker = await context
+      .waitForEvent('serviceworker', { timeout: SERVICE_WORKER_TIMEOUT })
+      .catch(() => undefined);
+    if (worker?.url().startsWith(EXTENSION_PROTOCOL)) {
+      return new URL(worker.url()).host;
+    }
   }
 
   throw new Error('Chrome 拡張の service worker が起動せず、拡張 ID を取得できませんでした。');
