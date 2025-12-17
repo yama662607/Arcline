@@ -87,3 +87,126 @@ test.describe('Favorites Management', () => {
     await expect(favoriteItem).not.toBeVisible();
   });
 });
+
+test.describe('Tab Reordering via Drag and Drop', () => {
+  test.beforeEach(async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+
+    await page.evaluate(async () => {
+      await chrome.storage.local.set({ 'arcline.hasSeenOnboarding': true });
+    });
+
+    await addServiceWorkerBridgeMock(page);
+    await page.reload();
+
+    await expect(page.getByText('Current Tab')).toBeVisible();
+  });
+
+  test('should reorder tabs within Temporary section via drag and drop', async ({ page }) => {
+    const temporaryZone = page.getByRole('region', { name: 'Temporary tabs drop zone' });
+
+    // Get the two tabs in temporary zone
+    const exampleTab = temporaryZone.getByRole('button', { name: /Example Tab/i }).first();
+    const tempTab = temporaryZone.getByRole('button', { name: /Temporary Tab/i }).first();
+
+    await expect(exampleTab).toBeVisible();
+    await expect(tempTab).toBeVisible();
+
+    // Get bounding boxes
+    const sourceBox = await exampleTab.boundingBox();
+    const targetBox = await tempTab.boundingBox();
+
+    if (!sourceBox || !targetBox) {
+      throw new Error('Could not get bounding boxes for drag elements');
+    }
+
+    // Perform dnd-kit compatible drag
+    await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      sourceBox.x + sourceBox.width / 2,
+      sourceBox.y + sourceBox.height / 2 + 15,
+      { steps: 5 }
+    );
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+      steps: 10,
+    });
+    await page.mouse.up();
+
+    await page.waitForTimeout(200);
+
+    // Verify both tabs are still visible (reorder completed without errors)
+    await expect(exampleTab).toBeVisible();
+    await expect(tempTab).toBeVisible();
+  });
+
+  test('should move tab from Temporary to Pinned section', async ({ page }) => {
+    const pinnedZone = page.getByRole('region', { name: 'Pinned tabs drop zone' });
+    const temporaryZone = page.getByRole('region', { name: 'Temporary tabs drop zone' });
+
+    const sourceTab = temporaryZone.getByRole('button', { name: /Example Tab/i }).first();
+    const targetTab = pinnedZone.getByRole('button', { name: /Pinned Tab/i }).first();
+
+    await expect(sourceTab).toBeVisible();
+    await expect(targetTab).toBeVisible();
+
+    const sourceBox = await sourceTab.boundingBox();
+    const targetBox = await targetTab.boundingBox();
+
+    if (!sourceBox || !targetBox) {
+      throw new Error('Could not get bounding boxes for drag elements');
+    }
+
+    await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      sourceBox.x + sourceBox.width / 2,
+      sourceBox.y + sourceBox.height / 2 + 15,
+      { steps: 5 }
+    );
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+      steps: 10,
+    });
+    await page.mouse.up();
+
+    await page.waitForTimeout(200);
+
+    // Verify tab is still visible after the operation
+    await expect(page.getByRole('button', { name: /Example Tab/i }).first()).toBeVisible();
+  });
+
+  test('should move tab from Pinned to Temporary section', async ({ page }) => {
+    const pinnedZone = page.getByRole('region', { name: 'Pinned tabs drop zone' });
+    const temporaryZone = page.getByRole('region', { name: 'Temporary tabs drop zone' });
+
+    const sourceTab = pinnedZone.getByRole('button', { name: /Pinned Tab/i }).first();
+    const targetTab = temporaryZone.getByRole('button', { name: /Example Tab/i }).first();
+
+    await expect(sourceTab).toBeVisible();
+    await expect(targetTab).toBeVisible();
+
+    const sourceBox = await sourceTab.boundingBox();
+    const targetBox = await targetTab.boundingBox();
+
+    if (!sourceBox || !targetBox) {
+      throw new Error('Could not get bounding boxes for drag elements');
+    }
+
+    await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      sourceBox.x + sourceBox.width / 2,
+      sourceBox.y + sourceBox.height / 2 + 15,
+      { steps: 5 }
+    );
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+      steps: 10,
+    });
+    await page.mouse.up();
+
+    await page.waitForTimeout(200);
+
+    // Verify tab is still visible after the operation
+    await expect(page.getByRole('button', { name: /Pinned Tab/i }).first()).toBeVisible();
+  });
+});

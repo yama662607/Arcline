@@ -51,10 +51,43 @@ describe('SwipeDetector', () => {
   });
 
   it('should auto-reset after trigger', () => {
-    const detector = new SwipeDetector({ threshold: 50 });
+    const detector = new SwipeDetector({ threshold: 50, cooldown: 0 }); // Disable cooldown for this test
     expect(detector.process(createWheelEvent(60))).toBe('right');
     // Immediate next event shouldn't trigger unless it crosses threshold AGAIN
     expect(detector.process(createWheelEvent(10))).toBeNull();
+  });
+
+  it('should block during cooldown period', async () => {
+    const detector = new SwipeDetector({ threshold: 50, cooldown: 100 });
+
+    // First swipe triggers
+    expect(detector.process(createWheelEvent(60))).toBe('right');
+
+    // During cooldown, even large swipes should be blocked
+    expect(detector.process(createWheelEvent(100))).toBeNull();
+    expect(detector.process(createWheelEvent(100))).toBeNull();
+
+    // Wait for cooldown to expire
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    // Now should trigger again
+    expect(detector.process(createWheelEvent(60))).toBe('right');
+  });
+
+  it('should reset cooldown on manual reset', () => {
+    const detector = new SwipeDetector({ threshold: 50, cooldown: 1000 });
+
+    // Trigger swipe (starts cooldown)
+    expect(detector.process(createWheelEvent(60))).toBe('right');
+
+    // During cooldown
+    expect(detector.process(createWheelEvent(60))).toBeNull();
+
+    // Manual reset clears cooldown
+    detector.reset();
+
+    // Should trigger immediately after reset
+    expect(detector.process(createWheelEvent(60))).toBe('right');
   });
 
   it('should update config dynamically', () => {

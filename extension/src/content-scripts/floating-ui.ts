@@ -17,7 +17,7 @@ let floatingInstance: Awaited<
 let currentMode: UiMode | null = null;
 let edgeDetectionHandler: ((e: PointerEvent) => void) | null = null;
 let gestureHandler: ((e: WheelEvent) => void) | null = null;
-const swipeDetector = new SwipeDetector({ threshold: 100 }); // Default sensitivity
+const swipeDetector = new SwipeDetector(); // Uses default config with cooldown
 let gesturesEnabled = true;
 
 interface DebugInfo {
@@ -209,11 +209,18 @@ function setupTrackpadGestures() {
   if (gestureHandler) return;
 
   gestureHandler = (e: WheelEvent) => {
-    // console.log('[Arcline] wheel', e.deltaX, e.deltaY);
     if (!gesturesEnabled) return;
+
+    // Ignore vertical scrolling dominant events early
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      return;
+    }
 
     const direction = swipeDetector.process(e);
     if (direction) {
+      // Prevent browser's back/forward navigation gesture
+      e.preventDefault();
+
       if (typeof crypto.randomUUID !== 'function') return;
 
       chrome.runtime.sendMessage(
@@ -233,7 +240,8 @@ function setupTrackpadGestures() {
     }
   };
 
-  window.addEventListener('wheel', gestureHandler, { passive: true });
+  // passive: false is required to use preventDefault() for blocking browser gestures
+  window.addEventListener('wheel', gestureHandler, { passive: false });
 }
 
 const FEEDBACK_ID = 'arcline-swipe-feedback';

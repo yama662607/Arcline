@@ -5,13 +5,14 @@ export interface GestureConfig {
   threshold: number;
   /** Time in ms to reset the accumulator if no events received */
   timeout: number;
-  /** Minimum absolute velocity (delta/time) to consider - not fully used in simple accumulator but good for future */
-  // minVelocity?: number;
+  /** Cooldown in ms after a swipe is detected to prevent re-triggering */
+  cooldown: number;
 }
 
 const DEFAULT_CONFIG: GestureConfig = {
-  threshold: 100, // Reduced sensitivity to avoid accidental triggers? Or increased? 100 is reasonable for trackpad.
+  threshold: 50, // Lower threshold for better responsiveness (legacy used 25 for single event)
   timeout: 300,
+  cooldown: 400, // Cooldown to prevent re-triggering during the same gesture (legacy used 400ms)
 };
 
 /**
@@ -22,6 +23,8 @@ export class SwipeDetector {
   private totalDeltaX = 0;
   private lastEventTime = 0;
   private config: GestureConfig;
+  private isSwiping = false;
+  private cooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: Partial<GestureConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -33,9 +36,14 @@ export class SwipeDetector {
 
   /**
    * Processes a wheel event and returns a direction if a swipe is detected.
-   * Returns null if no swipe is detected yet or if resetting.
+   * Returns null if no swipe is detected yet, during cooldown, or if resetting.
    */
   process(e: WheelEvent): SwipeDirection | null {
+    // Block during cooldown to prevent re-triggering
+    if (this.isSwiping) {
+      return null;
+    }
+
     const now = Date.now();
 
     // Reset if timeout expired (user stopped swiping)
@@ -45,7 +53,7 @@ export class SwipeDetector {
 
     this.lastEventTime = now;
 
-    // Ignore vertical scrolling dominant events (optional, but good practice)
+    // Ignore vertical scrolling dominant events
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
       return null;
     }
@@ -53,24 +61,38 @@ export class SwipeDetector {
     this.totalDeltaX += e.deltaX;
 
     if (Math.abs(this.totalDeltaX) > this.config.threshold) {
-      const direction = this.totalDeltaX > 0 ? 'right' : 'left';
-      // deltaX > 0 means "scrolling right" -> showing content on the right.
-      // In Space navigation:
-      // Swipe Left (Fingers Left) -> deltaX > 0 -> Go to Next Space (Right).
-      // Swipe Right (Fingers Right) -> deltaX < 0 -> Go to Previous Space (Left).
+      // deltaX > 0 means "scrolling right" -> Go to Next Space (Right).
+      // deltaX < 0 means "scrolling left" -> Go to Previous Space (Left).
+      const direction: SwipeDirection = this.totalDeltaX > 0 ? 'right' : 'left';
 
-      // I'll return 'right' for deltaX > 0 (Movement towards Right Space)
-      // and 'left' for deltaX < 0 (Movement towards Left Space).
+      // Reset accumulator and start cooldown
+      this.totalDeltaX = 0;
+      this.startCooldown();
 
-      this.totalDeltaX = 0; // Reset after trigger to prevent double firing immediately
       return direction;
     }
 
     return null;
   }
 
+  private startCooldown() {
+    this.isSwiping = true;
+    if (this.cooldownTimer) {
+      clearTimeout(this.cooldownTimer);
+    }
+    this.cooldownTimer = setTimeout(() => {
+      this.isSwiping = false;
+      this.cooldownTimer = null;
+    }, this.config.cooldown);
+  }
+
   reset() {
     this.totalDeltaX = 0;
     this.lastEventTime = 0;
+    this.isSwiping = false;
+    if (this.cooldownTimer) {
+      clearTimeout(this.cooldownTimer);
+      this.cooldownTimer = null;
+    }
   }
 }
