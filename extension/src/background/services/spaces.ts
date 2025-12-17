@@ -51,7 +51,7 @@ export async function saveSpaceState(spaces: SpaceState[]): Promise<void> {
   try {
     await chrome.storage.local.set({ [SPACES_STORAGE_KEY]: spaces });
   } catch (error) {
-    console.error('[Arcline] Failed to save spaces to storage', error);
+    console.warn('[Arcline] Failed to save spaces to storage', error);
   }
 }
 

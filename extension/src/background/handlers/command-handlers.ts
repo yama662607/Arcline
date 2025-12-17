@@ -106,7 +106,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
             mode: modeToSend,
           });
         } catch (error) {
-          console.error('Failed to respond with UI mode', error);
+          console.warn('Failed to respond with UI mode', error);
           sendResponse({ command: 'currentUiMode', mode: 'floating' as UiMode });
         }
       }),
@@ -116,7 +116,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           const spaces = await deps.getSpacesSnapshot();
           sendResponse({ command: 'spacesSnapshot', spaces });
         } catch (error) {
-          console.error('Failed to respond with spaces snapshot', error);
+          console.warn('Failed to respond with spaces snapshot', error);
           sendResponse({ command: 'spacesSnapshot', spaces: [] });
         }
       }),
@@ -126,7 +126,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           const tab = await deps.getActiveTabEntry();
           sendResponse({ ok: true, data: tab });
         } catch (error) {
-          console.error('Failed to fetch active tab', error);
+          console.warn('Failed to fetch active tab', error);
           sendResponse({ ok: false, error: (error as Error).message });
         }
       }),
@@ -143,7 +143,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           await deps.broadcastSpacesSnapshot();
           sendResponse({ ok: true, pinned: nextPinned });
         } catch (error) {
-          console.error('Failed to toggle pin state', error);
+          console.warn('Failed to toggle pin state', error);
           sendResponse({ ok: false, error: (error as Error).message });
         }
       });
@@ -161,7 +161,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           await deps.broadcastSpacesSnapshot();
           sendResponse({ ok: true, groupId });
         } catch (error) {
-          console.error('Failed to move tab to space', error);
+          console.warn('Failed to move tab to space', error);
           sendResponse({ ok: false, error: (error as Error).message });
         }
       });
@@ -179,7 +179,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           await deps.broadcastSpacesSnapshot();
           sendResponse({ ok: true, data: groupId });
         } catch (error) {
-          console.error('Failed to create space', error);
+          console.warn('Failed to create space', error);
           sendResponse({ ok: false, error: (error as Error).message });
         }
       });
@@ -197,7 +197,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           await deps.broadcastSpacesSnapshot();
           sendResponse({ ok: true });
         } catch (error) {
-          console.error('Failed to remove space', error);
+          console.warn('Failed to remove space', error);
           sendResponse({ ok: false, error: (error as Error).message });
         }
       });
@@ -215,7 +215,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           await deps.broadcastSpacesSnapshot();
           sendResponse({ ok: true });
         } catch (error) {
-          console.error('Failed to close tab', error);
+          console.warn('Failed to close tab', error);
           sendResponse({ ok: false, error: (error as Error).message });
         }
       });
@@ -266,7 +266,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           await deps.reloadTab(tabId);
           sendResponse({ ok: true });
         } catch (error) {
-          console.error('Failed to reload tab', error);
+          console.warn('Failed to reload tab', error);
           sendResponse({ ok: false, error: (error as Error).message });
         }
       });

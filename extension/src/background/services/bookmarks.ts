@@ -50,7 +50,7 @@ export async function getOrCreateArcifyFolder(): Promise<chrome.bookmarks.Bookma
 
     return newFolder;
   } catch (error) {
-    console.error('[Arcline] Failed to get or create Arcify folder:', error);
+    console.warn('[Arcline] Failed to get or create Arcify folder:', error);
     throw error;
   }
 }
@@ -89,7 +89,7 @@ export async function getOrCreateSpaceFolder(
 
     return spaceFolder;
   } catch (error) {
-    console.error(`[Arcline] Failed to get or create space folder "${spaceName}":`, error);
+    console.warn(`[Arcline] Failed to get or create space folder "${spaceName}":`, error);
     throw error;
   }
 }
@@ -275,7 +275,7 @@ export async function getPinnedItemsForSpace(spaceName: string): Promise<PinnedI
     const spaceFolder = await getOrCreateSpaceFolder(spaceName);
     return convertNodesToPinnedItems(await chrome.bookmarks.getChildren(spaceFolder.id));
   } catch (error) {
-    console.error(`[Arcline] Failed to get pinned items for space "${spaceName}":`, error);
+    console.warn(`[Arcline] Failed to get pinned items for space "${spaceName}":`, error);
     return [];
   }
 }

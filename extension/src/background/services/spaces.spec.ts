@@ -90,7 +90,7 @@ describe('spaces service', () => {
     });
 
     it('should catch errors during save', async () => {
-      const consoleSpy = vi.spyOn(console, 'error');
+      const consoleSpy = vi.spyOn(console, 'warn');
       mockChrome.storage.local.set.mockRejectedValue(new Error('Write Failure'));
 
       await saveSpaceState([]);

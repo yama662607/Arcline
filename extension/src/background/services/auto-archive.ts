@@ -214,6 +214,6 @@ export async function initializeAutoArchive(): Promise<void> {
 
     console.info('[Arcline] Auto-archive functionality initialized');
   } catch (error) {
-    console.error('[Arcline] Failed to initialize auto-archive:', error);
+    console.warn('[Arcline] Failed to initialize auto-archive:', error);
   }
 }
