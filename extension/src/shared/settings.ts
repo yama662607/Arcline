@@ -15,6 +15,8 @@ export const settingsFormSchema = z.object({
   compactMode: z.boolean(),
   enableAnimations: z.boolean(),
   theme: z.enum(['dark', 'light', 'auto']),
+  gesturesEnabled: z.boolean(),
+  gestureSensitivity: z.number().int().min(10).max(500),
 });
 
 export const settingsSchema: z.ZodType<Settings> = z.object({
@@ -26,6 +28,8 @@ export const settingsSchema: z.ZodType<Settings> = z.object({
   compactMode: z.boolean().default(false).catch(false),
   enableAnimations: z.boolean().default(true).catch(true),
   theme: z.enum(['dark', 'light', 'auto']).default('auto').catch('auto'),
+  gesturesEnabled: z.boolean().default(true).catch(true),
+  gestureSensitivity: z.number().int().min(10).max(500).default(100).catch(100),
 });
 
 export const defaultSettings: Settings = settingsSchema.parse({});

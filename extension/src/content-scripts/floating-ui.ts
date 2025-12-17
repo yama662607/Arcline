@@ -228,10 +228,96 @@ function setupTrackpadGestures() {
           }
         }
       );
+
+      showFeedback(direction);
     }
   };
 
   window.addEventListener('wheel', gestureHandler, { passive: true });
+}
+
+const FEEDBACK_ID = 'arcline-swipe-feedback';
+
+function ensureFeedbackStyles() {
+  if (!shadowRoot) return;
+  if (shadowRoot.querySelector('#arcline-feedback-styles')) return;
+
+  const style = document.createElement('style');
+  style.id = 'arcline-feedback-styles';
+  style.textContent = `
+    .arcline-feedback {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 2147483647;
+      opacity: 0;
+      transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+      background: rgba(0, 0, 0, 0.75);
+      border-radius: 16px;
+      padding: 24px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .arcline-feedback.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.0);
+    }
+    .arcline-feedback.enter {
+      transform: translate(-50%, -50%) scale(0.9);
+    }
+    .arcline-feedback svg {
+      width: 48px;
+      height: 48px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  `;
+  shadowRoot.append(style);
+}
+
+function showFeedback(direction: 'left' | 'right') {
+  ensureHost();
+  if (!shadowRoot) return;
+  ensureFeedbackStyles();
+
+  let el = shadowRoot.getElementById(FEEDBACK_ID) as HTMLDivElement;
+  if (!el) {
+    el = document.createElement('div');
+    el.id = FEEDBACK_ID;
+    el.className = 'arcline-feedback enter';
+    shadowRoot.append(el);
+  }
+
+  // Icons (Chevron Left / Right)
+  const leftIcon = `<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>`;
+  const rightIcon = `<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>`;
+
+  el.innerHTML = direction === 'left' ? leftIcon : rightIcon;
+
+  // Reset animation
+  el.classList.remove('show');
+  el.classList.add('enter');
+
+  // Force reflow
+  void el.offsetWidth;
+
+  // Animate in
+  el.classList.add('show');
+  el.classList.remove('enter');
+
+  // Hide after delay (short pulse)
+  setTimeout(() => {
+    el.classList.remove('show');
+  }, 600);
 }
 
 function teardownTrackpadGestures() {

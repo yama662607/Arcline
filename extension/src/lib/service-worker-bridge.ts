@@ -40,7 +40,7 @@ export class ServiceWorkerBridge {
     }
   >();
 
-  constructor(private queryClient: QueryClient) { }
+  constructor(private queryClient: QueryClient) {}
 
   // Send message to Service Worker and wait for response
   private async sendMessage(message: Omit<BridgeMessage, 'id'>): Promise<unknown> {
