@@ -1,84 +1,904 @@
 
-> arcline-extension@0.0.1 test:e2e /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension
-> vite build --mode test && pnpm patch:sw-manifest && PLAYWRIGHT_HEADLESS=1 npx playwright test -c playwright/playwright.config.ts "favorites.spec.ts"
-
-vite v7.3.0 building client environment for test...
-transforming...
-✓ 2411 modules transformed.
-rendering chunks...
-computing gzip size...
-dist/service-worker-loader.js                    0.04 kB
-dist/assets/floating-ui.ts-loader-BriJ7MhV.js    0.35 kB
-dist/popup.html                                  0.82 kB │ gzip:   0.38 kB
-dist/index.html                                  0.92 kB │ gzip:   0.41 kB
-dist/icons/icon-128.png                          1.26 kB
-dist/manifest.json                               2.16 kB │ gzip:   0.88 kB
-dist/.vite/manifest.json                         3.83 kB │ gzip:   0.72 kB
-dist/assets/styles-B-sVbJSq.css                 43.98 kB │ gzip:   8.02 kB
-dist/assets/floating-ui.ts-LEEhuowr.js           0.09 kB │ gzip:   0.11 kB
-dist/assets/FloatingApp-BKCCeKEG.js              1.31 kB │ gzip:   0.64 kB
-dist/assets/styles-DzbsSxis.js                   2.80 kB │ gzip:   1.38 kB
-dist/assets/popup-DNAGB6aF.js                    3.11 kB │ gzip:   1.36 kB
-dist/assets/index-LA9LlElf.js                    3.88 kB │ gzip:   1.78 kB
-dist/assets/floating-ui-LSpAg0BQ.js              4.71 kB │ gzip:   2.08 kB
-dist/assets/SpacesWorkspace-DdMtzxb1.js          6.85 kB │ gzip:   2.82 kB
-dist/assets/createLucideIcon-CsOpOseq.js        24.89 kB │ gzip:   7.04 kB
-dist/assets/index.ts-CQt50tN3.js                39.51 kB │ gzip:  10.69 kB
-dist/assets/mount-CicjFjcQ.js                   48.78 kB │ gzip:  10.02 kB
-dist/assets/settings-c4fAbcsw.js                61.96 kB │ gzip:  17.00 kB
-dist/assets/CommandPalette-BlYapfCf.js          68.76 kB │ gzip:  23.69 kB
-dist/assets/SpaceManager-BQT4iKI5.js           217.23 kB │ gzip:  69.78 kB
-dist/assets/proxy-BOZEb28l.js                  336.61 kB │ gzip: 107.09 kB
-✓ built in 2.04s
-
-> arcline-extension@0.0.1 patch:sw-manifest /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension
-> node scripts/patch-sw-manifest.mjs
-
-npm warn Unknown env config "store-dir". This will stop working in the next major version of npm.
-
-Running 2 tests using 1 worker
-
-  ✘  1 playwright/e2e/favorites.spec.ts:21:5 › Favorites Management › should add a tab to favorites via drag and drop (6.7s)
-  ✓  2 playwright/e2e/favorites.spec.ts:56:5 › Favorites Management › should remove a favorite (2.6s)
+> arcline-extension@0.0.1 test /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension
+> vitest run
 
 
-  1) playwright/e2e/favorites.spec.ts:21:5 › Favorites Management › should add a tab to favorites via drag and drop 
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension[39m
 
-    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+ [32m✓[39m src/background/services/gestures.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+ [32m✓[39m src/lib/gestures.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 71[2mms[22m[39m
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mresolves pending requests when the runtime responds
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746617_0.5003570246045029'[39m,
+  type: [32m'query'[39m,
+  method: [32m'getSpacesSnapshot'[39m,
+  params: [90mundefined[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.617Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959746617_0.5003570246045029'[39m,
+  method: [32m'getSpacesSnapshot'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mtrue[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.620Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'getSpacesSnapshot'[39m,
+  id: [32m'bridge_1765959746617_0.5003570246045029'[39m,
+  isAtlas: [33mfalse[39m
+}
 
-    Locator: getByRole('button', { name: 'Example Tab' }).first()
-    Expected: visible
-    Timeout: 5000ms
-    Error: element(s) not found
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mrejects when the runtime throws during sendMessage
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746623_0.2529604063458156'[39m,
+  type: [32m'query'[39m,
+  method: [32m'getSettings'[39m,
+  params: [90mundefined[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.623Z'[39m
+}
 
-    Call log:
-    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
-    [2m  - waiting for getByRole('button', { name: 'Example Tab' }).first()[22m
+[90mstderr[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mrejects when the runtime throws during sendMessage
+[22m[39m[Arcline] ❌ Bridge send exception: {
+  error: [32m'boom'[39m,
+  method: [32m'getSettings'[39m,
+  id: [32m'bridge_1765959746623_0.2529604063458156'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mtimes out if the runtime never responds
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746624_0.2148730716815882'[39m,
+  type: [32m'query'[39m,
+  method: [32m'getArchivedTabs'[39m,
+  params: [90mundefined[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.624Z'[39m
+}
+
+[90mstderr[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mtimes out if the runtime never responds
+[22m[39m[Arcline] ⏰ Bridge request timeout: {
+  method: [32m'getArchivedTabs'[39m,
+  id: [32m'bridge_1765959746624_0.2148730716815882'[39m,
+  isAtlas: [33mfalse[39m,
+  timeoutMs: [33m5000[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mprefetches key queries via setupQueries
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746627_0.18609325232703933'[39m,
+  type: [32m'query'[39m,
+  method: [32m'getSpacesSnapshot'[39m,
+  params: [90mundefined[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.627Z'[39m
+}
+[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746627_0.6268902685729391'[39m,
+  type: [32m'query'[39m,
+  method: [32m'getSettings'[39m,
+  params: [90mundefined[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.627Z'[39m
+}
+[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746627_0.2892029183212903'[39m,
+  type: [32m'query'[39m,
+  method: [32m'getArchivedTabs'[39m,
+  params: [90mundefined[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.627Z'[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2msends mutation payloads for toggleTabPinned
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746632_0.48069346381146794'[39m,
+  type: [32m'mutation'[39m,
+  method: [32m'toggleTabPinned'[39m,
+  params: { tabId: [33m42[39m, pinned: [33mtrue[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.632Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959746632_0.48069346381146794'[39m,
+  method: [32m'toggleTabPinned'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mtrue[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.632Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'toggleTabPinned'[39m,
+  id: [32m'bridge_1765959746632_0.48069346381146794'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mrequests bookmarks with parameters via bridge
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746633_0.5511475485392348'[39m,
+  type: [32m'query'[39m,
+  method: [32m'getBookmarksForSpace'[39m,
+  params: { spaceId: [33m7[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.633Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959746633_0.5511475485392348'[39m,
+  method: [32m'getBookmarksForSpace'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mtrue[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.633Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'getBookmarksForSpace'[39m,
+  id: [32m'bridge_1765959746633_0.5511475485392348'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2msends createSpace mutation with name and color
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746633_0.9917001779955422'[39m,
+  type: [32m'mutation'[39m,
+  method: [32m'createSpace'[39m,
+  params: { name: [32m'Test Space'[39m, color: [32m'red'[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.633Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959746633_0.9917001779955422'[39m,
+  method: [32m'createSpace'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mtrue[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.633Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'createSpace'[39m,
+  id: [32m'bridge_1765959746633_0.9917001779955422'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2msends removeSpace mutation with spaceId
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746634_0.2947902956789885'[39m,
+  type: [32m'mutation'[39m,
+  method: [32m'removeSpace'[39m,
+  params: { spaceId: [33m456[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.634Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959746634_0.2947902956789885'[39m,
+  method: [32m'removeSpace'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mfalse[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.634Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'removeSpace'[39m,
+  id: [32m'bridge_1765959746634_0.2947902956789885'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mrejects on bridge error response for mutations
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746635_0.6143160070441483'[39m,
+  type: [32m'mutation'[39m,
+  method: [32m'toggleTabPinned'[39m,
+  params: { tabId: [33m999[39m, pinned: [33mfalse[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.635Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959746635_0.6143160070441483'[39m,
+  method: [32m'toggleTabPinned'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mtrue[39m,
+  hasData: [33mfalse[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.635Z'[39m
+}
+
+[90mstderr[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2mrejects on bridge error response for mutations
+[22m[39m[Arcline] ❌ Bridge response error: {
+  error: [32m'tab not found'[39m,
+  method: [32m'toggleTabPinned'[39m,
+  id: [32m'bridge_1765959746635_0.6143160070441483'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2msends searchHistory query with correct params
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746636_0.9612057358705169'[39m,
+  type: [32m'query'[39m,
+  method: [32m'searchHistory'[39m,
+  params: { query: [32m'test query'[39m, maxResults: [90mundefined[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.636Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959746636_0.9612057358705169'[39m,
+  method: [32m'searchHistory'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mtrue[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.636Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'searchHistory'[39m,
+  id: [32m'bridge_1765959746636_0.9612057358705169'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge.test.ts[2m > [22m[2mServiceWorkerBridge[2m > [22m[2msends searchBookmarks query with correct params
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959746636_0.612939353908405'[39m,
+  type: [32m'query'[39m,
+  method: [32m'searchBookmarks'[39m,
+  params: { query: [32m'bookmark query'[39m, maxResults: [90mundefined[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.636Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959746636_0.612939353908405'[39m,
+  method: [32m'searchBookmarks'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mtrue[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:26.636Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'searchBookmarks'[39m,
+  id: [32m'bridge_1765959746636_0.612939353908405'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+ [32m✓[39m src/lib/service-worker-bridge.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+[90mstderr[2m | src/hooks/use-universal-search.test.tsx[2m > [22m[2museUniversalSearch[2m > [22m[2msearches locally (tabs)
+[22m[39mQuery data cannot be undefined. Please make sure to return a value other than undefined from your query function. Affected query key: ["search","history","Local"]
+Query data cannot be undefined. Please make sure to return a value other than undefined from your query function. Affected query key: ["search","bookmarks","Local"]
+
+ [32m✓[39m src/hooks/use-universal-search.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 125[2mms[22m[39m
+ [32m✓[39m src/ui/components/SpaceManager.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 234[2mms[22m[39m
+ [31m❯[39m src/ui/components/SpacesWorkspace.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 111[2mms[22m[39m
+[31m     [31m×[31m renders the main structure (ActiveTabHeader, Tabs, Content)[39m[32m 90[2mms[22m[39m
+[31m     [31m×[31m shows Spaces content by default[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m switches to Archive tab[39m[32m 2[2mms[22m[39m
+[31m     [31m×[31m switches to Settings tab[39m[32m 2[2mms[22m[39m
+[31m     [31m×[31m displays message when no spaces active[39m[32m 5[2mms[22m[39m
+     [32m✓[39m displays context menu when triggered[32m 2[2mms[22m[39m
+[90mstderr[2m | src/ui/components/ArchiveManager.test.tsx[2m > [22m[2mArchiveManager[2m > [22m[2mrenders list of archived tabs (floating)
+[22m[39mIn HTML, <button> cannot be a descendant of <button>.
+This will cause a hydration error.
+
+  <QueryClientProvider client={{}}>
+    <ArchiveManager variant="floating">
+      <div className="space-y-2">
+        <div>
+        <div>
+        <div className="space-y-1 ...">
+>         <button
+>           type="button"
+>           onClick={function onClick}
+>           className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colo..."
+>         >
+            <img>
+            <div>
+>           <button
+>             type="button"
+>             onClick={function onClick}
+>             className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-blue-400 hover:text-blue-300"
+>             title="Restore tab"
+>           >
+          ...
 
 
-      33 |         // Use more specific selector to avoid ambiguity
-      34 |         const sourceTab = page.getByRole('button', { name: 'Example Tab' }).first();
-    > 35 |         await expect(sourceTab).toBeVisible();
-         |                                 ^
-      36 |
-      37 |         // Perform Drag and Drop (Manual Mouse Sequence for dnd-kit)
-      38 |         await sourceTab.hover();
-        at /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/playwright/e2e/favorites.spec.ts:35:33
+ [32m✓[39m src/ui/components/ArchiveManager.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 299[2mms[22m[39m
+ [32m✓[39m src/floating/CommandPalette.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 91[2mms[22m[39m
+ [31m❯[39m src/ui/components/SettingsPanel.test.tsx [2m([22m[2m7 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 232[2mms[22m[39m
+     [32m✓[39m renders loading state[32m 28[2mms[22m[39m
+     [32m✓[39m renders error state[32m 3[2mms[22m[39m
+       [32m✓[39m renders general settings by default[32m 14[2mms[22m[39m
+       [32m✓[39m switches tabs[32m 84[2mms[22m[39m
+[31m       [31m×[31m validates and submits form[39m[32m 70[2mms[22m[39m
+       [32m✓[39m renders compact settings list[32m 4[2mms[22m[39m
+[31m       [31m×[31m updates checkbox settings immediately (via Save button)[39m[32m 26[2mms[22m[39m
+[90mstdout[2m | src/ui/components/GlobalPinnedTabs.test.tsx[2m > [22m[2mGlobalPinnedTabs[2m > [22m[2mhandles drop to pin tab
+[22m[39m[GlobalPinnedTabs] Drop from source: temporary tab: New Tab
 
-    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
-    test-results/favorites-Favorites-Manage-d8755-favorites-via-drag-and-drop/trace.zip
-    Usage:
+[90mstdout[2m | src/ui/components/GlobalPinnedTabs.test.tsx[2m > [22m[2mGlobalPinnedTabs[2m > [22m[2mhandles drop from favorites (removes from favs + pins)
+[22m[39m[GlobalPinnedTabs] Drop from source: favorite tab: Fav Tab
+[GlobalPinnedTabs] Removing from favorites: http://fav.com
 
-        pnpm exec playwright show-trace test-results/favorites-Favorites-Manage-d8755-favorites-via-drag-and-drop/trace.zip
+[90mstdout[2m | src/ui/components/GlobalPinnedTabs.test.tsx[2m > [22m[2mGlobalPinnedTabs[2m > [22m[2mignores drop from pinned (same source)
+[22m[39m[GlobalPinnedTabs] Drop from source: pinned tab: Pinned Tab 1
+[GlobalPinnedTabs] Ignoring drop from pinned (same source)
 
-    ────────────────────────────────────────────────────────────────────────────────────────────────
+ [32m✓[39m src/ui/components/GlobalPinnedTabs.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 133[2mms[22m[39m
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2msetupAutoArchiveAlarm[2m > [22m[2mshould create alarm when enabled
+[22m[39m[Arcline] Auto-archive alarm set: 30 minutes
 
-  1 failed
-    playwright/e2e/favorites.spec.ts:21:5 › Favorites Management › should add a tab to favorites via drag and drop 
-  1 passed (10.1s)
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2msetupAutoArchiveAlarm[2m > [22m[2mshould clear alarm when disabled
+[22m[39m[Arcline] Auto-archive alarm disabled
 
-To open last HTML report run:
-[36m[39m
-[36m  pnpm exec playwright show-report[39m
-[36m[39m
- ELIFECYCLE  Command failed with exit code 1.
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2msetupAutoArchiveAlarm[2m > [22m[2mshould use minimum 1 minute interval
+[22m[39m[Arcline] Auto-archive alarm set: 0.5 minutes
+
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2marchiveInactiveTabs[2m > [22m[2mshould archive tabs inactive beyond threshold
+[22m[39m[Arcline] Auto-archived tab: undefined (https://example.com)
+
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2msetupTabActivityListeners[2m > [22m[2mshould set up tab activity listeners
+[22m[39m[Arcline] Tab activity listeners initialized
+
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2msetupAlarmListener[2m > [22m[2mshould set up alarm listener
+[22m[39m[Arcline] Alarm listener initialized
+
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2minitializeAutoArchive[2m > [22m[2mshould initialize auto-archive functionality
+[22m[39m[Arcline] Tab activity listeners initialized
+[Arcline] Alarm listener initialized
+
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2minitializeAutoArchive[2m > [22m[2mshould initialize auto-archive functionality
+[22m[39m[Arcline] Auto-archive alarm set: 30 minutes
+
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2minitializeAutoArchive[2m > [22m[2mshould initialize auto-archive functionality
+[22m[39m[Arcline] Auto-archive functionality initialized
+
+[90mstdout[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2minitializeAutoArchive[2m > [22m[2mshould handle initialization errors gracefully
+[22m[39m[Arcline] Tab activity listeners initialized
+[Arcline] Alarm listener initialized
+
+[90mstderr[2m | src/background/services/auto-archive.test.ts[2m > [22m[2mAuto-Archive Service[2m > [22m[2minitializeAutoArchive[2m > [22m[2mshould handle initialization errors gracefully
+[22m[39m[Arcline] Failed to initialize auto-archive: Error: Chrome API error
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/services/auto-archive.test.ts:336:47
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+[90mstdout[2m | src/ui/components/FavoritesBar.test.tsx[2m > [22m[2mFavoritesBar[2m > [22m[2mshould handle keyboard navigation
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959748073_0.36064879561020524'[39m,
+  type: [32m'mutation'[39m,
+  method: [32m'openUrlInTab'[39m,
+  params: { url: [32m'https://example.com'[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.073Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959748073_0.36064879561020524'[39m,
+  method: [32m'openUrlInTab'[39m,
+  hasResponse: [33mfalse[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mfalse[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.081Z'[39m
+}
+[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959748082_0.8751975749055083'[39m,
+  type: [32m'mutation'[39m,
+  method: [32m'openUrlInTab'[39m,
+  params: { url: [32m'https://example.com'[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.082Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959748082_0.8751975749055083'[39m,
+  method: [32m'openUrlInTab'[39m,
+  hasResponse: [33mfalse[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mfalse[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.082Z'[39m
+}
+
+[90mstderr[2m | src/ui/components/FavoritesBar.test.tsx[2m > [22m[2mFavoritesBar[2m > [22m[2mshould handle keyboard navigation
+[22m[39m[Arcline] ❌ Empty bridge response: {
+  method: [32m'openUrlInTab'[39m,
+  id: [32m'bridge_1765959748073_0.36064879561020524'[39m,
+  isAtlas: [33mfalse[39m
+}
+[Arcline] ❌ Empty bridge response: {
+  method: [32m'openUrlInTab'[39m,
+  id: [32m'bridge_1765959748082_0.8751975749055083'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+ [32m✓[39m src/background/services/auto-archive.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 51[2mms[22m[39m
+[90mstderr[2m | src/ui/components/FavoritesBar.test.tsx[2m > [22m[2mFavoritesBar[2m > [22m[2mshould handle keyboard navigation
+[22m[39m[FavoritesBar] Failed to open favorite: Error: Empty bridge response
+    at callback [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/lib/service-worker-bridge.ts:116:20[90m)[39m
+    at Object.<anonymous> [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/test/chrome-mock.ts:78:9[90m)[39m
+    at Object.sendMessage (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+spy@4.0.15/node_modules/[4m@vitest/spy[24m/dist/index.js:285:34)
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/lib/service-worker-bridge.ts:85:24
+    at new Promise (<anonymous>)
+    at ServiceWorkerBridge.sendMessage [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/lib/service-worker-bridge.ts:70:12[90m)[39m
+    at ServiceWorkerBridge.openUrlInTab [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/lib/service-worker-bridge.ts:298:17[90m)[39m
+    at onTabSelect [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/ui/components/FavoritesBar.tsx:170:22[90m)[39m
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/ui/components/FavoritesBar.tsx:56:9
+    at executeDispatch (/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/react-dom@19.2.3_react@19.2.3/node_modules/[4mreact-dom[24m/cjs/react-dom-client.development.js:19116:9)
+[FavoritesBar] Failed to open favorite: Error: Empty bridge response
+    at callback [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/lib/service-worker-bridge.ts:116:20[90m)[39m
+    at Object.<anonymous> [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/test/chrome-mock.ts:78:9[90m)[39m
+    at Object.sendMessage (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+spy@4.0.15/node_modules/[4m@vitest/spy[24m/dist/index.js:285:34)
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/lib/service-worker-bridge.ts:85:24
+    at new Promise (<anonymous>)
+    at ServiceWorkerBridge.sendMessage [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/lib/service-worker-bridge.ts:70:12[90m)[39m
+    at ServiceWorkerBridge.openUrlInTab [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/lib/service-worker-bridge.ts:298:17[90m)[39m
+    at onTabSelect [90m(/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/ui/components/FavoritesBar.tsx:170:22[90m)[39m
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/ui/components/FavoritesBar.tsx:56:9
+    at executeDispatch (/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/react-dom@19.2.3_react@19.2.3/node_modules/[4mreact-dom[24m/cjs/react-dom-client.development.js:19116:9)
+
+ [32m✓[39m src/ui/components/FavoritesBar.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 159[2mms[22m[39m
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould activate the tab and then trigger openFloatingUiOnTab
+[22m[39m[Arcline] 🚀 activateTab called with: {
+  userAgent: [32m'Mozilla/5.0 (X11; Darwin arm64) AppleWebKit/537.36 (KHTML, like Gecko) HappyDOM/20.0.11'[39m,
+  isAtlas: [33mfalse[39m,
+  tabId: [33m123[39m,
+  timestamp: [32m'2025-12-17T08:22:28.230Z'[39m
+}
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould activate the tab and then trigger openFloatingUiOnTab
+[22m[39m[Arcline] 📋 Tab found: {
+  id: [33m123[39m,
+  title: [90mundefined[39m,
+  url: [90mundefined[39m,
+  active: [33mfalse[39m,
+  windowId: [33m1[39m
+}
+[Arcline] ⚡ Executing chrome.tabs.update...
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould activate the tab and then trigger openFloatingUiOnTab
+[22m[39m[Arcline] ✅ Tab activated successfully: { id: [33m123[39m, active: [33mfalse[39m, lastActive: [90mundefined[39m }
+[Arcline] 🔄 Opening Floating UI on target tab... [33m123[39m
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould NOT trigger openFloatingUiOnTab if tab activation fails
+[22m[39m[Arcline] 🚀 activateTab called with: {
+  userAgent: [32m'Mozilla/5.0 (X11; Darwin arm64) AppleWebKit/537.36 (KHTML, like Gecko) HappyDOM/20.0.11'[39m,
+  isAtlas: [33mfalse[39m,
+  tabId: [33m456[39m,
+  timestamp: [32m'2025-12-17T08:22:28.236Z'[39m
+}
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould NOT trigger openFloatingUiOnTab if tab activation fails
+[22m[39m[Arcline] 📋 Tab found: {
+  id: [33m123[39m,
+  title: [90mundefined[39m,
+  url: [90mundefined[39m,
+  active: [33mfalse[39m,
+  windowId: [33m1[39m
+}
+[Arcline] ⚡ Executing chrome.tabs.update...
+
+[90mstderr[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould NOT trigger openFloatingUiOnTab if tab activation fails
+[22m[39m[Arcline] ❌ activateTab failed: {
+  error: [32m'Activation failed'[39m,
+  stack: [32m'Error: Activation failed\n'[39m +
+    [32m'    at /Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/src/background/services/activateTab.spec.ts:69:19\n'[39m +
+    [32m'    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:145:11\n'[39m +
+    [32m'    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:26\n'[39m +
+    [32m'    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1240:20\n'[39m +
+    [32m'    at new Promise (<anonymous>)\n'[39m +
+    [32m'    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1206:10)\n'[39m +
+    [32m'    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:37\n'[39m +
+    [32m'    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/.pnpm/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)\n'[39m +
+    [32m'    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/.pnpm/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/vitest/dist/chunks/test.BT8LKgU9.js:239:21)\n'[39m +
+    [32m'    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:12)'[39m,
+  browserInfo: {
+    userAgent: [32m'Mozilla/5.0 (X11; Darwin arm64) AppleWebKit/537.36 (KHTML, like Gecko) HappyDOM/20.0.11'[39m,
+    isAtlas: [33mfalse[39m,
+    tabId: [33m456[39m,
+    timestamp: [32m'2025-12-17T08:22:28.236Z'[39m
+  },
+  chromeRuntimeAvailable: [33mtrue[39m,
+  chromeTabsAvailable: [33mtrue[39m
+}
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould NOT fail overall if openFloatingUiOnTab fails (Graceful Degradation)
+[22m[39m[Arcline] 🚀 activateTab called with: {
+  userAgent: [32m'Mozilla/5.0 (X11; Darwin arm64) AppleWebKit/537.36 (KHTML, like Gecko) HappyDOM/20.0.11'[39m,
+  isAtlas: [33mfalse[39m,
+  tabId: [33m789[39m,
+  timestamp: [32m'2025-12-17T08:22:28.244Z'[39m
+}
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould NOT fail overall if openFloatingUiOnTab fails (Graceful Degradation)
+[22m[39m[Arcline] 📋 Tab found: {
+  id: [33m123[39m,
+  title: [90mundefined[39m,
+  url: [90mundefined[39m,
+  active: [33mfalse[39m,
+  windowId: [33m1[39m
+}
+[Arcline] ⚡ Executing chrome.tabs.update...
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould NOT fail overall if openFloatingUiOnTab fails (Graceful Degradation)
+[22m[39m[Arcline] ✅ Tab activated successfully: { id: [33m123[39m, active: [33mfalse[39m, lastActive: [90mundefined[39m }
+[Arcline] 🔄 Opening Floating UI on target tab... [33m789[39m
+
+[90mstderr[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould NOT fail overall if openFloatingUiOnTab fails (Graceful Degradation)
+[22m[39m[Arcline] Failed to open floating UI on target tab: Error: UI Open Failed
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/services/activateTab.spec.ts:82:70
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould pass correct spaces snapshot data to floating UI
+[22m[39m[Arcline] 🚀 activateTab called with: {
+  userAgent: [32m'Mozilla/5.0 (X11; Darwin arm64) AppleWebKit/537.36 (KHTML, like Gecko) HappyDOM/20.0.11'[39m,
+  isAtlas: [33mfalse[39m,
+  tabId: [33m101[39m,
+  timestamp: [32m'2025-12-17T08:22:28.245Z'[39m
+}
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould pass correct spaces snapshot data to floating UI
+[22m[39m[Arcline] 📋 Tab found: {
+  id: [33m123[39m,
+  title: [90mundefined[39m,
+  url: [90mundefined[39m,
+  active: [33mfalse[39m,
+  windowId: [33m1[39m
+}
+[Arcline] ⚡ Executing chrome.tabs.update...
+
+[90mstdout[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould pass correct spaces snapshot data to floating UI
+[22m[39m[Arcline] ✅ Tab activated successfully: { id: [33m123[39m, active: [33mfalse[39m, lastActive: [90mundefined[39m }
+[Arcline] 🔄 Opening Floating UI on target tab... [33m101[39m
+
+[90mstderr[2m | src/background/services/activateTab.spec.ts[2m > [22m[2mactivateTab[2m > [22m[2mshould pass correct spaces snapshot data to floating UI
+[22m[39m[Arcline] Failed to open floating UI on target tab: Error: UI Open Failed
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/services/activateTab.spec.ts:82:70
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+ [32m✓[39m src/background/services/activateTab.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+[90mstderr[2m | src/background/index.test.ts[2m > [22m[2mcommandHandlers.requestUiMode[2m > [22m[2mfalls back to floating mode when storage fails
+[22m[39mFailed to respond with UI mode Error: boom
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/index.test.ts:128:56
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+[90mstdout[2m | src/background/services/space-navigation.spec.ts[2m > [22m[2mspace-navigation[2m > [22m[2mnavigateSpace[2m > [22m[2mshould return false if there are less than 2 spaces
+[22m[39m[Arcline] navigateSpace called: direction=left
+
+[90mstdout[2m | src/background/services/space-navigation.spec.ts[2m > [22m[2mspace-navigation[2m > [22m[2mnavigateSpace[2m > [22m[2mshould navigate to previous space (looping)
+[22m[39m[Arcline] navigateSpace called: direction=left
+
+[90mstderr[2m | src/background/index.test.ts[2m > [22m[2mcommandHandlers.requestSpacesSnapshot[2m > [22m[2msends empty list when snapshot fails
+[22m[39mFailed to respond with spaces snapshot Error: nope
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/index.test.ts:173:49
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+[90mstdout[2m | src/background/services/space-navigation.spec.ts[2m > [22m[2mspace-navigation[2m > [22m[2mnavigateSpace[2m > [22m[2mshould navigate to next space
+[22m[39m[Arcline] navigateSpace called: direction=right
+
+[90mstdout[2m | src/background/services/space-navigation.spec.ts[2m > [22m[2mspace-navigation[2m > [22m[2mnavigateSpace[2m > [22m[2mshould default to first space (index 0) if current space not found
+[22m[39m[Arcline] navigateSpace called: direction=right
+
+[90mstdout[2m | src/background/services/space-navigation.spec.ts[2m > [22m[2mspace-navigation[2m > [22m[2mnavigateSpace[2m > [22m[2mshould fail if target space has no navigable tabs
+[22m[39m[Arcline] navigateSpace called: direction=right
+
+[90mstderr[2m | src/background/services/space-navigation.spec.ts[2m > [22m[2mspace-navigation[2m > [22m[2mnavigateSpace[2m > [22m[2mshould fail if target space has no navigable tabs
+[22m[39m[Arcline] No navigable tabs found for target space [33m2[39m
+
+[90mstderr[2m | src/background/index.test.ts[2m > [22m[2mcommandHandlers.toggleTabPinned[2m > [22m[2mreports errors when toggleTabPinned rejects
+[22m[39mFailed to toggle pin state Error: failure
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/index.test.ts:215:47
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+ [32m✓[39m src/background/services/space-navigation.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/background/index.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/ui/components/Onboarding.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+[90mstdout[2m | src/lib/service-worker-bridge-integration.test.ts[2m > [22m[2mServiceWorkerBridge Integration[2m > [22m[2mshould create space successfully
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959748486_0.1647939027988593'[39m,
+  type: [32m'mutation'[39m,
+  method: [32m'createSpace'[39m,
+  params: { name: [32m'Test Space'[39m, color: [32m'blue'[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.486Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959748486_0.1647939027988593'[39m,
+  method: [32m'createSpace'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mtrue[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.490Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'createSpace'[39m,
+  id: [32m'bridge_1765959748486_0.1647939027988593'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge-integration.test.ts[2m > [22m[2mServiceWorkerBridge Integration[2m > [22m[2mshould handle create space error
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959748492_0.9036227942206169'[39m,
+  type: [32m'mutation'[39m,
+  method: [32m'createSpace'[39m,
+  params: { name: [32m''[39m, color: [32m'blue'[39m },
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.492Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959748492_0.9036227942206169'[39m,
+  method: [32m'createSpace'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mtrue[39m,
+  hasData: [33mfalse[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.492Z'[39m
+}
+
+[90mstderr[2m | src/lib/service-worker-bridge-integration.test.ts[2m > [22m[2mServiceWorkerBridge Integration[2m > [22m[2mshould handle create space error
+[22m[39m[Arcline] ❌ Bridge response error: {
+  error: [32m'Failed to create space'[39m,
+  method: [32m'createSpace'[39m,
+  id: [32m'bridge_1765959748492_0.9036227942206169'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+[90mstdout[2m | src/lib/service-worker-bridge-integration.test.ts[2m > [22m[2mServiceWorkerBridge Integration[2m > [22m[2mshould get spaces snapshot
+[22m[39m[Arcline] 📤 Sending bridge message: {
+  id: [32m'bridge_1765959748493_0.2857435365916078'[39m,
+  type: [32m'query'[39m,
+  method: [32m'getSpacesSnapshot'[39m,
+  params: [90mundefined[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.493Z'[39m
+}
+[Arcline] 📥 Bridge response received: {
+  id: [32m'bridge_1765959748493_0.2857435365916078'[39m,
+  method: [32m'getSpacesSnapshot'[39m,
+  hasResponse: [33mtrue[39m,
+  hasError: [33mfalse[39m,
+  hasData: [33mtrue[39m,
+  isAtlas: [33mfalse[39m,
+  timestamp: [32m'2025-12-17T08:22:28.493Z'[39m
+}
+[Arcline] ✅ Bridge response success: {
+  method: [32m'getSpacesSnapshot'[39m,
+  id: [32m'bridge_1765959748493_0.2857435365916078'[39m,
+  isAtlas: [33mfalse[39m
+}
+
+ [32m✓[39m src/lib/service-worker-bridge-integration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/hooks/use-debounce.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+[90mstderr[2m | src/background/services/spaces.spec.ts[2m > [22m[2mspaces service[2m > [22m[2mloadSpaceState[2m > [22m[2mshould handle storage errors gracefully
+[22m[39m[Arcline] Failed to load spaces from storage Error: Storage Error
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/services/spaces.spec.ts:65:54
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+[90mstderr[2m | src/background/services/spaces.spec.ts[2m > [22m[2mspaces service[2m > [22m[2msaveSpaceState[2m > [22m[2mshould catch errors during save
+[22m[39m[Arcline] Failed to save spaces to storage Error: Write Failure
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/services/spaces.spec.ts:94:54
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+ [32m✓[39m src/background/services/spaces.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/lib/useSpacesSync.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/ui/components/EnhancedTabList.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+[90mstderr[2m | src/background/services/bookmarks.test.ts[2m > [22m[2mBookmarks Service[2m > [22m[2mgetPinnedItemsForSpace[2m > [22m[2mshould return empty list if space folder creation fails
+[22m[39m[Arcline] Failed to get or create Arcify folder: Error: Fail
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/services/bookmarks.test.ts:41:54
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+[90mstderr[2m | src/background/services/bookmarks.test.ts[2m > [22m[2mBookmarks Service[2m > [22m[2mgetPinnedItemsForSpace[2m > [22m[2mshould return empty list if space folder creation fails
+[22m[39m[Arcline] Failed to get or create space folder "Space": Error: Fail
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/services/bookmarks.test.ts:41:54
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+[90mstderr[2m | src/background/services/bookmarks.test.ts[2m > [22m[2mBookmarks Service[2m > [22m[2mgetPinnedItemsForSpace[2m > [22m[2mshould return empty list if space folder creation fails
+[22m[39m[Arcline] Failed to get pinned items for space "Space": Error: Fail
+    at [90m/Users/daisukeyamashiki/Library/Mobile Documents/com~apple~CloudDocs/Programming/Arcline/extension/[39msrc/background/services/bookmarks.test.ts:41:54
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:145:11
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:915:26
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1240:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1206:10)
+    at file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:37
+    at Traces.$ (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/vitest@4.0.15_@types+node@25.0.2_@vitest+ui@4.0.15_happy-dom@20.0.11_jiti@2.6.1_jsdom@27.3.0__776kjium6tflglqaxhydostm7m/node_modules/[4mvitest[24m/dist/chunks/test.BT8LKgU9.js:239:21)
+    at runTest (file:///Users/daisukeyamashiki/Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/Programming/Arcline/node_modules/[4m.pnpm[24m/@vitest+runner@4.0.15/node_modules/[4m@vitest/runner[24m/dist/index.js:1650:12)
+
+[90mstderr[2m | src/background/services/bookmarks.test.ts[2m > [22m[2mBookmarks Service[2m > [22m[2mimportSpaceBookmarks[2m > [22m[2mshould parse HTML and create bookmarks
+[22m[39mImport logic is partial - implementing flat import for now or need a parser.
+
+ [32m✓[39m src/background/services/bookmarks.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/background/handlers/command-handlers.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 10[2mms[22m[39m
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2maddToFavorites[2m > [22m[2mshould add a tab to favorites
+[22m[39m[Arcline] Added to favorites: Example
+
+ [32m✓[39m src/background/services/history.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2maddToFavorites[2m > [22m[2mshould not add duplicate favorites
+[22m[39m[Arcline] Added to favorites: Example
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2maddToFavorites[2m > [22m[2mshould not add duplicate favorites
+[22m[39m[Arcline] Tab already in favorites: https://example.com
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2mremoveFromFavorites[2m > [22m[2mshould remove a favorite by URL
+[22m[39m[Arcline] Added to favorites: Example
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2mremoveFromFavorites[2m > [22m[2mshould remove a favorite by URL
+[22m[39m[Arcline] Removed from favorites: https://example.com
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2misInFavorites[2m > [22m[2mshould return true if URL is in favorites
+[22m[39m[Arcline] Added to favorites: Example
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2mtoggleFavorite[2m > [22m[2mshould add tab if not in favorites
+[22m[39m[Arcline] Added to favorites: Example
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2mtoggleFavorite[2m > [22m[2mshould remove tab if already in favorites
+[22m[39m[Arcline] Added to favorites: Example
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2mtoggleFavorite[2m > [22m[2mshould remove tab if already in favorites
+[22m[39m[Arcline] Removed from favorites: https://example.com
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2mreorderFavorites[2m > [22m[2mshould reorder favorites
+[22m[39m[Arcline] Added to favorites: Example 1
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2mreorderFavorites[2m > [22m[2mshould reorder favorites
+[22m[39m[Arcline] Added to favorites: Example 2
+
+[90mstdout[2m | src/background/services/favorites.test.ts[2m > [22m[2mFavorites Service[2m > [22m[2mreorderFavorites[2m > [22m[2mshould reorder favorites
+[22m[39m[Arcline] Favorites reordered
+
+ [32m✓[39m src/background/services/favorites.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/background/services/browser.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 7 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/ui/components/SettingsPanel.test.tsx[2m > [22mSettingsPanel[2m > [22mStandalone Variant[2m > [22mvalidates and submits form
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called with arguments: [ ObjectContaining{…} ][90m
+
+Number of calls: [1m0[22m
+[31m[39m
+[36m [2m❯[22m src/ui/components/SettingsPanel.test.tsx:[2m112:31[22m[39m
+    [90m110| [39m      [35mawait[39m user[33m.[39m[34mclick[39m(saveBtn)[33m;[39m
+    [90m111| [39m
+    [90m112| [39m      [34mexpect[39m(mutateAsyncMock)[33m.[39m[34mtoHaveBeenCalledWith[39m(
+    [90m   | [39m                              [31m^[39m
+    [90m113| [39m        expect[33m.[39m[34mobjectContaining[39m({
+    [90m114| [39m          defaultSpaceName[33m:[39m [32m'New Space'[39m[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/components/SettingsPanel.test.tsx[2m > [22mSettingsPanel[2m > [22mFloating Variant[2m > [22mupdates checkbox settings immediately (via Save button)
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called with arguments: [ ObjectContaining{…} ][90m
+
+Number of calls: [1m0[22m
+[31m[39m
+[36m [2m❯[22m src/ui/components/SettingsPanel.test.tsx:[2m145:31[22m[39m
+    [90m143| [39m      [35mawait[39m user[33m.[39m[34mclick[39m(saveBtn)[33m;[39m
+    [90m144| [39m
+    [90m145| [39m      [34mexpect[39m(mutateAsyncMock)[33m.[39m[34mtoHaveBeenCalledWith[39m(
+    [90m   | [39m                              [31m^[39m
+    [90m146| [39m        expect[33m.[39m[34mobjectContaining[39m({
+    [90m147| [39m          compactMode[33m:[39m [35mtrue[39m[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/components/SpacesWorkspace.test.tsx[2m > [22mSpacesWorkspace[2m > [22mrenders the main structure (ActiveTabHeader, Tabs, Content)
+[41m[1m FAIL [22m[49m src/ui/components/SpacesWorkspace.test.tsx[2m > [22mSpacesWorkspace[2m > [22mshows Spaces content by default
+[41m[1m FAIL [22m[49m src/ui/components/SpacesWorkspace.test.tsx[2m > [22mSpacesWorkspace[2m > [22mswitches to Archive tab
+[41m[1m FAIL [22m[49m src/ui/components/SpacesWorkspace.test.tsx[2m > [22mSpacesWorkspace[2m > [22mswitches to Settings tab
+[41m[1m FAIL [22m[49m src/ui/components/SpacesWorkspace.test.tsx[2m > [22mSpacesWorkspace[2m > [22mdisplays message when no spaces active
+[31m[1mError[22m: [vitest] No "useAddToFavorites" export is defined on the "@/hooks/use-spaces-query" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+[39m
+vi.mock(import("@/hooks/use-spaces-query"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+[36m [2m❯[22m SpacesWorkspace src/ui/components/SpacesWorkspace.tsx:[2m41:38[22m[39m
+    [90m 39| [39m  [35mconst[39m { mutate[33m:[39m reorderTab } [33m=[39m [34museReorderTab[39m()[33m;[39m
+    [90m 40| [39m  [35mconst[39m { mutate[33m:[39m toggleTabPinned } [33m=[39m [34museToggleTabPinned[39m()[33m;[39m
+    [90m 41| [39m  [35mconst[39m { mutate[33m:[39m addToFavorites } [33m=[39m [34museAddToFavorites[39m()[33m;[39m
+    [90m   | [39m                                     [31m^[39m
+    [90m 42| [39m
+    [90m 43| [39m  [35mconst[39m sensors [33m=[39m [34museSensors[39m(
+[90m [2m❯[22m Object.react_stack_bottom_frame ../node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m25904:20[22m[39m
+[90m [2m❯[22m renderWithHooks ../node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m7662:22[22m[39m
+[90m [2m❯[22m updateFunctionComponent ../node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m10166:19[22m[39m
+[90m [2m❯[22m beginWork ../node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m11778:18[22m[39m
+[90m [2m❯[22m runWithFiberInDEV ../node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m874:13[22m[39m
+[90m [2m❯[22m performUnitOfWork ../node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m17641:22[22m[39m
+[90m [2m❯[22m workLoopSync ../node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m17469:41[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m24 passed[39m[22m[90m (26)[39m
+[2m      Tests [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m153 passed[39m[22m[90m (160)[39m
+[2m   Start at [22m 17:22:25
+[2m   Duration [22m 3.69s[2m (transform 2.72s, setup 4.80s, import 9.80s, tests 1.82s, environment 15.08s)[22m
+
+ ELIFECYCLE  Test failed. See above for more details.

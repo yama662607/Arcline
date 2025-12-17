@@ -68,10 +68,10 @@
 - [x] 2.4 スワイプ感度と閾値設定を実装 (`SwipeDetector` config)
 
 ## 3. UI統合とフィードバック
-- [ ] 3.1 FloatingSidebarでジェスチャー有効化UIを追加 (Future: Settings UI)
-- [ ] 3.2 スワイプ時の視覚的フィードバックを実装 (Optional for MVP)
-- [ ] 3.3 ジェスチャー無効化トグルを実装 (Settings needed, backend ready)
-- [ ] 3.4 設定画面で感度調整UIを追加 (Settings needed)
+- [x] 3.1 FloatingSidebarでジェスチャー有効化UIを追加 (Implemented in SettingsPanel)
+- [x] 3.2 スワイプ時の視覚的フィードバックを実装 (Implemented Overlay in floating-ui)
+- [x] 3.3 ジェスチャー無効化トグルを実装 (SettingsPanel)
+- [x] 3.4 設定画面で感度調整UIを追加 (SettingsPanel)
 
 ## 4. エッジケースと互換性
 - [x] 4.1 タッチスクリーンとの互換性を確保 (Handled by WheelEvent)
