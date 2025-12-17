@@ -61,5 +61,11 @@ legacy/
 
 .config/
 
+extension/test_output.txt
+extension/test_output_new.txt
+extension/lint.log
+extension/lint_all.txt
+
+# Chrome dev profile
 .chrome-dev-profile/
 apps/
