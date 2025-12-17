@@ -5,8 +5,9 @@ import type { z } from 'zod';
 
 import { useSettings, useUpdateSettings } from '@/hooks/use-spaces-query';
 import { settingsFormSchema } from '@/shared/settings';
+import type { Settings } from '@/shared/types';
 
-type SettingsFormData = z.infer<typeof settingsFormSchema>;
+type SettingsFormData = z.input<typeof settingsFormSchema>;
 
 interface SettingsPanelProps {
   variant?: 'standalone' | 'floating';
@@ -32,7 +33,8 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
   const onSubmit = async (data: SettingsFormData) => {
     try {
-      await updateSettingsMutation.mutateAsync(data);
+      const parsed = settingsFormSchema.parse(data) as Settings;
+      await updateSettingsMutation.mutateAsync(parsed);
     } catch (error) {
       console.error('Failed to update settings:', error);
     }
@@ -88,6 +90,20 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
               <option value="popup">Popup</option>
             </select>
             <p className="mt-1 text-xs text-slate-500">Change how the extension UI appears</p>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                {...register('enableNewTabOverride')}
+                className="rounded border-surface-light bg-surface-light text-blue-600 focus:ring-blue-500"
+              />
+              New tab integration
+            </label>
+            <p className="mt-1 text-xs text-slate-500">
+              Replace the browser new tab with Arcline (restart may be required)
+            </p>
           </div>
 
           <div>
@@ -236,6 +252,20 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
                 {errors.defaultSpaceName && (
                   <p className="mt-1 text-sm text-red-400">{errors.defaultSpaceName.message}</p>
                 )}
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    {...register('enableNewTabOverride')}
+                    className="rounded border-surface-light bg-surface-light text-blue-600 focus:ring-blue-500"
+                  />
+                  New tab integration
+                </label>
+                <p className="mt-1 text-xs text-slate-500">
+                  Replace the browser new tab with Arcline (restart may be required)
+                </p>
               </div>
 
               <div>

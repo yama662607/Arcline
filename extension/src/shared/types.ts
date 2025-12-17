@@ -74,6 +74,7 @@ export interface Settings {
   defaultSpaceName: string;
   autoArchiveEnabled: boolean;
   autoArchiveIdleMinutes: number;
+  enableNewTabOverride: boolean;
   uiMode: 'side-panel' | 'popup' | 'floating';
   showFavicons: boolean;
   compactMode: boolean;

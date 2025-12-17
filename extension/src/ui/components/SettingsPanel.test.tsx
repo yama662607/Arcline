@@ -15,6 +15,7 @@ const mockSettings = {
   defaultSpaceName: 'Home',
   autoArchiveEnabled: false,
   autoArchiveIdleMinutes: 30,
+  enableNewTabOverride: true,
   uiMode: 'floating',
   showFavicons: true,
   compactMode: false,
