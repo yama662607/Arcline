@@ -73,10 +73,16 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
 
             <div className="space-y-1 max-h-64 overflow-y-auto">
               {sortedTabs.map((tab) => (
-                <button
+                <div
                   key={tab.id}
-                  type="button"
                   onClick={() => handleRestoreTab(tab)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleRestoreTab(tab);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors group w-full text-left"
                 >
                   <img
@@ -109,7 +115,7 @@ export function ArchiveManager({ variant = 'standalone' }: ArchiveManagerProps) 
                   >
                     ↵
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           </>

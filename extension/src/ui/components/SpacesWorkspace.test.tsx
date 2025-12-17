@@ -55,6 +55,7 @@ vi.mock('@/hooks/use-spaces-query', () => ({
   useFavorites: vi.fn(),
   useReorderTab: vi.fn(() => ({ mutate: vi.fn() })),
   useToggleTabPinned: vi.fn(() => ({ mutate: vi.fn() })),
+  useAddToFavorites: vi.fn(() => ({ mutate: vi.fn() })),
 }));
 
 vi.mock('@/store', () => ({
@@ -130,7 +131,7 @@ describe('SpacesWorkspace', () => {
     renderComponent();
 
     expect(screen.getByTestId('active-tab-header')).toBeInTheDocument();
-    expect(screen.getByText('Arcline')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Arcline', level: 2 })).toBeInTheDocument();
 
     // Navigation buttons
     expect(screen.getByRole('button', { name: 'Spaces' })).toBeInTheDocument();

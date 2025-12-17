@@ -8,8 +8,6 @@ import { useSpacesSync } from '@/lib/useSpacesSync';
 import { SpacesWorkspace } from '@/ui/components/SpacesWorkspace';
 import { ThemeProvider } from '@/ui/theme/ThemeContext';
 
-
-
 import { CommandPalette } from '@/floating/CommandPalette';
 
 function AppContent() {

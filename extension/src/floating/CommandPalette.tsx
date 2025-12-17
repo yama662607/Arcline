@@ -57,6 +57,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       <div
         role="dialog"
         aria-modal="true"
+        aria-label="Command Menu"
         className="w-full max-w-2xl overflow-hidden rounded-xl border border-white/10 bg-slate-900 shadow-2xl ring-1 ring-white/10"
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose();

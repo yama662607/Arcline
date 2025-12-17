@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettings, useUpdateSettings } from '@/hooks/use-spaces-query';
@@ -20,6 +20,8 @@ const mockSettings = {
   compactMode: false,
   enableAnimations: true,
   theme: 'dark',
+  gesturesEnabled: true,
+  gestureSensitivity: 100,
 };
 
 describe('SettingsPanel', () => {
@@ -109,11 +111,13 @@ describe('SettingsPanel', () => {
       const saveBtn = await screen.findByRole('button', { name: 'Save' });
       await user.click(saveBtn);
 
-      expect(mutateAsyncMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          defaultSpaceName: 'New Space',
-        })
-      );
+      await waitFor(() => {
+        expect(mutateAsyncMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            defaultSpaceName: 'New Space',
+          })
+        );
+      });
     });
   });
 
@@ -142,11 +146,13 @@ describe('SettingsPanel', () => {
       const saveBtn = await screen.findByRole('button', { name: 'Save' });
       await user.click(saveBtn);
 
-      expect(mutateAsyncMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          compactMode: true,
-        })
-      );
+      await waitFor(() => {
+        expect(mutateAsyncMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            compactMode: true,
+          })
+        );
+      });
     });
   });
 });

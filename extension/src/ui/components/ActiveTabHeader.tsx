@@ -165,6 +165,7 @@ export function ActiveTabHeader() {
               strokeLinecap="round"
               strokeLinejoin="round"
               className="h-4 w-4"
+              aria-hidden="true"
             >
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.3-4.3" />

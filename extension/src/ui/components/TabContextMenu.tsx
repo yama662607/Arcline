@@ -59,6 +59,7 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
     >
       <button
         type="button"
+        role="menuitem"
         className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10"
         onClick={() => {
           activate(tab.id).catch((error) => console.warn(error));
@@ -69,6 +70,7 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
       </button>
       <button
         type="button"
+        role="menuitem"
         className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10"
         onClick={() => {
           toggleFavorite(tab).catch((error) => console.warn(error));
@@ -80,7 +82,8 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
       <div className="my-1 h-px bg-white/10" />
       <button
         type="button"
-        className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10 text-xs text-slate-400"
+        role="menuitem"
+        className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10"
         onClick={() => {
           togglePinned({ tabId: tab.id, pinned: !tab.pinned }).catch((error) =>
             console.warn(error)
@@ -88,17 +91,18 @@ export function TabContextMenu({ tab, x, y, onClose }: TabContextMenuProps) {
           onClose();
         }}
       >
-        <span>{tab.pinned ? 'Unpin from Space' : 'Pin in Space'}</span>
+        <span>{tab.pinned ? 'Unpin Tab' : 'Pin Tab'}</span>
       </button>
       <button
         type="button"
+        role="menuitem"
         className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-white/10 text-red-400"
         onClick={() => {
           close(tab.id).catch((error) => console.warn(error));
           onClose();
         }}
       >
-        <span>Close</span>
+        <span>Close Tab</span>
       </button>
     </div>
   );

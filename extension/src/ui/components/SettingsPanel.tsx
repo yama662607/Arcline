@@ -13,7 +13,9 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'archive' | 'appearance'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'archive' | 'appearance' | 'gestures'>(
+    'general'
+  );
   const { data: settings, isLoading, error } = useSettings();
   const updateSettingsMutation = useUpdateSettings();
 
@@ -199,7 +201,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
       <div className="border border-surface-light rounded-lg">
         <div className="flex border-b border-surface-light">
-          {(['general', 'archive', 'appearance'] as const).map((tab) => (
+          {(['general', 'archive', 'appearance', 'gestures'] as const).map((tab) => (
             <button
               type="button"
               key={tab}
@@ -348,6 +350,49 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
                   />
                   Enable animations and transitions
                 </label>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'gestures' && (
+            <>
+              <div>
+                <label className="flex items-center gap-3 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    {...register('gesturesEnabled')}
+                    className="rounded border-surface-light bg-surface-light text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  />
+                  Enable trackpad gestures
+                </label>
+                <p className="mt-1 text-xs text-slate-500">
+                  Swipe horizontally with two fingers to switch between spaces.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                  htmlFor="gesture-sensitivity"
+                >
+                  Swipe Threshold (Sensitivity)
+                </label>
+                <input
+                  id="gesture-sensitivity"
+                  type="range"
+                  min="10"
+                  max="300"
+                  step="10"
+                  {...register('gestureSensitivity', { valueAsNumber: true })}
+                  className="w-full h-2 bg-surface-light rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-xs text-slate-500 mt-1">
+                  <span>High Sensitivity (10px)</span>
+                  <span>Low Sensitivity (300px)</span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Requires a swipe of at least this many pixels to trigger navigation.
+                </p>
               </div>
             </>
           )}

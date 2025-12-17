@@ -98,9 +98,7 @@ describe('CommandPalette', () => {
 
   it('calls activateTab when clicking a tab result', () => {
     (useUniversalSearch as ReturnType<typeof vi.fn>).mockReturnValue({
-      results: [
-        { id: 101, title: 'Tab 101', type: 'tab', url: 'http://tab.com' },
-      ],
+      results: [{ id: 101, title: 'Tab 101', type: 'tab', url: 'http://tab.com' }],
       isLoading: false,
     });
     renderComponent(true);
@@ -114,9 +112,7 @@ describe('CommandPalette', () => {
 
   it('calls openUrlInTab when clicking a bookmark result', () => {
     (useUniversalSearch as ReturnType<typeof vi.fn>).mockReturnValue({
-      results: [
-        { id: 'b1', title: 'Start Page', type: 'bookmark', url: 'http://start.com' },
-      ],
+      results: [{ id: 'b1', title: 'Start Page', type: 'bookmark', url: 'http://start.com' }],
       isLoading: false,
     });
     renderComponent(true);
