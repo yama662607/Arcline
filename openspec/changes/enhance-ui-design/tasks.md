@@ -1,38 +1,46 @@
-## 1. Design System & Tailwind
+# enhance-ui-design タスク
 
-- [x] 1.1 Update `styles.css` with CSS variable definitions for all theme colors.
-- [x] 1.2 Update `tailwind.config.ts` to map utility classes to these CSS variables.
+## Phase 1: Design System & Theming（完了）
 
-## 2. Theming Engine
+### 1. Design System & Tailwind
 
-- [x] 2.1 Create `ThemeContext` to manage active theme state.
-- [x] 2.2 Implement `useTheme` hook.
-- [x] 2.3 Persist theme preference in `chrome.storage`.
+- [x] 1.1 Update `styles.css` with CSS variable definitions for all theme colors
+- [x] 1.2 Update `tailwind.config.ts` to map utility classes to these CSS variables
 
-## 3. Animations (`framer-motion`)
+### 2. Theming Engine
 
-- [x] 3.1 Refactor `Sidebar` to use `motion.div` for layout transitions (FavoritesBar で実装済み)
-- [x] 3.2 Add `AnimatePresence` for smooth mounting/unmounting of tabs/spaces (FavoritesBar, Onboarding で実装済み)
-- [x] 3.3 Implement `whileHover` and `whileTap` interactions for all interactive elements (部分的に実装済み)
+- [x] 2.1 Create `ThemeContext` to manage active theme state
+- [x] 2.2 Implement `useTheme` hook
+- [x] 2.3 Persist theme preference in `chrome.storage`
 
-## 4. UI Polish
+### 3. Animations (`framer-motion`)
 
-- [x] 4.1 Update all buttons/inputs to use the new theme variables (ThemeContext 統合済み)
-- [x] 4.2 Verify Glassmorphism effects using `backdrop-blur` utilities (実装済み)
+- [x] 3.1 Refactor components to use `motion.div` for layout transitions (FavoritesBar, Onboarding)
+- [x] 3.2 Add `AnimatePresence` for smooth mounting/unmounting
+- [x] 3.3 Implement hover/tap interactions (部分的に実装済み)
 
-## 1. Implementation
+### 4. UI Polish
 
-- [ ] 1.1 background の `resolveUiMode()` を設定駆動（Settings.uiMode）に戻し、side panel 非対応時のフォールバックを明確化する
-- [ ] 1.2 `applyUiMode()` を single surface 前提で整理する（side-panel 以外では panel を閉じる/必要な broadcast を保証）
-- [ ] 1.3 content script（floating-ui.ts）が `currentUiMode` に追従して mount/teardown することを確認し、不要な常駐コストを削減する
-- [ ] 1.4 `App.tsx` を side-panel 専用に寄せる（floating 時は本 UI を描画しない・プレビュー切替経路を排除/開発専用化）
-- [ ] 1.5 「同時表示ゼロ」の回帰テスト方針を追加（最低限、UI mode broadcast と teardown の動作確認）
+- [x] 4.1 Update all buttons/inputs to use theme variables
+- [x] 4.2 Verify Glassmorphism effects using `backdrop-blur` utilities
 
-## 2. Quality Gate
+---
 
-- [ ] 2.1 `pnpm check` を実行し、lint/format/typecheck が通ること
-- [ ] 2.2 `pnpm test`（必要範囲）を実行し、既存テストが落ちないこと
+## Phase 2: Single Surface UI Mode（残タスク）
 
-## 3. Documentation
+### 5. UI Mode 整理
 
-- [ ] 3.1 変更点（single surface / floating default）を仕様として spec delta に反映する
+- [ ] 5.1 `ui-mode.ts` の `requestUiMode` を設定駆動に統一し、フォールバックを明確化
+- [ ] 5.2 `background/index.ts` の UI mode 配信ロジックを整理（single surface 前提）
+- [ ] 5.3 `floating-ui.ts` が `currentUiMode` に追従して mount/teardown することを確認
+- [ ] 5.4 `App.tsx` を side-panel 専用に寄せる（floating 時は FloatingApp.tsx を使用）
+
+### 6. Quality Gate
+
+- [ ] 6.1 `just check` を実行し、lint/format/typecheck が通ること
+- [ ] 6.2 `just test` を実行し、既存テストが落ちないこと
+- [ ] 6.3 UI mode 切り替えの回帰テストを追加
+
+### 7. Documentation
+
+- [ ] 7.1 single surface / floating default の仕様を spec delta に反映

@@ -1,109 +1,97 @@
-## Spaces Service Layer
+# refactor-architecture タスク
 
-## 1. Background refactor
+## Phase 1: Spaces Service Layer（完了）
 
-- [x] 1.1 Define `SpaceState` type and storage helpers in `src/background/services/spaces.ts`（実装済み）
-- [x] 1.2 Implement `getSpacesSnapshot` using `SpaceState[]` + Chrome tab/tabGroups APIs (browser.ts に実装済み)
-- [x] 1.3 Wire `getSpacesSnapshot` into `background/index.ts` handlers（Bridge 経路 & 既存 command 経路、統合済み）
-- [x] 1.4 Add deterministic unit tests for `getSpacesSnapshot`（space-navigation.spec.ts で実装済み）
+### 1. Background refactor
 
-## 2. Space operations
+- [x] 1.1 Define `SpaceState` type and storage helpers in `spaces.ts`
+- [x] 1.2 Implement `getSpacesSnapshot` using `SpaceState[]` + Chrome APIs
+- [x] 1.3 Wire `getSpacesSnapshot` into `background/index.ts` handlers
+- [x] 1.4 Add unit tests for `getSpacesSnapshot` (space-navigation.spec.ts)
 
-- [x] 2.1 Implement `createSpace(name, color)` using tabGroups + `SpaceState`（browser.ts に実装済み）
-- [x] 2.2 Implement `removeSpace(spaceId)` with tabs + bookmarks cleanup + SpaceState 更新 (browser.ts に実装済み)
-- [x] 2.3 Implement `moveTabToSpace({ tabId, spaceId, pinned? })` and `toggleTabPinned(tabId, pinned?)` (browser.ts に実装済み)
-- [x] 2.4 Ensure all operations update `SpaceState[]` and broadcast updated snapshots (`broadcastSpacesSnapshot` 実装済み)
+### 2. Space operations
 
-## 3. Bridge & hooks
+- [x] 2.1 Implement `createSpace(name, color)` using tabGroups + `SpaceState`
+- [x] 2.2 Implement `removeSpace(spaceId)` with cleanup
+- [x] 2.3 Implement `moveTabToSpace` and `toggleTabPinned`
+- [x] 2.4 Ensure all operations broadcast updated snapshots
 
-- [ ] 3.1 Align `ServiceWorkerBridge` methods and background handlers（payload/response shape を統一）
-- [ ] 3.2 Update `use-spaces-query` hooks to rely solely on Bridge-backed operations
-- [ ] 3.3 Deprecate or simplify `useSpacesSync` / `requestSpacesSnapshot` in favor of the new API
+---
 
-## 4. UI integration
+## Phase 2: Bridge & Hooks 統合（残タスク）
 
-- [ ] 4.1 Update `SpaceManager` to:
-- [ ]     - Always display header + "+ New" button（エラー/ローディング時も）
-- [ ]     - Render loading/error states inline below the header
-- [ ]     - Use `useSpacesSnapshot` results as the single source of truth
-- [ ] 4.2 Adjust E2E tests (`space-management.spec.ts`, `simple-space-test.spec.ts`) to new behaviors
+### 3. Bridge & hooks
 
-## 5. QA & cleanup
+- [ ] 3.1 `ServiceWorkerBridge` と background handlers の payload/response shape を統一
+- [ ] 3.2 `use-spaces-query` hooks を Bridge-backed operations に統一
+- [ ] 3.3 `useSpacesSync` / `requestSpacesSnapshot` を整理・簡素化
 
-- [ ] 5.1 Run `pnpm check`, `pnpm test`, `pnpm test:e2e`
-- [ ] 5.2 Remove or archive obsolete legacy code paths related to Spaces
-- [ ] 5.3 Update developer docs / README sections referencing old Spaces behavior
+### 4. UI integration
 
-## Extension Layering
+- [ ] 4.1 `SpaceManager` の改善
+  - エラー/ローディング時もヘッダー + "+ New" ボタンを常に表示
+  - loading/error states をインラインで表示
+  - `useSpacesSnapshot` を single source of truth として使用
+- [ ] 4.2 E2E tests を新しい動作に合わせて調整
 
-## 1. Implementation
+---
 
-1.1 Service Worker エントリポイント（`src/background/index.ts`）の責務を棚卸しし、移動単位（router / listeners / handlers / init）を確定する
-1.2 handlers の定義を分割できる構造へ移行する（export で合成し、外部 I/F は維持する）
-1.3 tabs/windows/tabGroups 等のイベント購読を listeners モジュールへ移動し、エントリポイントから分離する
-1.4 `chrome.*` 直接参照を段階移行できる最小の adapter 層を導入する（注入可能な依存境界）
-1.5 content script の責務を「DOM 注入・ライフサイクル制御」と「React mount」に分割できる構造へ寄せる（挙動は維持する）
-1.6 設定（Settings）の永続化を `chrome.storage.local` に統一し、必要に応じて初回のみ `chrome.storage.sync` から移行する
+## Phase 3: Extension Layering（将来タスク）
 
-## 2. Testing / Verification
+### 5. Service Worker 責務分離
 
-2.1 既存ユニットテストが落ちないこと
-2.2 既存 E2E（必要範囲）が落ちないこと
+- [ ] 5.1 `background/index.ts` の責務を棚卸し（router / listeners / handlers / init）
+- [ ] 5.2 handlers を分割可能な構造へ移行
+- [ ] 5.3 イベント購読を listeners モジュールへ分離
+- [ ] 5.4 `chrome.*` 直接参照を adapter 層で抽象化
 
-## 3. Quality Gate
+### 6. Content Script 整理
 
-3.1 `just check` を実行し、lint/format/typecheck/test が通ること
+- [ ] 6.1 content script を「DOM 注入・ライフサイクル」と「React mount」に分割
+- [ ] 6.2 Settings 永続化を `chrome.storage.local` に統一
 
-## 4. Documentation
+---
 
-4.1 本 Change の delta spec を更新し、責務分離とテスト容易性の要件を明文化する
-4.2 `openspec validate refactor-extension-layering --strict` をパスさせる
+## Phase 4: MV3 E2E Stability（将来タスク）
 
-## MV3 E2E Stability
+### 7. Manifest / ビルド設定
 
-## 1. Manifest / ビルド設定
+- [ ] 7.1 テスト用拡張キーの生成手順をドキュメント化
+- [ ] 7.2 テストビルド時のみ manifest `key` を注入
+- [ ] 7.3 本番ビルドで `key` が出力されないことを確認
 
-- [ ] 1.1 テスト用拡張キー (PEM → base64 公開鍵) の生成手順を docs にまとめ、リポジトリ管理ポリシーを決める
-- [ ] 1.2 `manifest.config.ts` / `vite.config.ts` に `NODE_ENV` / `import.meta.env.MODE` による分岐を追加し、テストビルド時のみ manifest の `key` を注入する
-- [ ] 1.3 本番ビルド (`production`) で `key` が出力されないことを確認する
+### 8. Service Worker 安定化
 
-## 2. Service Worker (background/index.ts)
+- [ ] 8.1 test 環境限定の Keep-Alive 方針を確定
+- [ ] 8.2 test 専用ハートビート処理を追加
+- [ ] 8.3 初期化処理の相互作用を整理
 
-- [ ] 2.1 `background-services` spec の要件に沿った、test 環境限定の Keep-Alive 方針を確定する（API 選定・間隔・副作用）
-- [ ] 2.2 `background/index.ts` に test 専用のハートビート処理を追加し、本番ビルドでは実行されないようガードを入れる
-- [ ] 2.3 `initializeUiMode` / `initializeAutoArchive` / gesture 初期化との相互作用を確認し、ログとエラーハンドリング方針を整理する
+### 9. Playwright フィクスチャ
 
-## 3. Playwright フィクスチャ
+- [ ] 9.1 固定拡張 ID を使用するよう簡素化
+- [ ] 9.2 `waitForExtensionServiceWorker` をデバッグ用途に限定
+- [ ] 9.3 MV3 前提で timeout 設定を見直し
 
-- [ ] 3.1 `playwright/fixtures/extension.ts` から Service Worker 依存の `resolveExtensionId` ロジックを削除する
-- [ ] 3.2 固定拡張 ID を 1 箇所に定義し、`extensionId` フィクスチャはそれを返すだけにする
-- [ ] 3.3 `waitForExtensionServiceWorker` を「ログ・デバッグ用途」に限定し、E2E 全体の成否が SW 起動状態に依存しないようにする
-- [ ] 3.4 `playwright.config.ts` の `timeout` などを見直し、MV3 + Keep-Alive 前提で E2E が安定して完走する閾値を設定する
+---
 
-## 4. Spec / テスト
+## Phase 5: Background Reliability（部分完了）
 
-- [ ] 4.1 `openspec/specs/platform/spec.md` に拡張 ID / ビルドモード差分の要件を追加する (ADDED Requirements)
-- [ ] 4.2 `openspec/specs/background-services/spec.md` に MV3 testability / Keep-Alive 要件を追加する (ADDED Requirements)
-- [ ] 4.3 変更後挙動をカバーするテストを追加する
-  - 拡張 ID が期待どおり固定値であること
-  - test 環境で SW がテスト中に予期せず terminate されにくくなっていること（ログベースで確認）
-- [ ] 4.4 `pnpm check` / `pnpm test:e2e` を通し、`openspec validate stabilize-mv3-e2e-service-worker --strict` をパスさせる
+### 10. Specification
 
-## Background Reliability
+- [x] 10.1 既存の background-services スペックを確認
+- [x] 10.2 UI モード配信・ジェスチャー連動・コマンドエラー要件を追記
 
-## 1. Specification
+### 11. Implementation
 
-- [x] 1.1 既存の background-services スペックを確認する
-- [x] 1.2 UI モード配信・ジェスチャー連動・コマンドエラー要件を追記する
+- [x] 11.1 broadcastUiMode / commandHandlers のユニットテストを追加
+- [ ] 11.2 ServiceWorkerBridge との統合テストを追加
+- [ ] 11.3 E2E シナリオを拡張して gesture + UI mode を検証
 
-## 2. Implementation
+---
 
-- [x] 2.1 broadcastUiMode / commandHandlers のユニットテストを追加
-- [ ] 2.2 ServiceWorkerBridge との統合テストを追加
-- [ ] 2.3 E2E (Playwright) シナリオを拡張して gesture + UI mode を検証
-- [ ] 2.4 追加テストに合わせてドキュメント・CI を更新
+## Quality Gate（全フェーズ共通）
 
-## 3. Validation
-
-- [ ] 3.1 openspec validate enhance-background-reliability --strict
-- [ ] 3.2 pnpm check && pnpm test && pnpm test:e2e
+- [ ] QG.1 `just check` を実行し、lint/format/typecheck が通ること
+- [ ] QG.2 `just test` を実行し、既存テストが落ちないこと
+- [ ] QG.3 `just e2e` を実行し、E2E テストが通ること
+- [ ] QG.4 `openspec validate refactor-architecture --strict` をパス
