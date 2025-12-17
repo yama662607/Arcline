@@ -15,10 +15,9 @@ test.describe('Onboarding', () => {
     });
     await page.reload();
 
-    await addServiceWorkerBridgeMock(page);
-    // After reload, mock needs to be re-added?
-    // addServiceWorkerBridgeMock uses page.addInitScript, so it persists on reload?
-    // "addInitScript" persists for the page context.
+    await addServiceWorkerBridgeMock(page, { skipOnboarding: false });
+    // "addInitScript" persists for the page context so we call it after nav if needed, but usually before.
+    // Here we check onboarding flow.
 
     // Check first slide
     await expect(page.getByText('Welcome to Arcline')).toBeVisible();
@@ -37,11 +36,11 @@ test.describe('Onboarding', () => {
     await page.getByRole('button', { name: 'Get Started' }).click();
 
     // Should verify we are home
-    await expect(page.getByRole('heading', { name: 'Spaces' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Spaces', level: 1 })).toBeVisible();
 
     // Reload to verify persistence
     await page.reload();
     await expect(page.getByText('Welcome to Arcline')).not.toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Spaces' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Spaces', level: 1 })).toBeVisible();
   });
 });

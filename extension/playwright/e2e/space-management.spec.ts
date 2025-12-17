@@ -1,11 +1,12 @@
 import { expect } from '@playwright/test';
 import { test } from '../fixtures';
-import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
+import { addServiceWorkerBridgeMock, bypassOnboarding } from '../fixtures/service-worker-mock';
 
 test.describe('Space Management', () => {
   test('should create a new space', async ({ page, extensionId }) => {
     await addServiceWorkerBridgeMock(page);
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await bypassOnboarding(page);
 
     // Navigate to spaces tab
     await page.getByRole('button', { name: /Spaces/i }).click();
@@ -22,6 +23,7 @@ test.describe('Space Management', () => {
   test('should switch to a created space', async ({ page, extensionId }) => {
     await addServiceWorkerBridgeMock(page);
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await bypassOnboarding(page);
     await page.getByRole('button', { name: /Spaces/i }).click();
 
     // Create a space
@@ -40,6 +42,7 @@ test.describe('Settings Panel', () => {
   test('should toggle compact mode', async ({ page, extensionId }) => {
     await addServiceWorkerBridgeMock(page);
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await bypassOnboarding(page);
     await page.getByRole('button', { name: /Settings/i }).click();
 
     const compactCheckbox = page.getByLabel(/Compact mode/i);
@@ -55,6 +58,7 @@ test.describe('Settings Panel', () => {
   test('should toggle show favicons setting', async ({ page, extensionId }) => {
     await addServiceWorkerBridgeMock(page);
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await bypassOnboarding(page);
     await page.getByRole('button', { name: /Settings/i }).click();
 
     const faviconsCheckbox = page.getByLabel(/Show favicons/i);
@@ -69,6 +73,7 @@ test.describe('Archive Management', () => {
   test('should display archive tab', async ({ page, extensionId }) => {
     await addServiceWorkerBridgeMock(page);
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await bypassOnboarding(page);
     await page.getByRole('button', { name: /Archive/i }).click();
 
     // Should show archive heading with count
@@ -78,6 +83,7 @@ test.describe('Archive Management', () => {
   test('should display archived tabs count', async ({ page, extensionId }) => {
     await addServiceWorkerBridgeMock(page);
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await bypassOnboarding(page);
     await page.getByRole('button', { name: /Archive/i }).click();
 
     await expect(page.getByRole('heading', { name: /Archive \(1\)/i })).toBeVisible();

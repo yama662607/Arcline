@@ -1,11 +1,12 @@
 import { expect } from '@playwright/test';
 import { test } from '../fixtures';
-import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
+import { addServiceWorkerBridgeMock, bypassOnboarding } from '../fixtures/service-worker-mock';
 
 test.describe('Context Menu', () => {
   test('should remove a space via context menu', async ({ page, extensionId }) => {
     await addServiceWorkerBridgeMock(page);
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await bypassOnboarding(page);
 
     // Navigate to spaces tab
     await page.getByRole('button', { name: /Spaces/i }).click();
