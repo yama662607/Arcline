@@ -24,6 +24,7 @@ interface EnhancedTabListProps {
   showFavicons?: boolean;
   compact?: boolean;
   floatingContext?: FloatingListContext;
+  onLegacyDragStart?: (event: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
 }
 
 export function EnhancedTabList({
@@ -35,6 +36,7 @@ export function EnhancedTabList({
   showFavicons = true,
   compact = false,
   floatingContext,
+  onLegacyDragStart,
 }: EnhancedTabListProps) {
   /* eslint-disable @typescript-eslint/no-unused-vars */
   // const [draggedTab, setDraggedTab] = useState<TabEntry | null>(null);
@@ -116,6 +118,8 @@ export function EnhancedTabList({
                       onPinToggle={handlePinToggle}
                       onArchive={handleTabArchive}
                       onClose={handleTabClose}
+                      onLegacyDragStart={onLegacyDragStart}
+                      disableNativeDrag={true}
                       isDragged={false}
                     />
                   </TabContextMenu>
@@ -217,6 +221,7 @@ export function EnhancedTabList({
                               onPinToggle={handlePinToggle}
                               onArchive={handleTabArchive}
                               onClose={handleTabClose}
+                              onLegacyDragStart={onLegacyDragStart}
                               isDragged={false}
                             />
                           </TabContextMenu>

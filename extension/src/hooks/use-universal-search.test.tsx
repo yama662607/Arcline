@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUniversalSearch } from './use-universal-search';
 
-const mockBridge = {
-  searchHistory: vi.fn(),
-  searchBookmarks: vi.fn(),
-};
+const { mockBridge } = vi.hoisted(() => ({
+  mockBridge: {
+    searchHistory: vi.fn(),
+    searchBookmarks: vi.fn(),
+    // Add other methods if needed for other tests
+  },
+}));
 
 vi.mock('@/hooks/use-service-worker-bridge', () => ({
   useServiceWorkerBridge: () => mockBridge,
@@ -61,7 +64,7 @@ describe('useUniversalSearch', () => {
     expect(result.current.results[0]?.title).toBe('Local Tab');
   });
 
-  it.skip('searches remote (history/bookmarks)', async () => {
+  it('searches remote (history/bookmarks)', async () => {
     // TODO: Fix React Query async mock timing issues in test environment
     mockBridge.searchHistory.mockResolvedValue([
       { type: 'history', id: 'h1', title: 'History Item', url: 'http://h.com' },
@@ -91,7 +94,7 @@ describe('useUniversalSearch', () => {
     expect(true).toBe(true);
   });
 
-  it.skip('deduplicates results', async () => {
+  it('deduplicates results', async () => {
     // TODO: Fix React Query async mock timing issues in test environment
     const spacesData = [
       {

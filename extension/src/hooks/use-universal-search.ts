@@ -70,7 +70,6 @@ export function useUniversalSearch(query: string, enabled: boolean) {
     queryFn: () => bridge?.searchHistory(query),
     enabled: enabled && !!query.trim() && !!bridge,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    initialData: [],
   });
 
   // 3. Remote Search (Bookmarks)
@@ -79,7 +78,6 @@ export function useUniversalSearch(query: string, enabled: boolean) {
     queryFn: () => bridge?.searchBookmarks(query),
     enabled: enabled && !!query.trim() && !!bridge,
     staleTime: 1000 * 60 * 5,
-    initialData: [],
   });
 
   // Merge results

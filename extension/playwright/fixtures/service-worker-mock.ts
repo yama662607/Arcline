@@ -182,6 +182,10 @@ export async function addServiceWorkerBridgeMock(page: Page) {
           return handleGetBookmarksForSpace(response);
         case 'getFavorites':
           return handleGetFavorites(response);
+        case 'addToFavorites':
+          return handleAddToFavorites(response, message);
+        case 'removeFromFavorites':
+          return handleRemoveFromFavorites(response, message);
         case 'getActiveTab':
           return handleGetActiveTab(response);
         case 'createSpace':
@@ -240,6 +244,46 @@ export async function addServiceWorkerBridgeMock(page: Page) {
 
     function handleGetFavorites(response: { id?: string; data?: unknown }) {
       response.data = [...mockFavorites];
+      return response;
+    }
+
+    function handleAddToFavorites(
+      response: { id?: string; data?: unknown },
+      message: Record<string, unknown>
+    ) {
+      const params = message.params;
+      const paramsObj =
+        params && typeof params === 'object' ? (params as Record<string, unknown>) : undefined;
+      const tab = paramsObj?.tab as MockTab | undefined;
+
+      if (tab) {
+        mockFavorites.push({
+          url: tab.url,
+          title: tab.title,
+          favIconUrl: '',
+          addedAt: Date.now(),
+        });
+      }
+      response.data = null;
+      return response;
+    }
+
+    function handleRemoveFromFavorites(
+      response: { id?: string; data?: unknown },
+      message: Record<string, unknown>
+    ) {
+      const params = message.params;
+      const paramsObj =
+        params && typeof params === 'object' ? (params as Record<string, unknown>) : undefined;
+      const url = typeof paramsObj?.url === 'string' ? paramsObj.url : undefined;
+
+      if (url) {
+        const index = mockFavorites.findIndex((f) => f.url === url);
+        if (index > -1) {
+          mockFavorites.splice(index, 1);
+        }
+      }
+      response.data = null;
       return response;
     }
 
@@ -305,8 +349,62 @@ export async function addServiceWorkerBridgeMock(page: Page) {
       const params = message.params;
       const paramsObj =
         params && typeof params === 'object' ? (params as Record<string, unknown>) : undefined;
+      const tabId = typeof paramsObj?.tabId === 'number' ? paramsObj.tabId : undefined;
       const pinned = typeof paramsObj?.pinned === 'boolean' ? paramsObj.pinned : undefined;
-      response.data = pinned ?? true;
+
+      if (tabId === undefined || pinned === undefined) {
+        return response;
+      }
+
+      for (const space of mockSpaces) {
+        // Try to find in pinnedTabs
+        const pinnedIndex = space.pinnedTabs.findIndex((t) => t.id === tabId);
+        if (pinnedIndex !== -1) {
+          const tab = space.pinnedTabs[pinnedIndex];
+          if (!pinned) {
+            // Unpin: Move to temporaryTabs
+            space.pinnedTabs.splice(pinnedIndex, 1);
+            tab.pinned = false;
+            space.temporaryTabs.push(tab);
+          }
+          response.data = true;
+          return response;
+        }
+
+        // Try to find in temporaryTabs
+        const tempIndex = space.temporaryTabs.findIndex((t) => t.id === tabId);
+        if (tempIndex !== -1) {
+          const tab = space.temporaryTabs[tempIndex];
+          if (pinned) {
+            // Pin: Move to pinnedTabs
+            space.temporaryTabs.splice(tempIndex, 1);
+            tab.pinned = true;
+            space.pinnedTabs.push(tab);
+          }
+          response.data = true;
+          return response;
+        }
+
+        // Try to find in tabs (general tabs)
+        const tabIndex = space.tabs.findIndex((t) => t.id === tabId);
+        if (tabIndex !== -1) {
+          const tab = space.tabs[tabIndex];
+          if (pinned) {
+            // Pin: Move to pinnedTabs
+            space.tabs.splice(tabIndex, 1);
+            tab.pinned = true;
+            space.pinnedTabs.push(tab);
+          } else {
+            // Already unpinned logic not needed if in 'tabs' which implies unpinned usually?
+            // But valid to ensure property
+            tab.pinned = false;
+          }
+          response.data = true;
+          return response;
+        }
+      }
+
+      response.data = true;
       return response;
     }
 

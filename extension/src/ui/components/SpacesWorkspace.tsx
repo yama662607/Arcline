@@ -10,7 +10,12 @@ import {
 } from '@dnd-kit/core';
 import { useMemo, useState } from 'react';
 
-import { useFavorites, useReorderTab, useToggleTabPinned } from '@/hooks/use-spaces-query';
+import {
+  useAddToFavorites,
+  useFavorites,
+  useReorderTab,
+  useToggleTabPinned,
+} from '@/hooks/use-spaces-query';
 import type { UiMode } from '@/lib/ui-mode';
 import type { TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
@@ -33,6 +38,7 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
 
   const { mutate: reorderTab } = useReorderTab();
   const { mutate: toggleTabPinned } = useToggleTabPinned();
+  const { mutate: addToFavorites } = useAddToFavorites();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -78,26 +84,39 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
   const componentVariant = variant === 'floating' ? 'floating' : 'standalone';
 
   const handleDragStart = (event: DragStartEvent) => {
+    console.log('[SpacesWorkspace] DragStart active:', event.active.id);
     setActiveDragId(event.active.id);
+  };
+
+  const findTab = (id: number | string) => {
+    const numId = Number(id);
+    if (!activeSpace) return null;
+    if (activeSpace.pinnedTabs.find((t) => t.id === numId))
+      return { tab: activeSpace.pinnedTabs.find((t) => t.id === numId), type: 'pinned' as const };
+    if (visibleTemporaryTabs.find((t) => t.id === numId))
+      return {
+        tab: visibleTemporaryTabs.find((t) => t.id === numId),
+        type: 'temporary' as const,
+      };
+    return null;
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveDragId(null);
 
-    if (!over || !activeSpace || active.id === over.id) return;
+    if (!over || !activeSpace) return;
 
-    const findTab = (id: number | string) => {
-      const numId = Number(id);
-      if (activeSpace.pinnedTabs.find((t) => t.id === numId))
-        return { tab: activeSpace.pinnedTabs.find((t) => t.id === numId), type: 'pinned' as const };
-      if (visibleTemporaryTabs.find((t) => t.id === numId))
-        return {
-          tab: visibleTemporaryTabs.find((t) => t.id === numId),
-          type: 'temporary' as const,
-        };
-      return null;
-    };
+    // Handle Drop to Favorites
+    if (over.id === 'favorites-zone') {
+      const source = findTab(active.id);
+      if (source && source.tab) {
+        addToFavorites(source.tab);
+      }
+      return;
+    }
+
+    if (active.id === over.id) return;
 
     const source = findTab(active.id);
     const target = findTab(over.id);

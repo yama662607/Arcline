@@ -149,6 +149,29 @@ export function ActiveTabHeader() {
         <div className="flex flex-shrink-0 items-center gap-2">
           <button
             type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+            className="rounded-md border border-surface-light bg-surface p-2 text-slate-300 transition hover:border-slate-600 hover:text-white"
+            aria-label="Open command palette"
+          >
+            {/* Search Icon */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </button>
+          <button
+            type="button"
             onClick={handleReload}
             disabled={!activeTab?.id || isReloading}
             className="rounded-md border border-surface-light bg-surface p-2 text-slate-300 transition hover:border-slate-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"

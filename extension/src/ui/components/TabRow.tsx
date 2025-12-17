@@ -23,6 +23,7 @@ export interface TabRowProps extends React.HTMLAttributes<HTMLDivElement> {
   onLegacyDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void;
   onLegacyDrop?: (event: ReactDragEvent<HTMLDivElement>, tab: TabEntry) => void;
   onLegacyDragEnd?: () => void;
+  disableNativeDrag?: boolean;
 }
 
 export function safeHostname(url: string): string {
@@ -116,6 +117,7 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
     onLegacyDragOver,
     onLegacyDrop,
     onLegacyDragEnd,
+    disableNativeDrag,
     className,
     ...props
   },
@@ -153,7 +155,7 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
   const actionContainerBgClass = 'bg-surface-light';
 
   const dragHandleProps =
-    variant === 'floating'
+    variant === 'floating' && !disableNativeDrag
       ? {
           draggable: true,
           onDragStart: handleDragStart,
