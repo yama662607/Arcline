@@ -3,93 +3,75 @@ import { test } from '../fixtures';
 import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
 test.describe('Tab Search (Command Palette)', () => {
-    test.beforeEach(async ({ page, extensionId }) => {
-        // Navigate to popup
-        await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  test.beforeEach(async ({ page, extensionId }) => {
+    // Navigate to index.html (App.tsx) which has CommandPalette
+    // popup.html uses PopupApp which doesn't have CommandPalette
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
 
-        // Skip onboarding
-        await page.evaluate(async () => {
-            await chrome.storage.local.set({ 'arcline.hasSeenOnboarding': true });
-        });
-
-        // Setup Mock Service Worker (needed for search bridge calls)
-        await addServiceWorkerBridgeMock(page);
-
-        await page.reload();
-
-        // Wait for main UI to load
-        await expect(page.getByText('Temporary')).toBeVisible();
+    // Skip onboarding
+    await page.evaluate(async () => {
+      await chrome.storage.local.set({ 'arcline.hasSeenOnboarding': true });
     });
 
-    test.fixme('should open command palette with keyboard shortcut (Cmd+K)', async ({ page }) => {
-        // Ensure focus
-        await page.mouse.click(100, 100);
+    // Setup Mock Service Worker (needed for search bridge calls)
+    await addServiceWorkerBridgeMock(page);
 
-        // Initially not visible
-        const palette = page.getByRole('dialog', { name: 'Command Menu' }); // cmdk renders div role=dialog? Or checks accessibility?
-        // CommandPalette.tsx renders div role="dialog" aria-modal="true"
-        await expect(palette).not.toBeVisible();
+    await page.reload();
 
-        // Press Cmd+K
-        // Note: modify for Mac vs Windows if needed. Playwright handles Meta/Control.
-        await page.keyboard.press('Meta+k');
+    // Wait for main UI to load - check for Current Tab header (ActiveTabHeader)
+    await expect(page.getByText('Current Tab')).toBeVisible();
+  });
 
-        // Should be visible
-        await expect(palette).toBeVisible();
+  test('should open command palette with keyboard shortcut (Cmd+K)', async ({ page }) => {
+    // Ensure focus on page body
+    await page.locator('body').click();
 
-        // Should focus input
-        const input = page.getByPlaceholder('Search tabs, bookmarks, history...');
-        await expect(input).toBeVisible();
-        await expect(input).toBeFocused();
-    });
+    // Initially not visible
+    const palette = page.getByRole('dialog', { name: 'Command Menu' });
+    await expect(palette).not.toBeVisible();
 
-    test.fixme('should search and display results', async ({ page }) => {
-        page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    // Press Cmd+K (Meta on Mac)
+    await page.keyboard.press('Meta+k');
 
-        // Verify Header presence (Case insensitive)
-        const header = page.getByText(/Current Tab/i);
-        if (!await header.isVisible()) {
-            console.log('Header NOT Visible. Dumping content:');
-            console.log(await page.content());
-        }
-        await expect(header).toBeVisible();
+    // Should be visible
+    await expect(palette).toBeVisible();
 
-        // Search Button
-        const searchBtn = page.locator('button[aria-label="Open command palette"]');
-        if (!await searchBtn.isVisible()) {
-            console.log('Search Button NOT Visible. Listing all buttons:');
-            const buttons = await page.getByRole('button').all();
-            for (const btn of buttons) {
-                console.log('Button:', await btn.innerText(), 'Aria:', await btn.getAttribute('aria-label'));
-            }
-        }
-        await expect(searchBtn).toBeVisible();
-        await searchBtn.click();
+    // Should focus input
+    const input = page.getByPlaceholder('Search tabs, bookmarks, history...');
+    await expect(input).toBeVisible();
+    await expect(input).toBeFocused();
+  });
 
-        const input = page.getByPlaceholder('Search tabs, bookmarks, history...');
-        await expect(input).toBeVisible();
+  test('should search and display results', async ({ page }) => {
+    // Open command palette via button
+    const searchBtn = page.locator('button[aria-label="Open command palette"]');
+    await expect(searchBtn).toBeVisible();
+    await searchBtn.click();
 
-        // Type "Example"
-        await input.fill('Example');
+    // Verify palette opened
+    const input = page.getByPlaceholder('Search tabs, bookmarks, history...');
+    await expect(input).toBeVisible();
 
-        // Wait for results
-        // "Example Tab" is in Mock Data (Temporary/Pinned)
-        // CommandPalette uses useUniversalSearch which uses Fuse on spaces data
+    // Type search query
+    await input.fill('Example');
 
-        // cmdk items have role="option"?
-        // Command.Item renders div.
-        // We can check text.
-        await expect(page.getByText('Example Tab')).toBeVisible();
+    // Wait for search results - "Example Tab" is in mock data
+    await expect(page.getByText('Example Tab').first()).toBeVisible();
 
-        // Ensure "No results found" is NOT visible
-        await expect(page.getByText('No results found.')).not.toBeVisible();
-    });
+    // Ensure "No results found" is NOT visible
+    await expect(page.getByText('No results found.')).not.toBeVisible();
+  });
 
-    test.fixme('should close on Escape', async ({ page }) => {
-        await page.keyboard.press('Meta+k');
-        await expect(page.getByRole('dialog')).toBeVisible();
+  test('should close on Escape', async ({ page }) => {
+    // Focus the page and open palette
+    await page.locator('body').click();
+    await page.keyboard.press('Meta+k');
 
-        await page.keyboard.press('Escape');
-        await expect(page.getByRole('dialog')).not.toBeVisible();
-    });
+    const dialog = page.getByRole('dialog', { name: 'Command Menu' });
+    await expect(dialog).toBeVisible();
+
+    // Press Escape to close
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+  });
 });
