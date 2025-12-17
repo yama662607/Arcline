@@ -47,17 +47,19 @@ const manifest = defineManifest(({ mode }) => {
       //   run_at: 'document_idle',
       // },
     ],
-    // Temporarily disabled for testing
-    // side_panel: {
-    //   default_path: 'index.html',
-    // },
+    side_panel: {
+      default_path: 'index.html',
+    },
+    chrome_url_overrides: {
+      newtab: 'newtab.html',
+    },
     permissions: [
       'tabs',
       'tabGroups',
       'bookmarks',
       'storage',
       'history',
-      // 'sidePanel', // Temporarily disabled for testing
+      'sidePanel',
       'commands',
       'alarms',
       'contextMenus',
@@ -89,7 +91,7 @@ const manifest = defineManifest(({ mode }) => {
     },
     web_accessible_resources: [
       {
-        resources: ['index.html', 'popup.html', 'assets/*', 'icons/*'],
+        resources: ['index.html', 'popup.html', 'newtab.html', 'assets/*', 'icons/*'],
         matches: ['<all_urls>'],
       },
       {

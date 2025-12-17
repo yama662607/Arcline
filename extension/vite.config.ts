@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => ({
       input: {
         index: resolve(__dirname, 'index.html'),
         popup: resolve(__dirname, 'popup.html'),
+        newtab: resolve(__dirname, 'newtab.html'),
       },
     },
   },
