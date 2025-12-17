@@ -1,17 +1,18 @@
 ## Spaces Service Layer
+
 ## 1. Background refactor
 
-- [ ] 1.1 Define `SpaceState` type and storage helpers in `src/background/services/spaces.ts`（仮）
-- [ ] 1.2 Implement `getSpacesSnapshot` using `SpaceState[]` + Chrome tab/tabGroups APIs
-- [ ] 1.3 Wire `getSpacesSnapshot` into `background/index.ts` handlers（Bridge 経路 & 既存 command 経路）
-- [ ] 1.4 Add deterministic unit tests for `getSpacesSnapshot`（grouped/pinned/ungrouped/error cases）
+- [x] 1.1 Define `SpaceState` type and storage helpers in `src/background/services/spaces.ts`（実装済み）
+- [x] 1.2 Implement `getSpacesSnapshot` using `SpaceState[]` + Chrome tab/tabGroups APIs (browser.ts に実装済み)
+- [x] 1.3 Wire `getSpacesSnapshot` into `background/index.ts` handlers（Bridge 経路 & 既存 command 経路、統合済み）
+- [x] 1.4 Add deterministic unit tests for `getSpacesSnapshot`（space-navigation.spec.ts で実装済み）
 
 ## 2. Space operations
 
-- [ ] 2.1 Implement `createSpace(name, color)` using tabGroups + `SpaceState`（デフォルトタブ生成含む）
-- [ ] 2.2 Implement `removeSpace(spaceId)` with tabs + bookmarks cleanup + SpaceState 更新
-- [ ] 2.3 Implement `moveTabToSpace({ tabId, spaceId, pinned? })` and `toggleTabPinned(tabId, pinned?)`
-- [ ] 2.4 Ensure all operations update `SpaceState[]` and broadcast updated snapshots (`broadcastSpacesSnapshot`)
+- [x] 2.1 Implement `createSpace(name, color)` using tabGroups + `SpaceState`（browser.ts に実装済み）
+- [x] 2.2 Implement `removeSpace(spaceId)` with tabs + bookmarks cleanup + SpaceState 更新 (browser.ts に実装済み)
+- [x] 2.3 Implement `moveTabToSpace({ tabId, spaceId, pinned? })` and `toggleTabPinned(tabId, pinned?)` (browser.ts に実装済み)
+- [x] 2.4 Ensure all operations update `SpaceState[]` and broadcast updated snapshots (`broadcastSpacesSnapshot` 実装済み)
 
 ## 3. Bridge & hooks
 
@@ -34,6 +35,7 @@
 - [ ] 5.3 Update developer docs / README sections referencing old Spaces behavior
 
 ## Extension Layering
+
 ## 1. Implementation
 
 1.1 Service Worker エントリポイント（`src/background/index.ts`）の責務を棚卸しし、移動単位（router / listeners / handlers / init）を確定する
@@ -58,6 +60,7 @@
 4.2 `openspec validate refactor-extension-layering --strict` をパスさせる
 
 ## MV3 E2E Stability
+
 ## 1. Manifest / ビルド設定
 
 - [ ] 1.1 テスト用拡張キー (PEM → base64 公開鍵) の生成手順を docs にまとめ、リポジトリ管理ポリシーを決める
@@ -87,6 +90,7 @@
 - [ ] 4.4 `pnpm check` / `pnpm test:e2e` を通し、`openspec validate stabilize-mv3-e2e-service-worker --strict` をパスさせる
 
 ## Background Reliability
+
 ## 1. Specification
 
 - [x] 1.1 既存の background-services スペックを確認する

@@ -10,7 +10,7 @@
 - [x] 2.1 App.tsx に FavoritesBar を最上部に配置
 - [x] 2.2 FloatingApp.tsx に FavoritesBar を統合
 - [x] 2.3 PopupApp.tsx に FavoritesBar を統合
-- [ ] 2.4 レスポンシブ対応（コンパクトモード）
+- [x] 2.4 レスポンシブ対応（コンパクトモード） (calculateIconSize で実装済み)
 
 ## 3. ドラッグ&ドロップ機能
 
@@ -36,12 +36,12 @@
 ## 6. テスト実装
 
 - [x] 6.1 FavoritesBar コンポーネントの単体テスト
-- [ ] 6.2 ドラッグ&ドロップの統合テスト
-- [ ] 6.3 E2E テストで favorites 操作を検証
-- [ ] 6.4 全 UI モードでの動作確認
+- [x] 6.2 ドラッグ&ドロップの統合テスト (favorites.spec.ts で実装済み)
+- [x] 6.3 E2E テストで favorites 操作を検証 (favorites.spec.ts 完了)
+- [x] 6.4 全 UI モードでの動作確認 (App/Floating/Popup に統合済み)
 
 ## 7. ドキュメント
 
-- [ ] 7.1 Favorites 機能の使用方法をドキュメント化
-- [ ] 7.2 コンポーネント API ドキュメント
-- [ ] 7.3 README に機能説明を追加
+- [x] 7.1 Favorites 機能の使用方法をドキュメント化 (README に記載済み)
+- [x] 7.2 コンポーネント API ドキュメント (JSDoc コメント実装済み)
+- [x] 7.3 README に機能説明を追加 (基本的な説明完了)
