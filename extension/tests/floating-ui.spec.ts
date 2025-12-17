@@ -197,10 +197,11 @@ test.describe('Hotzone Mouse Hover Activation', () => {
     // Get hotzone position
     const hotzoneBox = await getHotzoneBox(page);
     expect(hotzoneBox).not.toBeNull();
+    if (!hotzoneBox) return; // Early return for type narrowing
 
     // Move mouse to hotzone center
-    const centerX = hotzoneBox!.x + hotzoneBox!.width / 2;
-    const centerY = hotzoneBox!.y + hotzoneBox!.height / 2;
+    const centerX = hotzoneBox.x + hotzoneBox.width / 2;
+    const centerY = hotzoneBox.y + hotzoneBox.height / 2;
     await page.mouse.move(centerX, centerY);
 
     // Trigger pointerenter by dispatching event

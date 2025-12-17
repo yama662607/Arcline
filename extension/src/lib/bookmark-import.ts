@@ -67,66 +67,77 @@ function hasArcItemStructure(item: unknown): boolean {
 }
 
 /**
+ * Try to parse a line as a folder header
+ */
+function tryParseFolder(line: string): ImportedBookmark | null {
+  const match = line.match(/<DT><H3[^>]*>([^<]+)<\/H3>/i);
+  if (!match?.[1]) return null;
+  return {
+    title: decodeHtmlEntities(match[1]),
+    url: '',
+    isFolder: true,
+    children: [],
+  };
+}
+
+/**
+ * Try to parse a line as a bookmark
+ */
+function tryParseBookmark(line: string): ImportedBookmark | null {
+  const match = line.match(/<DT><A[^>]+HREF="([^"]+)"[^>]*>([^<]*)<\/A>/i);
+  if (!match?.[1] || match[2] === undefined) return null;
+  return {
+    title: decodeHtmlEntities(match[2]),
+    url: match[1],
+  };
+}
+
+/**
+ * Process a single line in the HTML parser
+ */
+function processHtmlLine(line: string, stack: ImportedBookmark[][]): void {
+  const trimmed = line.trim();
+
+  // Try folder
+  const folder = tryParseFolder(trimmed);
+  if (folder) {
+    stack[stack.length - 1]?.push(folder);
+    return;
+  }
+
+  // DL start - push children array
+  if (/<DL>/i.test(trimmed)) {
+    const current = stack[stack.length - 1];
+    const lastItem = current?.[current.length - 1];
+    if (lastItem?.isFolder && lastItem.children) {
+      stack.push(lastItem.children);
+    }
+    return;
+  }
+
+  // DL end - pop stack
+  if (/<\/DL>/i.test(trimmed)) {
+    if (stack.length > 1) stack.pop();
+    return;
+  }
+
+  // Try bookmark
+  const bookmark = tryParseBookmark(trimmed);
+  if (bookmark) {
+    stack[stack.length - 1]?.push(bookmark);
+  }
+}
+
+/**
  * Parse Netscape Bookmark HTML format
  */
 export function parseNetscapeHtml(htmlContent: string): ImportedBookmark[] {
   const bookmarks: ImportedBookmark[] = [];
-
-  // Stack-based parser for nested structure
   const stack: ImportedBookmark[][] = [bookmarks];
-
-  // Split content into lines for processing
   const lines = htmlContent.split('\n');
 
   for (const line of lines) {
-    const trimmedLine = line.trim();
-
-    // Match folder start: <DT><H3...>Title</H3>
-    const folderMatch = trimmedLine.match(/<DT><H3[^>]*>([^<]+)<\/H3>/i);
-    if (folderMatch?.[1]) {
-      const folder: ImportedBookmark = {
-        title: decodeHtmlEntities(folderMatch[1]),
-        url: '',
-        isFolder: true,
-        children: [],
-      };
-      const currentLevel = stack[stack.length - 1];
-      if (currentLevel) {
-        currentLevel.push(folder);
-      }
-      continue;
-    }
-
-    // Match <DL> - start of folder contents
-    if (trimmedLine.match(/<DL>/i)) {
-      const currentLevel = stack[stack.length - 1];
-      const lastItem = currentLevel?.[currentLevel.length - 1];
-      if (lastItem?.isFolder && lastItem.children) {
-        stack.push(lastItem.children);
-      }
-      continue;
-    }
-
-    // Match </DL> - end of folder contents
-    if (trimmedLine.match(/<\/DL>/i)) {
-      if (stack.length > 1) {
-        stack.pop();
-      }
-      continue;
-    }
-
-    // Match bookmark: <DT><A HREF="url"...>Title</A>
-    const bookmarkMatch = trimmedLine.match(/<DT><A[^>]+HREF="([^"]+)"[^>]*>([^<]*)<\/A>/i);
-    if (bookmarkMatch?.[1] && bookmarkMatch[2] !== undefined) {
-      const bookmark: ImportedBookmark = {
-        title: decodeHtmlEntities(bookmarkMatch[2]),
-        url: bookmarkMatch[1],
-      };
-      const currentLevel = stack[stack.length - 1];
-      if (currentLevel) {
-        currentLevel.push(bookmark);
-      }
-    }
+    processHtmlLine(line, stack);
   }
 
   return bookmarks;
@@ -288,97 +299,117 @@ function parseArcItemsWithMap(
   return bookmarks;
 }
 
-function parseArcItem(item: ArcItem): ImportedBookmark | null {
-  // Tab item
-  if (item.data?.tab) {
-    const tab = item.data.tab;
-    if (tab.savedURL) {
-      return {
-        title: tab.savedTitle || item.title || 'Untitled',
-        url: cleanArcUrl(tab.savedURL),
-      };
-    }
-  }
+/**
+ * Try to parse an Arc item as a list/folder
+ */
+function tryParseArcList(item: ArcItem): ImportedBookmark | null {
+  if (!item.data?.list) return null;
 
-  // Direct URL
-  if (item.url) {
-    return {
-      title: item.title || 'Untitled',
-      url: cleanArcUrl(item.url),
-    };
-  }
+  const list = item.data.list;
+  const folder: ImportedBookmark = {
+    title: list.title || item.title || 'Untitled Folder',
+    url: '',
+    isFolder: true,
+    children: [],
+  };
 
-  // Folder/List item
-  if (item.data?.list) {
-    const list = item.data.list;
-    const folder: ImportedBookmark = {
-      title: list.title || item.title || 'Untitled Folder',
-      url: '',
-      isFolder: true,
-      children: [],
-    };
-
-    if (list.items) {
-      for (const child of list.items) {
-        const childBookmark = parseArcItem(child);
-        if (childBookmark) {
-          folder.children?.push(childBookmark);
-        }
+  if (list.items) {
+    for (const child of list.items) {
+      const childBookmark = parseArcItem(child);
+      if (childBookmark) {
+        folder.children?.push(childBookmark);
       }
     }
-
-    return folder;
   }
 
-  return null;
+  return folder;
+}
+
+function parseArcItem(item: ArcItem): ImportedBookmark | null {
+  return tryParseArcTabSimple(item) ?? tryParseArcUrlSimple(item) ?? tryParseArcList(item);
+}
+
+/**
+ * Simple tab parser (without itemsMap)
+ */
+function tryParseArcTabSimple(item: ArcItem): ImportedBookmark | null {
+  const savedURL = item.data?.tab?.savedURL;
+  if (!savedURL) return null;
+  const tab = item.data?.tab;
+  return {
+    title: tab?.savedTitle || item.title || 'Untitled',
+    url: cleanArcUrl(savedURL),
+  };
+}
+
+/**
+ * Simple URL parser (without itemsMap)
+ */
+function tryParseArcUrlSimple(item: ArcItem): ImportedBookmark | null {
+  if (!item.url) return null;
+  return {
+    title: item.title || 'Untitled',
+    url: cleanArcUrl(item.url),
+  };
+}
+
+/**
+ * Try to parse an Arc item as a tab bookmark
+ */
+function tryParseArcTab(item: ArcItem): ImportedBookmark | null {
+  if (!item.data?.tab) return null;
+  const tab = item.data.tab;
+  if (!tab.savedURL) return null;
+  return {
+    title: tab.savedTitle || item.title || 'Untitled',
+    url: cleanArcUrl(tab.savedURL),
+  };
+}
+
+/**
+ * Try to parse an Arc item as a direct URL bookmark
+ */
+function tryParseArcUrl(item: ArcItem): ImportedBookmark | null {
+  if (!item.url) return null;
+  return {
+    title: item.title || 'Untitled',
+    url: cleanArcUrl(item.url),
+  };
+}
+
+/**
+ * Try to parse an Arc item as a folder with children
+ */
+function tryParseArcFolder(
+  item: ArcItem,
+  itemsMap: Record<string, ArcItem>
+): ImportedBookmark | null {
+  if (!item.childrenIds || item.childrenIds.length === 0) return null;
+
+  const folder: ImportedBookmark = {
+    title: item.title || item.data?.list?.title || 'Untitled Folder',
+    url: '',
+    isFolder: true,
+    children: [],
+  };
+
+  for (const childId of item.childrenIds) {
+    const childItem = itemsMap[childId];
+    if (!childItem) continue;
+    const childBookmark = parseArcItemWithChildren(childItem, itemsMap);
+    if (childBookmark) {
+      folder.children?.push(childBookmark);
+    }
+  }
+
+  return folder;
 }
 
 function parseArcItemWithChildren(
   item: ArcItem,
   itemsMap: Record<string, ArcItem>
 ): ImportedBookmark | null {
-  // Tab item
-  if (item.data?.tab) {
-    const tab = item.data.tab;
-    if (tab.savedURL) {
-      return {
-        title: tab.savedTitle || item.title || 'Untitled',
-        url: cleanArcUrl(tab.savedURL),
-      };
-    }
-  }
-
-  // Direct URL
-  if (item.url) {
-    return {
-      title: item.title || 'Untitled',
-      url: cleanArcUrl(item.url),
-    };
-  }
-
-  // Folder with childrenIds
-  if (item.childrenIds && item.childrenIds.length > 0) {
-    const folder: ImportedBookmark = {
-      title: item.title || item.data?.list?.title || 'Untitled Folder',
-      url: '',
-      isFolder: true,
-      children: [],
-    };
-
-    for (const childId of item.childrenIds) {
-      const childItem = itemsMap[childId];
-      if (childItem) {
-        const childBookmark = parseArcItemWithChildren(childItem, itemsMap);
-        if (childBookmark) {
-          folder.children?.push(childBookmark);
-        }
-      }
-    }
-
-    return folder;
-  }
-
-  return null;
+  return tryParseArcTab(item) ?? tryParseArcUrl(item) ?? tryParseArcFolder(item, itemsMap);
 }
 
 /**

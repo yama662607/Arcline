@@ -62,21 +62,15 @@ const FaviconItem = React.forwardRef<
   const iconSize = Math.floor(size * 0.5); // Icon is 50% of container
 
   return (
-    // @ts-expect-error
-    <motion.div
-      layout
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.8, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+    <div
       ref={ref}
       className={`group relative flex flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/5 bg-white/5 shadow-sm transition-all hover:bg-white/10 hover:shadow-md hover:ring-1 hover:ring-white/20 ${
         isDragging ? 'opacity-50 ring-2 ring-primary/50' : ''
       }`}
       style={{ width: `${size}px`, height: `${size}px` }}
       draggable
-      onDragStart={handleDragStart as any}
-      onDragEnd={handleDragEnd as any}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       onClick={() => onTabSelect(tab)}
       onKeyDown={handleKeyDown}
       title={`${tab.title}\n${tab.url}`}
@@ -115,7 +109,7 @@ const FaviconItem = React.forwardRef<
       >
         <X className="h-3 w-3" />
       </button>
-    </motion.div>
+    </div>
   );
 });
 

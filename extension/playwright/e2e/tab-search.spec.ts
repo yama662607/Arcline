@@ -18,8 +18,8 @@ test.describe('Tab Search (Command Palette)', () => {
 
     await page.reload();
 
-    // Wait for main UI to load - check for Current Tab header (ActiveTabHeader)
-    await expect(page.getByText('Current Tab')).toBeVisible();
+    // Wait for main UI to load - check for Search Bar
+    await expect(page.getByPlaceholder('Search or Enter URL...')).toBeVisible();
   });
 
   test('should open command palette with keyboard shortcut (Cmd+K)', async ({ page }) => {
@@ -43,10 +43,9 @@ test.describe('Tab Search (Command Palette)', () => {
   });
 
   test('should search and display results', async ({ page }) => {
-    // Open command palette via button
-    const searchBtn = page.locator('button[aria-label="Open command palette"]');
-    await expect(searchBtn).toBeVisible();
-    await searchBtn.click();
+    // Open command palette via keyboard shortcut (Cmd+K)
+    await page.locator('body').click();
+    await page.keyboard.press('Meta+k');
 
     // Verify palette opened
     const input = page.getByPlaceholder('Search tabs, bookmarks, history...');

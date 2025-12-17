@@ -46,12 +46,12 @@ function AppContent() {
       <div className="min-h-screen bg-background text-foreground">
         {uiMode === 'floating' || uiMode === 'popup' ? (
           <div className="p-4">
-            <SpacesWorkspace variant="floating" uiMode={uiMode} />
+            <SpacesWorkspace variant="floating" />
           </div>
         ) : (
           <div className="mx-auto max-w-5xl space-y-6 px-6 py-10">
             <div className="mx-auto max-w-3xl space-y-8">
-              <SpacesWorkspace variant="sidepanel" uiMode="side-panel" />
+              <SpacesWorkspace variant="sidepanel" />
             </div>
           </div>
         )}

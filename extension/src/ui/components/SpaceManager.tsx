@@ -9,6 +9,7 @@ interface SpaceManagerProps {
   variant?: 'standalone' | 'floating';
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: space management UI
 export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
   const [isCreatingSpace, setIsCreatingSpace] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState('');

@@ -69,9 +69,9 @@ export function Onboarding({ onFinish }: OnboardingProps) {
           </button>
 
           <div className="flex justify-center gap-2">
-            {slides.map((_, idx) => (
+            {slides.map((slide, idx) => (
               <div
-                key={idx}
+                key={slide.title}
                 className={`h-1.5 rounded-full transition-all ${
                   idx === currentIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/20'
                 }`}

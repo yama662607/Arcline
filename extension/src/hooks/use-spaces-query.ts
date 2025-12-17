@@ -159,6 +159,40 @@ export function useRemoveSpace() {
   });
 }
 
+export function useSetActiveSpace() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, number>({
+    mutationFn: async (spaceId: number) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.setActiveSpace(spaceId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
+
+export function useUpdateSpace() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    void,
+    Error,
+    { id: number; name?: string; themeColor?: string; icon?: string }
+  >({
+    mutationFn: async ({ id, name, themeColor, icon }) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      await bridge.updateSpace(id, { name, themeColor, icon });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+    },
+  });
+}
+
 export function useCloseTab() {
   const bridge = useServiceWorkerBridge();
   const queryClient = useQueryClient();

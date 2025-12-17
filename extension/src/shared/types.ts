@@ -36,10 +36,14 @@ export interface PinnedFolder {
   parentId?: string;
 }
 
+export type SpaceColor = 'grey' | 'blue' | 'red' | 'yellow' | 'green' | 'pink' | 'purple' | 'cyan';
+
 export interface SpaceSnapshot {
   id: number;
   name: string;
   color: TabGroupColor;
+  themeColor?: SpaceColor;
+  icon?: string; // Emoji or icon identifier
   tabs: TabEntry[];
   pinnedTabs: TabEntry[]; // Deprecated: Use pinnedItems
   pinnedItems: PinnedItem[];
@@ -99,12 +103,16 @@ export interface TabActivity {
 export interface SpaceCreateRequest {
   name: string;
   color?: TabGroupColor;
+  themeColor?: SpaceColor;
+  icon?: string;
 }
 
 export interface SpaceUpdateRequest {
   id: number;
   name?: string;
   color?: TabGroupColor;
+  themeColor?: SpaceColor;
+  icon?: string;
 }
 
 export interface TabMoveRequest {

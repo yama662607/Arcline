@@ -17,6 +17,7 @@ interface SettingsPanelProps {
   variant?: 'standalone' | 'floating';
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: settings panel has many configuration options
 export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<
     'general' | 'archive' | 'appearance' | 'gestures' | 'import'
@@ -52,6 +53,7 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
 
   const bridge = useServiceWorkerBridge();
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: recursive import logic
   const handleImportConfirm = async (selectedBookmarks: ImportedBookmark[]) => {
     if (!bridge) return;
 

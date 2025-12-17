@@ -238,6 +238,25 @@ export class ServiceWorkerBridge {
     }) as Promise<void>;
   }
 
+  async setActiveSpace(spaceId: number): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'setActiveSpace',
+      params: { spaceId },
+    }) as Promise<void>;
+  }
+
+  async updateSpace(
+    spaceId: number,
+    updates: { name?: string; themeColor?: string; icon?: string }
+  ): Promise<void> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'updateSpace',
+      params: { spaceId, ...updates },
+    }) as Promise<void>;
+  }
+
   async closeTab(tabId: number): Promise<void> {
     return this.sendMessage({
       type: 'mutation',

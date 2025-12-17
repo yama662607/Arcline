@@ -8,7 +8,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   useAddToFavorites,
@@ -16,23 +16,24 @@ import {
   useReorderTab,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
-import type { UiMode } from '@/lib/ui-mode';
+import { getSpaceTheme } from '@/lib/space-theme';
 import type { TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
-import { ActiveTabHeader } from '@/ui/components/ActiveTabHeader';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
 import { FavoritesBar } from '@/ui/components/FavoritesBar';
+import { NewTabButton } from '@/ui/components/NewTabButton';
+import { SearchBar } from '@/ui/components/SearchBar';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceManager } from '@/ui/components/SpaceManager';
+import { SpaceSwitcher } from '@/ui/components/SpaceSwitcher';
 import { TabRow } from '@/ui/components/TabRow';
 
 interface SpacesWorkspaceProps {
   variant: 'sidepanel' | 'floating';
-  uiMode?: UiMode;
 }
 
-export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
+export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'spaces' | 'archive' | 'settings'>('spaces');
   const [activeDragId, setActiveDragId] = useState<number | string | null>(null);
 
@@ -83,6 +84,17 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
 
   const componentVariant = variant === 'floating' ? 'floating' : 'standalone';
 
+  // Get theme colors for current space
+  const spaceTheme = useMemo(
+    () => getSpaceTheme(activeSpace?.themeColor),
+    [activeSpace?.themeColor]
+  );
+
+  const handleOpenCommandPalette = useCallback(() => {
+    // Command palette is handled by keyboard shortcut (Cmd+K)
+    // This callback is passed to SearchBar for future integration
+  }, []);
+
   const handleDragStart = (event: DragStartEvent) => {
     console.log('[SpacesWorkspace] DragStart active:', event.active.id);
     setActiveDragId(event.active.id);
@@ -101,6 +113,7 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
     return null;
   };
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: drag-and-drop logic requires multiple conditions
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveDragId(null);
@@ -156,43 +169,54 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="space-y-6">
-        <ActiveTabHeader />
+      <div
+        className="flex flex-col h-full min-h-0 transition-all duration-500"
+        style={{
+          background: spaceTheme.gradient,
+        }}
+      >
+        {/* Search Bar - Always visible at top */}
+        <div className="flex-shrink-0 px-3 pt-3">
+          <SearchBar variant={componentVariant} onOpenCommandPalette={handleOpenCommandPalette} />
+        </div>
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-medium text-white">Arcline</h2>
-            <div className="text-sm text-slate-400">
-              UI Mode:{' '}
-              <span className="font-mono">
-                {uiMode ?? (variant === 'floating' ? 'floating' : 'side-panel')}
-              </span>
+        {/* Favorites Grid */}
+        <div className="flex-shrink-0">
+          <FavoritesBar pinnedTabs={favoriteTabs} />
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full overflow-y-auto px-3">
+            {/* Tab Navigation */}
+            <div className="sticky top-0 z-10 bg-black/20 backdrop-blur-sm rounded-lg mb-3">
+              <div className="flex">
+                {(['spaces', 'archive', 'settings'] as const).map((tab) => (
+                  <button
+                    type="button"
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+                      activeTab === tab
+                        ? 'text-white bg-white/20'
+                        : 'text-white/60 hover:text-white/80'
+                    }`}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="rounded-lg border border-surface-light">
-            <div className="flex border-b border-surface-light">
-              {(['spaces', 'archive', 'settings'] as const).map((tab) => (
-                <button
-                  type="button"
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                    activeTab === tab
-                      ? 'text-white bg-surface-light'
-                      : 'text-slate-400 hover:text-slate-300'
-                  }`}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            <div className="p-4">
+            {/* Content */}
+            <div className="space-y-4 pb-4">
               {activeTab === 'spaces' && (
-                <div className="space-y-4">
-                  <FavoritesBar pinnedTabs={favoriteTabs} />
-                  <SpaceManager variant={componentVariant} />
+                <>
+                  {/* Space Header */}
+                  <div className="flex items-center gap-2">
+                    {activeSpace?.icon && <span className="text-2xl">{activeSpace.icon}</span>}
+                    <SpaceManager variant={componentVariant} />
+                  </div>
 
                   {activeSpace ? (
                     <div className="space-y-3">
@@ -212,18 +236,24 @@ export function SpacesWorkspace({ variant, uiMode }: SpacesWorkspaceProps) {
                       />
                     </div>
                   ) : (
-                    <div className="px-4 py-8 text-center text-xs text-slate-500">
+                    <div className="px-4 py-8 text-center text-xs text-white/50">
                       No spaces available. Create a space to get started.
                     </div>
                   )}
-                </div>
+                </>
               )}
 
               {activeTab === 'archive' && <ArchiveManager variant={componentVariant} />}
               {activeTab === 'settings' && <SettingsPanel variant={componentVariant} />}
             </div>
           </div>
-        </section>
+        </div>
+
+        {/* Bottom Section - New Tab Button + Space Switcher */}
+        <div className="flex-shrink-0 px-3 pb-3 space-y-2">
+          <NewTabButton variant={componentVariant} />
+          <SpaceSwitcher variant={componentVariant} />
+        </div>
 
         <DragOverlay>
           {dragOverlayTab ? (

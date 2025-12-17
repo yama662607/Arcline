@@ -18,9 +18,9 @@ test.describe('Pinned Tabs', () => {
 
     await page.reload();
 
-    // Wait for tabs to load - check for Current Tab header (ActiveTabHeader in App.tsx)
-    await expect(page.getByText('Current Tab')).toBeVisible();
-    // Also verify tab sections are visible
+    // Wait for tabs to load - check for Search Bar (new Arc-style UI)
+    await expect(page.getByPlaceholder('Search or Enter URL...')).toBeVisible();
+    // Also verify tab sections are visible (use heading role for specificity)
     await expect(page.getByRole('heading', { name: /Pinned/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Temporary/i })).toBeVisible();
   });

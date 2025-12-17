@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFavorites } from '@/hooks/use-spaces-query';
-import type { UiMode } from '@/lib/ui-mode';
 import type { SpaceSnapshot, TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { SpacesWorkspace } from './SpacesWorkspace';
@@ -16,9 +15,6 @@ type MockSpacesState = {
 };
 
 // Mock Component Mocks
-vi.mock('@/ui/components/ActiveTabHeader', () => ({
-  ActiveTabHeader: () => <div data-testid="active-tab-header">Active Tab Header</div>,
-}));
 vi.mock('@/ui/components/ArchiveManager', () => ({
   ArchiveManager: () => <div data-testid="archive-manager">Archive Manager</div>,
 }));
@@ -39,6 +35,15 @@ vi.mock('@/ui/components/SpaceManager', () => ({
 vi.mock('@/ui/components/TabContextMenu', () => ({
   TabContextMenu: () => <div data-testid="context-menu">Context Menu</div>,
 }));
+vi.mock('@/ui/components/SearchBar', () => ({
+  SearchBar: () => <div data-testid="search-bar">Search Bar</div>,
+}));
+vi.mock('@/ui/components/NewTabButton', () => ({
+  NewTabButton: () => <div data-testid="new-tab-button">New Tab</div>,
+}));
+vi.mock('@/ui/components/SpaceSwitcher', () => ({
+  SpaceSwitcher: () => <div data-testid="space-switcher">Space Switcher</div>,
+}));
 
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -56,6 +61,9 @@ vi.mock('@/hooks/use-spaces-query', () => ({
   useReorderTab: vi.fn(() => ({ mutate: vi.fn() })),
   useToggleTabPinned: vi.fn(() => ({ mutate: vi.fn() })),
   useAddToFavorites: vi.fn(() => ({ mutate: vi.fn() })),
+  useOpenUrlInTab: vi.fn(() => ({ mutate: vi.fn() })),
+  useSetActiveSpace: vi.fn(() => ({ mutate: vi.fn() })),
+  useCreateSpace: vi.fn(() => ({ mutate: vi.fn() })),
 }));
 
 vi.mock('@/store', () => ({
@@ -119,19 +127,21 @@ describe('SpacesWorkspace', () => {
     } as unknown as ReturnType<typeof useFavorites>);
   });
 
-  const renderComponent = (variant: 'sidepanel' | 'floating' = 'sidepanel', uiMode?: UiMode) => {
+  const renderComponent = (variant: 'sidepanel' | 'floating' = 'sidepanel') => {
     return render(
       <QueryClientProvider client={queryClient}>
-        <SpacesWorkspace variant={variant} uiMode={uiMode} />
+        <SpacesWorkspace variant={variant} />
       </QueryClientProvider>
     );
   };
 
-  it('renders the main structure (ActiveTabHeader, Tabs, Content)', () => {
+  it('renders the main structure (SearchBar, Tabs, Content)', () => {
     renderComponent();
 
-    expect(screen.getByTestId('active-tab-header')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Arcline', level: 2 })).toBeInTheDocument();
+    // New Arc-style layout components
+    expect(screen.getByTestId('search-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('new-tab-button')).toBeInTheDocument();
+    expect(screen.getByTestId('space-switcher')).toBeInTheDocument();
 
     // Navigation buttons
     expect(screen.getByRole('button', { name: 'Spaces' })).toBeInTheDocument();

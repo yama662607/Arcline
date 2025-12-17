@@ -101,6 +101,7 @@ export function useTabRowHandlers(
   };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: tab row UI with multiple states
 export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
   {
     tab,

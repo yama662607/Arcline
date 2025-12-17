@@ -23,8 +23,8 @@ test.describe('Context Menu', () => {
     // Right click on the space
     await spaceItem.click({ button: 'right' });
 
-    // Expect context menu to appear
-    const removeOption = page.getByRole('menuitem', { name: /Remove space/i });
+    // Expect context menu to appear (menu item is now "Delete Space")
+    const removeOption = page.getByRole('menuitem', { name: /Delete Space/i });
     await expect(removeOption).toBeVisible();
 
     // Click remove

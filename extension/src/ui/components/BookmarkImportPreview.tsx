@@ -97,47 +97,29 @@ export function BookmarkImportPreview({ result, onConfirm, onCancel }: BookmarkI
   };
 
   const getSelectedBookmarks = (): ImportedBookmark[] => {
-    const selected: ImportedBookmark[] = [];
-
-    const collectSelected = (items: ImportedBookmark[], basePath: string) => {
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (!item) continue;
-        const path = `${basePath}/${i}`;
-        if (selectedItems.has(path)) {
-          if (item.isFolder && item.children) {
-            const selectedChildren: ImportedBookmark[] = [];
-            collectSelectedChildren(item.children, path, selectedChildren);
-            selected.push({ ...item, children: selectedChildren });
-          } else {
-            selected.push(item);
-          }
-        }
-      }
-    };
-
-    const collectSelectedChildren = (
+    const collectItems = (
       items: ImportedBookmark[],
       basePath: string,
       result: ImportedBookmark[]
-    ) => {
+    ): void => {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         if (!item) continue;
         const path = `${basePath}/${i}`;
-        if (selectedItems.has(path)) {
-          if (item.isFolder && item.children) {
-            const selectedChildren: ImportedBookmark[] = [];
-            collectSelectedChildren(item.children, path, selectedChildren);
-            result.push({ ...item, children: selectedChildren });
-          } else {
-            result.push(item);
-          }
+        if (!selectedItems.has(path)) continue;
+
+        if (item.isFolder && item.children) {
+          const children: ImportedBookmark[] = [];
+          collectItems(item.children, path, children);
+          result.push({ ...item, children });
+        } else {
+          result.push(item);
         }
       }
     };
 
-    collectSelected(result.bookmarks, '');
+    const selected: ImportedBookmark[] = [];
+    collectItems(result.bookmarks, '', selected);
     return selected;
   };
 

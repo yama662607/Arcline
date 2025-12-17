@@ -17,8 +17,8 @@ test.describe('Favorites Management', () => {
 
     await page.reload();
 
-    // Wait for main UI to load
-    await expect(page.getByText('Current Tab')).toBeVisible();
+    // Wait for main UI to load - check for Search Bar (new Arc-style UI)
+    await expect(page.getByPlaceholder('Search or Enter URL...')).toBeVisible();
   });
 
   test('should add a tab to favorites via drag and drop', async ({ page }) => {
@@ -99,7 +99,8 @@ test.describe('Tab Reordering via Drag and Drop', () => {
     await addServiceWorkerBridgeMock(page);
     await page.reload();
 
-    await expect(page.getByText('Current Tab')).toBeVisible();
+    // Wait for main UI to load - check for Search Bar (new Arc-style UI)
+    await expect(page.getByPlaceholder('Search or Enter URL...')).toBeVisible();
   });
 
   test('should reorder tabs within Temporary section via drag and drop', async ({ page }) => {
