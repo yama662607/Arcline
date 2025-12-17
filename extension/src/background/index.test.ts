@@ -37,7 +37,10 @@ vi.mock('./services/browser', () => {
 import type { UiMode } from '@/lib/ui-mode';
 import type { SpaceSnapshot } from '@/shared/types';
 import { chromeMock } from '@/test/chrome-mock';
-import { broadcastUiMode, commandHandlers } from './index';
+import type {
+  broadcastUiMode as BroadcastUiModeFn,
+  commandHandlers as CommandHandlersValue,
+} from './index';
 import {
   broadcastSpacesSnapshot,
   getSpacesSnapshot,
@@ -54,19 +57,163 @@ const searchBookmarksMock = vi.mocked(searchBookmarks);
 
 const flushAsync = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+async function loadBackgroundModule(): Promise<{
+  broadcastUiMode: typeof BroadcastUiModeFn;
+  commandHandlers: typeof CommandHandlersValue;
+}> {
+  const mod = await import('./index');
+  return {
+    broadcastUiMode: mod.broadcastUiMode,
+    commandHandlers: mod.commandHandlers,
+  };
+}
+
+function getRuntimeOnMessageListener() {
+  const calls = chromeMock.runtime.onMessage.addListener.mock.calls;
+  const call = calls[calls.length - 1];
+  if (!call) {
+    throw new Error('runtime.onMessage.addListener was not registered');
+  }
+  return call[0] as unknown as (
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: unknown) => void
+  ) => boolean;
+}
+
+function getOnInstalledListener() {
+  const calls = chromeMock.runtime.onInstalled.addListener.mock.calls;
+  const call = calls[calls.length - 1];
+  if (!call) {
+    throw new Error('runtime.onInstalled.addListener was not registered');
+  }
+  return call[0] as unknown as () => Promise<void>;
+}
+
+function getContextMenuOnClickedListener() {
+  const calls = chromeMock.contextMenus.onClicked.addListener.mock.calls;
+  const call = calls[calls.length - 1];
+  if (!call) {
+    throw new Error('contextMenus.onClicked.addListener was not registered');
+  }
+  return call[0] as unknown as (info: chrome.contextMenus.OnClickData) => void;
+}
+
+describe('context menu registration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  it('registers global context menu items on install', async () => {
+    await loadBackgroundModule();
+    chromeMock.contextMenus.removeAll.mockClear();
+    chromeMock.contextMenus.create.mockClear();
+    const onInstalled = getOnInstalledListener();
+    await onInstalled();
+
+    expect(chromeMock.contextMenus.removeAll).toHaveBeenCalled();
+    expect(chromeMock.contextMenus.create).toHaveBeenCalledTimes(3);
+    expect(chromeMock.contextMenus.create).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'arcline.open', title: 'Open Arcline' })
+    );
+    expect(chromeMock.contextMenus.create).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'arcline.commandPalette', title: 'Command Palette' })
+    );
+    expect(chromeMock.contextMenus.create).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'arcline.quickPin', title: 'Quick Pin' })
+    );
+  });
+});
+
+describe('navigateToDefaultNewTab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  it('navigates to chrome default new tab page when requested', async () => {
+    await loadBackgroundModule();
+    chromeMock.tabs.update.mockClear();
+    chromeMock.tabs.query.mockResolvedValueOnce([
+      { id: 123, url: 'chrome-extension://test/newtab.html' } as chrome.tabs.Tab,
+    ]);
+
+    const listener = getRuntimeOnMessageListener();
+    const sendResponse = vi.fn();
+    const handled = listener(
+      { action: 'navigateToDefaultNewTab' },
+      {} as chrome.runtime.MessageSender,
+      sendResponse
+    );
+
+    expect(handled).toBe(true);
+    await flushAsync();
+
+    expect(chromeMock.tabs.update).toHaveBeenCalledWith(123, { url: 'chrome://new-tab-page/' });
+    expect(sendResponse).toHaveBeenCalledWith({ success: true });
+  });
+});
+
+describe('context menu click handling', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    chromeMock.tabs.query.mockResolvedValue([{ id: 99 } as chrome.tabs.Tab]);
+  });
+
+  it('handles Open Arcline click by opening side panel', async () => {
+    await loadBackgroundModule();
+
+    const onClicked = getContextMenuOnClickedListener();
+    onClicked({ menuItemId: 'arcline.open' } as chrome.contextMenus.OnClickData);
+    await flushAsync();
+
+    expect(chromeMock.sidePanel.open).toHaveBeenCalled();
+  });
+
+  it('handles Command Palette click by sending openCommandPalette to active tab', async () => {
+    await loadBackgroundModule();
+    chromeMock.tabs.sendMessage.mockClear();
+
+    const onClicked = getContextMenuOnClickedListener();
+    onClicked({ menuItemId: 'arcline.commandPalette' } as chrome.contextMenus.OnClickData);
+    await flushAsync();
+
+    expect(chromeMock.tabs.sendMessage).toHaveBeenCalledWith(
+      99,
+      { command: 'openCommandPalette' },
+      expect.any(Function)
+    );
+  });
+
+  it('handles Quick Pin click by forwarding quickPinToggle', async () => {
+    await loadBackgroundModule();
+    const onClicked = getContextMenuOnClickedListener();
+    onClicked({ menuItemId: 'arcline.quickPin' } as chrome.contextMenus.OnClickData);
+    await flushAsync();
+
+    expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith({ command: 'quickPinToggle' });
+  });
+});
+
 describe('broadcastUiMode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
     chromeMock.runtime.lastError = undefined;
   });
 
   it('sends currentUiMode to every tab with a numeric id', async () => {
+    await loadBackgroundModule();
+    chromeMock.tabs.sendMessage.mockClear();
     chromeMock.tabs.query.mockResolvedValue([
       { id: 1 } as chrome.tabs.Tab,
       { id: 2 } as chrome.tabs.Tab,
       { id: undefined } as chrome.tabs.Tab,
     ]);
 
+    const { broadcastUiMode } = await loadBackgroundModule();
     await broadcastUiMode('floating');
 
     expect(chromeMock.tabs.query).toHaveBeenCalledWith({});
@@ -86,6 +233,8 @@ describe('broadcastUiMode', () => {
   });
 
   it('suppresses runtime errors when a tab cannot receive the message', async () => {
+    await loadBackgroundModule();
+    chromeMock.tabs.sendMessage.mockClear();
     chromeMock.tabs.query.mockResolvedValue([{ id: 1 } as chrome.tabs.Tab]);
 
     chromeMock.tabs.sendMessage.mockImplementationOnce((_tabId, _message, callback) => {
@@ -95,6 +244,7 @@ describe('broadcastUiMode', () => {
       return undefined;
     });
 
+    const { broadcastUiMode } = await loadBackgroundModule();
     await broadcastUiMode('popup');
 
     expect(chromeMock.tabs.sendMessage).toHaveBeenCalledWith(
@@ -108,10 +258,12 @@ describe('broadcastUiMode', () => {
 describe('commandHandlers.requestUiMode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
   it('responds with stored mode when available', async () => {
     chromeMock.storage.local.get.mockResolvedValueOnce({ 'arcline.uiMode.current': 'popup' });
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.requestUiMode;
     const sendResponse = vi.fn();
 
@@ -126,6 +278,7 @@ describe('commandHandlers.requestUiMode', () => {
 
   it('falls back to floating mode when storage fails', async () => {
     chromeMock.storage.local.get.mockRejectedValueOnce(new Error('boom'));
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.requestUiMode;
     const sendResponse = vi.fn();
 
@@ -139,6 +292,7 @@ describe('commandHandlers.requestUiMode', () => {
 describe('commandHandlers.requestSpacesSnapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
   it('returns spaces snapshot on success', async () => {
@@ -157,6 +311,7 @@ describe('commandHandlers.requestSpacesSnapshot', () => {
       },
     ];
     getSpacesSnapshotMock.mockResolvedValueOnce(spaces);
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.requestSpacesSnapshot;
     const sendResponse = vi.fn();
 
@@ -171,6 +326,7 @@ describe('commandHandlers.requestSpacesSnapshot', () => {
 
   it('sends empty list when snapshot fails', async () => {
     getSpacesSnapshotMock.mockRejectedValueOnce(new Error('nope'));
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.requestSpacesSnapshot;
     const sendResponse = vi.fn();
 
@@ -184,9 +340,11 @@ describe('commandHandlers.requestSpacesSnapshot', () => {
 describe('commandHandlers.toggleTabPinned', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
-  it('returns false when tabId is missing', () => {
+  it('returns false when tabId is missing', async () => {
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.toggleTabPinned;
     const sendResponse = vi.fn();
 
@@ -198,6 +356,7 @@ describe('commandHandlers.toggleTabPinned', () => {
 
   it('toggles pin state and broadcasts snapshot', async () => {
     toggleTabPinnedMock.mockResolvedValueOnce(true);
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.toggleTabPinned;
     const sendResponse = vi.fn();
 
@@ -213,6 +372,7 @@ describe('commandHandlers.toggleTabPinned', () => {
 
   it('reports errors when toggleTabPinned rejects', async () => {
     toggleTabPinnedMock.mockRejectedValueOnce(new Error('failure'));
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.toggleTabPinned;
     const sendResponse = vi.fn();
 
@@ -226,6 +386,7 @@ describe('commandHandlers.toggleTabPinned', () => {
 describe('commandHandlers.searchHistory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
   it('calls searchHistory with query and returns results', async () => {
@@ -233,6 +394,7 @@ describe('commandHandlers.searchHistory', () => {
       { id: 'h1', title: 'Test History', type: 'history' as const, url: 'http://test.com' },
     ];
     searchHistoryMock.mockResolvedValueOnce(mockResults);
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.searchHistory;
     const sendResponse = vi.fn();
 
@@ -247,6 +409,7 @@ describe('commandHandlers.searchHistory', () => {
 describe('commandHandlers.searchBookmarks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
   it('calls searchBookmarks with query and returns results', async () => {
@@ -254,6 +417,7 @@ describe('commandHandlers.searchBookmarks', () => {
       { id: 'b1', title: 'Test Bookmark', type: 'bookmark' as const, url: 'http://bookmark.com' },
     ];
     searchBookmarksMock.mockResolvedValueOnce(mockResults);
+    const { commandHandlers } = await loadBackgroundModule();
     const handler = commandHandlers.searchBookmarks;
     const sendResponse = vi.fn();
 

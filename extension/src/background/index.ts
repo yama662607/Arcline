@@ -48,6 +48,40 @@ const UI_MODE_KEY = 'arcline.uiMode.current';
 
 let currentUiMode: UiMode | null = null;
 
+const CONTEXT_MENU_OPEN_ARCLINE = 'arcline.open';
+const CONTEXT_MENU_COMMAND_PALETTE = 'arcline.commandPalette';
+const CONTEXT_MENU_QUICK_PIN = 'arcline.quickPin';
+
+async function registerGlobalContextMenus(): Promise<void> {
+  if (!chrome.contextMenus) {
+    return;
+  }
+
+  try {
+    await new Promise<void>((resolve) => {
+      chrome.contextMenus.removeAll(() => resolve());
+    });
+
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_OPEN_ARCLINE,
+      title: 'Open Arcline',
+      contexts: ['all'],
+    });
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_COMMAND_PALETTE,
+      title: 'Command Palette',
+      contexts: ['all'],
+    });
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_QUICK_PIN,
+      title: 'Quick Pin',
+      contexts: ['all'],
+    });
+  } catch (error) {
+    console.warn('[Arcline] Failed to register context menus', error);
+  }
+}
+
 async function migrateUiModeStorageKey(): Promise<void> {
   try {
     const probe = await chrome.storage.local.get([UI_MODE_KEY, LEGACY_UI_MODE_KEY]);
@@ -220,6 +254,7 @@ export const commandHandlers: Record<string, CommandHandler> = createCommandHand
 chrome.runtime.onInstalled.addListener(async () => {
   await initializeUiMode();
   await initializeAutoArchive();
+  await registerGlobalContextMenus();
 });
 
 chrome.tabs.onZoomChange.addListener(async (info) => {
@@ -234,6 +269,7 @@ chrome.tabs.onZoomChange.addListener(async (info) => {
 chrome.runtime.onStartup?.addListener(async () => {
   await initializeUiMode();
   await initializeAutoArchive();
+  await registerGlobalContextMenus();
 });
 
 initializeGestureDetection();
@@ -365,6 +401,27 @@ const handleToggleCommandPalette = async () => {
   });
 };
 
+if (chrome.contextMenus) {
+  chrome.contextMenus.onClicked.addListener((info) => {
+    const id = String(info.menuItemId);
+    void (async () => {
+      switch (id) {
+        case CONTEXT_MENU_OPEN_ARCLINE:
+          await openSidePanel();
+          break;
+        case CONTEXT_MENU_COMMAND_PALETTE:
+          await handleToggleCommandPalette();
+          break;
+        case CONTEXT_MENU_QUICK_PIN:
+          await handleQuickPinToggle();
+          break;
+        default:
+          break;
+      }
+    })();
+  });
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
   switch (command) {
     case 'quickPinToggle':
@@ -387,6 +444,27 @@ chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
   }
 
   const message = rawMessage as Record<string, unknown>;
+
+  if (message.action === 'navigateToDefaultNewTab') {
+    void (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id && tab.url && tab.url.includes('newtab.html')) {
+          try {
+            await chrome.tabs.update(tab.id, { url: 'chrome://new-tab-page/' });
+          } catch (_e) {
+            await chrome.tabs.update(tab.id, { url: 'chrome-search://local-ntp/local-ntp.html' });
+          }
+        }
+        sendResponse({ success: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[Arcline] Error navigating to default new tab:', error);
+        sendResponse({ success: false, error: message });
+      }
+    })();
+    return true;
+  }
 
   // Handle Bridge messages (method, params, id)
   if ('method' in message && 'id' in message) {

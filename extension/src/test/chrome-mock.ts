@@ -92,6 +92,15 @@ export const chromeMock = {
       addListener: vi.fn(),
     },
   },
+  contextMenus: {
+    create: vi.fn(),
+    removeAll: vi.fn().mockImplementation((callback?: () => void) => {
+      callback?.();
+    }),
+    onClicked: {
+      addListener: vi.fn(),
+    },
+  },
 };
 
 export function resetChromeMock() {
