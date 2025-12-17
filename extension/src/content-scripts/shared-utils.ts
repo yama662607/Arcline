@@ -59,3 +59,55 @@ export function requestUiMode(timeoutMs = 1000): Promise<UiMode> {
     }
   });
 }
+
+/**
+ * Request current settings from background script
+ */
+export function requestSettings(timeoutMs = 1000): Promise<{
+  gesturesEnabled: boolean;
+  gestureSensitivity: number;
+}> {
+  if (!hasChromeRuntime()) {
+    return Promise.resolve({ gesturesEnabled: true, gestureSensitivity: 100 });
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    // Default settings
+    const defaults = { gesturesEnabled: true, gestureSensitivity: 100 };
+
+    const cleanup = (settings: typeof defaults) => {
+      if (settled) return;
+      settled = true;
+      resolve(settings);
+    };
+
+    const timer = window.setTimeout(() => {
+      cleanup(defaults);
+    }, timeoutMs);
+
+    try {
+      // Use the Bridge format
+      const id = `settings_${Date.now()}`;
+      chrome.runtime.sendMessage(
+        { type: 'query', method: 'getSettings', id },
+        (response?: { data?: typeof defaults }) => {
+          window.clearTimeout(timer);
+          if (chrome.runtime.lastError || !response?.data) {
+            cleanup(defaults);
+            return;
+          }
+          cleanup({
+            gesturesEnabled: response.data.gesturesEnabled ?? defaults.gesturesEnabled,
+            gestureSensitivity: response.data.gestureSensitivity ?? defaults.gestureSensitivity,
+          });
+        }
+      );
+    } catch (error) {
+      console.warn('[Arcline] requestSettings failed', error);
+      window.clearTimeout(timer);
+      cleanup(defaults);
+    }
+  });
+}

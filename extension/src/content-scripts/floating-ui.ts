@@ -2,7 +2,8 @@
 
 import '@/dev/reactPreamble';
 
-import { hasChromeRuntime, requestUiMode, type UiMode } from './shared-utils';
+import { SwipeDetector } from '@/lib/gestures';
+import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from './shared-utils';
 
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
@@ -15,6 +16,9 @@ let floatingInstance: Awaited<
 > | null = null;
 let currentMode: UiMode | null = null;
 let edgeDetectionHandler: ((e: PointerEvent) => void) | null = null;
+let gestureHandler: ((e: WheelEvent) => void) | null = null;
+const swipeDetector = new SwipeDetector({ threshold: 100 }); // Default sensitivity
+let gesturesEnabled = true;
 
 interface DebugInfo {
   clientX: number;
@@ -201,6 +205,42 @@ function teardownEdgeDetection() {
   }
 }
 
+function setupTrackpadGestures() {
+  if (gestureHandler) return;
+
+  gestureHandler = (e: WheelEvent) => {
+    // console.log('[Arcline] wheel', e.deltaX, e.deltaY);
+    if (!gesturesEnabled) return;
+
+    const direction = swipeDetector.process(e);
+    if (direction) {
+      if (typeof crypto.randomUUID !== 'function') return;
+
+      chrome.runtime.sendMessage(
+        {
+          method: 'navigateSpace',
+          params: { direction },
+          id: crypto.randomUUID(),
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            // Ignore
+          }
+        }
+      );
+    }
+  };
+
+  window.addEventListener('wheel', gestureHandler, { passive: true });
+}
+
+function teardownTrackpadGestures() {
+  if (gestureHandler) {
+    window.removeEventListener('wheel', gestureHandler);
+    gestureHandler = null;
+  }
+}
+
 // Re-enable hostElement pointer events when UI is closed
 export function enableHostElementPointerEvents() {
   if (hostElement) {
@@ -219,6 +259,7 @@ function teardownFloatingUi() {
   window.__arclineFloatingReady = false;
 
   teardownEdgeDetection();
+  teardownTrackpadGestures();
 
   if (hostElement) {
     hostElement.remove();
@@ -236,6 +277,7 @@ function applyUiMode(mode: UiMode) {
     ensureHost();
     ensureBootstrapHotzone();
     setupEdgeDetection();
+    setupTrackpadGestures();
   } else {
     teardownFloatingUi();
   }
@@ -276,46 +318,13 @@ function applyZoomCorrection(zoomFactor: number) {
   if (!hostElement) return;
   // Counteract browser zoom to keep the UI at 100% physical scale.
   // "zoom" property is non-standard but works in Chrome/Edge.
-  // Using transform: scale() is more standard but requires layout compensation.
-  // Given this is a Chrome extension, zoom is acceptable and simpler for layout.
-  // If zoom is 1.5 (150%), we want UI to be 1/1.5 = 0.666 size relative to zoomed pixels
-  // which brings it back to 1.0 physical size.
   hostElement.style.zoom = `${1 / zoomFactor}`;
-
-  // However, hostElement is 100vh height.
-  // If we set zoom: 0.5, the element becomes half height visually.
-  // We need to compensate height to fill the screen.
-  // The viewport height (100vh) in CSS pixels *reduces* when zoomed in?
-  // No, 100vh is always viewport height.
-  // Wait, if I have 100vh box and zoom=0.5. It becomes 50vh visually?
-  // Let's verify:
-  // Page Zoom 200%. CSS Pixel is 2x Physical.
-  // 100vh CSS covers the screen.
-  // Element with zoom: 0.5.
-  // Its internal "100%" is now 0.5 CSS pixels.
-  // So 100vh on the element -> 0.5 * 100vh screen.
-  // So we need to multiply height by zoomFactor.
   hostElement.style.height = `${100 * zoomFactor}vh`;
-
-  // Width is 8px.
-  // We want physical 8px.
-  // Currently 8px CSS = 8 * zoom Physical.
-  // With zoom correction 1/zoom:
-  // 8px CSS * (1/zoom) * zoom = 8px Physical.
-  // So width should REMAIN 8px in the style.
-  // BUT since we used `zoom` property on the container,
-  // `width: 8px` on the container will be scaled.
-  // So we don't need to change width.
 }
 
 async function syncZoomLevel() {
   try {
     const response = await chrome.runtime.sendMessage({ method: 'getZoomLevel', id: 'zoom-init' });
-    // The response format from our bridge handler is { id, data: { ok: true, zoom: ... } } OR { id, data: zoom } depending on handler implementation.
-    // Wait, the handler calls sendResponse({ ok: true, zoom }).
-    // The bridge wrapper wraps it: respond({ id, data: {ok:true, zoom} }).
-    // So response is { id: 'zoom-init', data: { ok: true, zoom: 1.2 } }
-    // Let's parse securely.
     if (response?.data?.ok && typeof response.data.zoom === 'number') {
       applyZoomCorrection(response.data.zoom);
     }
@@ -338,7 +347,16 @@ function handleWindowMessage(event: MessageEvent) {
 async function initialize() {
   if (!hasChromeRuntime()) return;
 
-  const mode = await requestUiMode().catch(() => 'floating' as const);
+  const [mode, settings] = await Promise.all([
+    requestUiMode().catch(() => 'floating' as const),
+    requestSettings().catch(() => ({ gesturesEnabled: true, gestureSensitivity: 100 })),
+  ]);
+
+  if (settings) {
+    swipeDetector.updateConfig({ threshold: settings.gestureSensitivity });
+    gesturesEnabled = settings.gesturesEnabled;
+  }
+
   applyUiMode(mode);
 
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);

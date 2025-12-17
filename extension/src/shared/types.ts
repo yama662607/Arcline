@@ -79,6 +79,9 @@ export interface Settings {
   compactMode: boolean;
   enableAnimations: boolean;
   theme: 'dark' | 'light' | 'auto';
+  // Gesture config
+  gesturesEnabled: boolean;
+  gestureSensitivity: number; // Threshold (e.g. 100)
 }
 
 export interface BookmarkFolder {
