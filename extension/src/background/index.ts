@@ -214,6 +214,7 @@ export const commandHandlers: Record<string, CommandHandler> = createCommandHand
   toggleFavorite,
   reorderFavorites,
   reorderTab,
+  navigateSpace,
 });
 
 chrome.runtime.onInstalled.addListener(async () => {

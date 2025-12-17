@@ -186,6 +186,7 @@ export async function openFloatingUiOnTab(tabId: number, spaces: SpaceSnapshot[]
 }
 
 export async function navigateSpace(direction: SwipeDirection): Promise<boolean> {
+  console.log(`[Arcline] navigateSpace called: direction=${direction}`);
   const target = await resolveNavigationTarget(direction);
   if (!target) {
     return false;

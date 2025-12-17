@@ -1,5 +1,6 @@
 import { type ChromeApi, chromeApi as defaultChromeApi } from '@/adapters/chrome-api';
 import type { UiMode } from '@/lib/ui-mode';
+import type { SwipeDirection } from '@/shared/gestures';
 import type { ArchivedTab, Settings, SpaceCreateRequest, TabEntry } from '@/shared/types';
 
 type RuntimeSendResponse = (response?: unknown) => void;
@@ -49,6 +50,7 @@ export type CommandHandlersDeps = {
   toggleFavorite: FavoritesFns['toggleFavorite'];
   reorderFavorites: FavoritesFns['reorderFavorites'];
   reorderTab: BrowserFns['reorderTab'];
+  navigateSpace: typeof import('../services/space-navigation')['navigateSpace'];
 };
 
 function isTabEntry(value: unknown): value is TabEntry {
@@ -671,6 +673,21 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           sendResponse({ ok: true });
         } catch (e) {
           sendResponse({ ok: false, error: String(e) });
+        }
+      });
+    },
+    navigateSpace: (message, sendResponse) => {
+      const { direction } = message as { direction: SwipeDirection };
+      if (!direction || (direction !== 'left' && direction !== 'right')) {
+        sendResponse({ ok: false, error: 'Valid direction required' });
+        return false;
+      }
+      return respondAsync(async () => {
+        try {
+          const success = await deps.navigateSpace(direction);
+          sendResponse({ ok: true, data: success });
+        } catch (error) {
+          sendResponse({ ok: false, error: String(error) });
         }
       });
     },

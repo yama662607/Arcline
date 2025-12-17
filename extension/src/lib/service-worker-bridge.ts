@@ -40,7 +40,7 @@ export class ServiceWorkerBridge {
     }
   >();
 
-  constructor(private queryClient: QueryClient) {}
+  constructor(private queryClient: QueryClient) { }
 
   // Send message to Service Worker and wait for response
   private async sendMessage(message: Omit<BridgeMessage, 'id'>): Promise<unknown> {
@@ -423,6 +423,14 @@ export class ServiceWorkerBridge {
       method: 'searchBookmarks',
       params: { query, maxResults },
     }) as Promise<SearchResult[]>;
+  }
+
+  async navigateSpace(direction: 'left' | 'right'): Promise<boolean> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'navigateSpace',
+      params: { direction },
+    }) as Promise<boolean>;
   }
 
   // Setup React Query queries
