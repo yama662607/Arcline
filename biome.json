@@ -1,11 +1,17 @@
 {
-  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
   "files": {
     "includes": [
       "extension/**/*.{ts,tsx,js,jsx}",
       "docs/**/*.md",
       "openspec/**/*.md",
       "!**/dist/**",
+      "!**/playwright-report/**",
+      "!**/playwright-report*/**",
+      "!**/test-results/**",
+      "!**/test-results*/**",
+      "!**/coverage/**",
+      "!**/coverage*/**",
       "!**/node_modules/**",
       "!**/legacy/**"
     ]
