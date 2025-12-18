@@ -10,12 +10,17 @@ interface ScrollPositions {
   commandPalette: number;
 }
 
+type ActiveModal = 'settings' | 'archive' | 'bookmark-import' | null;
+
 interface UiState {
   scrollPositions: ScrollPositions;
   activeTab: 'spaces' | 'archive' | 'settings';
+  activeModal: ActiveModal;
   setScrollPosition: (key: keyof ScrollPositions, position: number) => void;
   getScrollPosition: (key: keyof ScrollPositions) => number;
   setActiveTab: (tab: 'spaces' | 'archive' | 'settings') => void;
+  openModal: (modal: Exclude<ActiveModal, null>) => void;
+  closeModal: () => void;
 }
 
 const defaultScrollPositions: ScrollPositions = {
@@ -31,6 +36,7 @@ export const useUiStore = create<UiState>()(
       (set, get) => ({
         scrollPositions: { ...defaultScrollPositions },
         activeTab: 'spaces',
+        activeModal: null,
         setScrollPosition: (key, position) =>
           set((state) => ({
             scrollPositions: {
@@ -40,16 +46,17 @@ export const useUiStore = create<UiState>()(
           })),
         getScrollPosition: (key) => get().scrollPositions[key] ?? 0,
         setActiveTab: (tab) => set({ activeTab: tab }),
+        openModal: (modal) => set({ activeModal: modal }),
+        closeModal: () => set({ activeModal: null }),
       }),
       {
         name: 'arcline-ui',
         storage: createChromeStorage<{
           scrollPositions: ScrollPositions;
-          activeTab: 'spaces' | 'archive' | 'settings';
+          // activeTab is intentionally excluded from persistence during the Arc-style UI refactor.
         }>('ui'),
         partialize: (state) => ({
           scrollPositions: state.scrollPositions,
-          activeTab: state.activeTab,
         }),
       }
     )
