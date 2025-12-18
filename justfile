@@ -35,12 +35,12 @@ fix: fmt lint-fix
 # ユニット/統合テスト: 引数パススルー対応
 test *args="":
     @echo "🧪 Running unit tests..."
-    {{pm}} --filter {{ext_pkg}} test -- {{args}}
+    {{pm}} --dir extension test -- {{args}}
 
 # E2Eテスト: 引数パススルー対応 (不要なら削除可)
 e2e *args="":
     @echo "🎭 Running E2E tests..."
-    {{pm}} --filter {{ext_pkg}} run test:e2e -- {{args}}
+    {{pm}} --dir extension run test:e2e -- {{args}}
 
 # =============================================================================
 # 🧩 Granular Tasks (Components of 'check' & 'fix')
@@ -50,27 +50,27 @@ e2e *args="":
 
 fmt-check:
     @echo "📏 Checking formatting..."
-    {{pm}} --filter {{ext_pkg}} exec biome check . --formatter-enabled=true --linter-enabled=false --assist-enabled=false
+    {{pm}} --dir extension exec biome check . --formatter-enabled=true --linter-enabled=false --assist-enabled=false
 
 fmt:
     @echo "💅 Formatting code..."
-    {{pm}} --filter {{ext_pkg}} exec biome format . --write
+    {{pm}} --dir extension exec biome format . --write
 
 # --- Lint (静的解析) ---
 
 lint:
     @echo "🔍 Linting..."
-    {{pm}} --filter {{ext_pkg}} exec biome lint .
+    {{pm}} --dir extension exec biome lint .
 
 lint-fix:
     @echo "🧹 Fixing lint errors..."
-    {{pm}} --filter {{ext_pkg}} exec biome lint . --write
+    {{pm}} --dir extension exec biome lint . --write
 
 # --- Typecheck (型検査) ---
 
 typecheck:
     @echo "📐 Checking types..."
-    {{pm}} --filter {{ext_pkg}} typecheck
+    {{pm}} --dir extension typecheck
 
 # =============================================================================
 # 🛠️ Operations & Utilities
@@ -89,7 +89,7 @@ build:
 # アーティファクト削除 (不要なら削除可)
 clean:
     @echo "🗑️ Cleaning artifacts..."
-    rm -rf extension/dist
-    rm -rf extension/coverage
-    rm -rf extension/playwright-report
-    rm -rf extension/test-results
+    rm -rf extension/dist*
+    rm -rf extension/coverage*
+    rm -rf extension/playwright-report*
+    rm -rf extension/test-results*
