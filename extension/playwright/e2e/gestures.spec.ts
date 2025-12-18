@@ -2,7 +2,8 @@ import { expect } from '@playwright/test';
 import { test } from '../fixtures';
 
 test.describe('Trackpad Gestures', () => {
-  test('should trigger navigateSpace on swipe', async ({ page, serviceWorker }, testInfo) => {
+  // biome-ignore lint/correctness/noUnusedFunctionParameters: serviceWorker required by test fixture
+  test('should trigger navigateSpace on swipe', async ({ page, serviceWorker }, _testInfo) => {
     // Navigate to a page where content script should load
     await page.goto('https://example.com');
 
@@ -19,10 +20,7 @@ test.describe('Trackpad Gestures', () => {
     await expect(feedback).toHaveClass(/show/);
   });
 
-  test('should ignore small swipes (below threshold)', async ({
-    page,
-    serviceWorker,
-  }, testInfo) => {
+  test('should ignore small swipes (below threshold)', async ({ page }, testInfo) => {
     await page.goto('https://example.com');
     await page.waitForTimeout(1000);
 

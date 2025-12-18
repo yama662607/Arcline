@@ -246,8 +246,10 @@ export async function addServiceWorkerBridgeMock(
         response: { id?: string; data?: unknown },
         message: Record<string, unknown>
       ) {
-        if ((window as any).onNavigateSpace) {
-          (window as any).onNavigateSpace(message.params);
+        if ((window as { onNavigateSpace?: (params: unknown) => void }).onNavigateSpace) {
+          (window as { onNavigateSpace?: (params: unknown) => void }).onNavigateSpace(
+            message.params
+          );
         }
         response.data = true;
         return response;
