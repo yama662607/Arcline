@@ -123,7 +123,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
     // Handle Drop to Favorites
     if (over.id === 'favorites-zone') {
       const source = findTab(active.id);
-      if (source && source.tab) {
+      if (source?.tab) {
         addToFavorites(source.tab);
       }
       return;
