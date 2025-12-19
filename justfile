@@ -19,6 +19,9 @@ default: check
 setup:
     @echo "📦 Setting up environment..."
     {{pm}} install
+    @echo "🎭 Installing Playwright browsers..."
+    cd extension && {{pm}} exec playwright install
+    @echo "✅ Setup complete! Run 'just check' to verify."
 
 # 全体品質検証: コードを変更せずに品質を検証 (CIゲート)
 check: fmt-check lint typecheck test
@@ -93,3 +96,35 @@ clean:
     rm -rf extension/coverage*
     rm -rf extension/playwright-report*
     rm -rf extension/test-results*
+
+
+# =============================================================================
+# 📦 Dependency Management
+# =============================================================================
+
+# 安全装置: Gitの作業ツリーがクリーンか確認 (未コミットがあれば停止)
+ensure-clean:
+    @if [ -n "$(git status --porcelain)" ]; then \
+        echo "❌ \033[0;31mError: Working directory is dirty.\033[0m"; \
+        echo "   Please commit or stash your changes before proceeding."; \
+        exit 1; \
+    fi
+
+# 全パッケージを最新に更新 (フロー: Git確認 -> 現状検査 -> 更新 -> 事後検査)
+# 解説: ensure-clean, check, e2e を依存関係に指定することで、これらが成功しないと更新が始まりません
+upgrade: ensure-clean check e2e
+    @echo "✅ Baseline passed. Current code is stable."
+    @echo "🚀 \033[1;34mStarting full upgrade process (recursive, latest)...\033[0m"
+
+    # 全パッケージを最新(Latest)に更新 & ロックファイル同期
+    {{pm}} up --recursive --latest
+    {{pm}} install
+
+    @echo "📈 \033[1;33mVerifying upgrade stability (Post-upgrade)...\033[0m"
+
+    # 【重要】justの仕様上、依存関係で実行済みのタスクはスキップされるため
+    # ここでは明示的にコマンド呼び出しを行って再実行させます
+    just check
+    just e2e
+
+    @echo "✨ \033[0;32mUpgrade Complete! System is stable on latest versions.\033[0m"
