@@ -6,11 +6,14 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { getSpaceTheme } from '@/lib/space-theme';
 import { queryClient } from '@/lib/query-client';
+import { useSpacesStore } from '@/store';
 import stylesText from '@/styles.css?inline';
 
 const FloatingApp = React.lazy(() => import('./FloatingApp'));
@@ -61,6 +64,38 @@ const FloatingUiRoot = forwardRef<
   const [showPalette, setShowPalette] = useState(false);
   const [skipAnimation, setSkipAnimation] = useState(false);
   const closeTimer = useRef<number | null>(null);
+
+  const spaces = useSpacesStore((state) => state.spaces);
+  const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
+  const activeSpace = useMemo(
+    () => spaces.find((space) => space.id === activeSpaceId) ?? null,
+    [spaces, activeSpaceId]
+  );
+
+  const frameRgb = useMemo(() => {
+    const baseHex = getSpaceTheme(activeSpace?.themeColor).accent;
+
+    const toRgb = (hex: string) => {
+      const normalized = hex.replace('#', '');
+      if (normalized.length !== 6) return null;
+      const r = Number.parseInt(normalized.slice(0, 2), 16);
+      const g = Number.parseInt(normalized.slice(2, 4), 16);
+      const b = Number.parseInt(normalized.slice(4, 6), 16);
+      if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+      return { r, g, b };
+    };
+
+    const mixWithWhite = (value: number, amount: number) =>
+      Math.round(value + (255 - value) * amount);
+
+    const rgb = toRgb(baseHex) ?? { r: 148, g: 163, b: 184 };
+    const whiteMix = 0.55;
+    return {
+      r: mixWithWhite(rgb.r, whiteMix),
+      g: mixWithWhite(rgb.g, whiteMix),
+      b: mixWithWhite(rgb.b, whiteMix),
+    };
+  }, [activeSpace?.themeColor]);
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimer.current !== null) {
@@ -190,7 +225,7 @@ const FloatingUiRoot = forwardRef<
               key="arcline-floating-panel"
               data-testid="arcline-floating-panel"
               className="pointer-events-auto flex h-full flex-1"
-              style={{ marginLeft: '-8px', marginTop: '4px', marginBottom: '4px' }}
+              style={{ marginLeft: '-5px', marginTop: '3px', marginBottom: '3px' }}
               initial={skipAnimation ? false : { x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '-102%', opacity: 0 }}
@@ -204,15 +239,14 @@ const FloatingUiRoot = forwardRef<
             >
               <div
                 className="relative flex w-[288px] flex-col overflow-hidden rounded-2xl border border-white/10 ring-1 ring-white/15 bg-slate-950/95 shadow-xl shadow-black/50 backdrop-blur"
-                style={{ borderRadius: '16px', height: 'calc(100% - 8px)' }}
+                style={{ borderRadius: '16px', height: 'calc(100% - 6px)' }}
               >
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 rounded-2xl"
+                  className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
                   style={{
-                    border: '1px solid rgba(148, 163, 184, 0.32)',
-                    boxShadow:
-                      '0 0 0 1px rgba(2, 6, 23, 0.55), 0 0 0 0.5px rgba(148, 163, 184, 0.35) inset',
+                    border: `1px solid rgba(${frameRgb.r}, ${frameRgb.g}, ${frameRgb.b}, 0.32)`,
+                    boxShadow: `0 0 0 2px rgba(${frameRgb.r}, ${frameRgb.g}, ${frameRgb.b}, 0.28), 0 0 0 1px rgba(2, 6, 23, 0.55), inset 0 0 0 1px rgba(${frameRgb.r}, ${frameRgb.g}, ${frameRgb.b}, 0.55)`,
                   }}
                 />
                 <Suspense
@@ -222,25 +256,27 @@ const FloatingUiRoot = forwardRef<
                     </div>
                   }
                 >
-                  <FloatingApp
-                    pinned={pinned}
-                    onTogglePinned={() => {
-                      setPinned((prev) => {
-                        const next = !prev;
-                        if (next) {
-                          cancelClose();
-                          setOpen(true);
-                        } else {
-                          scheduleClose();
-                        }
-                        return next;
-                      });
-                    }}
-                    onRequestClose={() => {
-                      setPinned(false);
-                      setOpen(false);
-                    }}
-                  />
+                  <div className="relative z-0 flex h-full min-h-0 flex-col">
+                    <FloatingApp
+                      pinned={pinned}
+                      onTogglePinned={() => {
+                        setPinned((prev) => {
+                          const next = !prev;
+                          if (next) {
+                            cancelClose();
+                            setOpen(true);
+                          } else {
+                            scheduleClose();
+                          }
+                          return next;
+                        });
+                      }}
+                      onRequestClose={() => {
+                        setPinned(false);
+                        setOpen(false);
+                      }}
+                    />
+                  </div>
                 </Suspense>
               </div>
             </motion.aside>
