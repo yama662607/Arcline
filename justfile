@@ -106,7 +106,8 @@ clean:
 ensure-clean:
     @if [ -n "$(git status --porcelain)" ]; then \
         echo "❌ \033[0;31mError: Working directory is dirty.\033[0m"; \
-        echo "   Please commit or stash your changes before proceeding."; \
+        echo "   ⚠️  安全のため、アップグレード前に現在の変更をコミットまたはスタッシュしてください。"; \
+        echo "   📝 コミットの際は、これまで通りプロジェクトの規定（Conventional Commits等）に沿った記述をお願いします。"; \
         exit 1; \
     fi
 
