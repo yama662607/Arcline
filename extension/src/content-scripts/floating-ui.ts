@@ -7,6 +7,7 @@ import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from '.
 
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
+const HOTZONE_WIDTH_PX = 8;
 let hostElement: HTMLElement | null = null;
 let shadowRoot: ShadowRoot | null = null;
 let bootstrapHotzone: HTMLDivElement | null = null;
@@ -16,12 +17,15 @@ let floatingInstance: Awaited<
 > | null = null;
 let currentMode: UiMode | null = null;
 let edgeDetectionHandler: ((e: PointerEvent) => void) | null = null;
+let pointerMoveHandler: ((e: PointerEvent) => void) | null = null;
+let pointerRawUpdateHandler: ((e: Event) => void) | null = null;
 let gestureHandler: ((e: WheelEvent) => void) | null = null;
 const swipeDetector = new SwipeDetector(); // Uses default config with cooldown
 let gesturesEnabled = true;
 
 interface DebugInfo {
   clientX: number;
+  clientY: number;
   lastX: number | null;
   inHotzone: boolean;
   movingLeft: boolean;
@@ -29,6 +33,9 @@ interface DebugInfo {
   hotzoneIntersects: boolean;
   shouldTrigger: boolean;
   rafPending: boolean;
+  targetTag: string | null;
+  targetId: string | null;
+  targetClass: string | null;
 }
 
 let updateDebugInfoFn: ((info: DebugInfo) => void) | null = null;
@@ -58,7 +65,7 @@ function ensureHost() {
   element.style.top = '0';
   element.style.left = '0';
   element.style.height = '100vh';
-  element.style.width = '8px';
+  element.style.width = `${HOTZONE_WIDTH_PX}px`;
   element.style.transition = 'none'; // Disable CSS transitions to avoid animation conflicts
   element.style.zIndex = '2147483646';
   element.style.pointerEvents = 'auto';
@@ -152,6 +159,13 @@ function setupEdgeDetection() {
   }
 
   let debugRafId: number | null = null;
+  let moveDebugRafId: number | null = null;
+  let lastMoveX: number | null = null;
+  let pendingMoveEvent: {
+    clientX: number;
+    clientY: number;
+    target: Element | null;
+  } | null = null;
   let lastEnterTime = 0;
   const DEBOUNCE_MS = 100; // Prevent rapid re-triggers
 
@@ -170,15 +184,24 @@ function setupEdgeDetection() {
       if (debugRafId === null) {
         debugRafId = requestAnimationFrame(() => {
           debugRafId = null;
+          const target = e.target instanceof Element ? e.target : null;
           updateDebugInfoFn?.({
             clientX: e.clientX,
             lastX: null,
+            clientY: e.clientY,
             inHotzone: true,
             movingLeft: false,
             startedOutside: false,
             hotzoneIntersects: false,
             shouldTrigger: true,
             rafPending: false,
+            targetTag: target?.tagName ?? null,
+            targetId: target?.id ? target.id : null,
+            targetClass: target
+              ? typeof target.className === 'string'
+                ? target.className
+                : null
+              : null,
           });
         });
       }
@@ -195,13 +218,78 @@ function setupEdgeDetection() {
     }
   };
 
+  pointerMoveHandler = (e: PointerEvent) => {
+    if (!updateDebugInfoFn) return;
+
+    pendingMoveEvent = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      target: e.target instanceof Element ? e.target : null,
+    };
+
+    if (moveDebugRafId !== null) return;
+    moveDebugRafId = requestAnimationFrame(() => {
+      moveDebugRafId = null;
+
+      const pending = pendingMoveEvent;
+      if (!pending) return;
+      pendingMoveEvent = null;
+
+      const currentX = pending.clientX;
+      const currentY = pending.clientY;
+      const lastX = lastMoveX;
+      lastMoveX = currentX;
+
+      const inHotzone = currentX >= -1 && currentX <= HOTZONE_WIDTH_PX;
+      const movingLeft = lastX !== null ? currentX < lastX : false;
+      const startedOutside = lastX !== null ? lastX > 8 : false;
+
+      const target = pending.target;
+      updateDebugInfoFn?.({
+        clientX: currentX,
+        clientY: currentY,
+        lastX,
+        inHotzone,
+        movingLeft,
+        startedOutside,
+        hotzoneIntersects: false,
+        shouldTrigger: inHotzone,
+        rafPending: false,
+        targetTag: target?.tagName ?? null,
+        targetId: target?.id ? target.id : null,
+        targetClass: target
+          ? typeof target.className === 'string'
+            ? target.className
+            : null
+          : null,
+      });
+    });
+  };
+
   hostElement.addEventListener('pointerenter', edgeDetectionHandler);
+  window.addEventListener('pointermove', pointerMoveHandler, { passive: true });
+  pointerRawUpdateHandler = (ev: Event) => {
+    if (ev instanceof PointerEvent) {
+      pointerMoveHandler?.(ev);
+    }
+  };
+  window.addEventListener('pointerrawupdate', pointerRawUpdateHandler, { passive: true });
 }
 
 function teardownEdgeDetection() {
   if (edgeDetectionHandler && hostElement) {
     hostElement.removeEventListener('pointerenter', edgeDetectionHandler);
     edgeDetectionHandler = null;
+  }
+
+  if (pointerMoveHandler) {
+    window.removeEventListener('pointermove', pointerMoveHandler);
+    pointerMoveHandler = null;
+  }
+
+  if (pointerRawUpdateHandler) {
+    window.removeEventListener('pointerrawupdate', pointerRawUpdateHandler);
+    pointerRawUpdateHandler = null;
   }
 }
 

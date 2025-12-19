@@ -15,6 +15,7 @@ const MAX_HISTORY = 200;
 
 interface DebugInfo {
   clientX: number;
+  clientY: number;
   lastX: number | null;
   inHotzone: boolean;
   movingLeft: boolean;
@@ -22,6 +23,9 @@ interface DebugInfo {
   hotzoneIntersects: boolean;
   shouldTrigger: boolean;
   rafPending: boolean;
+  targetTag: string | null;
+  targetId: string | null;
+  targetClass: string | null;
 }
 
 export function enableEdgeDetectionDebug() {
@@ -158,7 +162,7 @@ export function updateDebugInfo(info: DebugInfo) {
   const content = debugWindow.querySelector('#debug-content');
   if (!content) return;
 
-  const formatValue = (value: number | null | boolean, highlight = false) => {
+  const formatValue = (value: number | null | boolean | string, highlight = false) => {
     const color = highlight ? '#ffff00' : '#00ff00';
     return `<span style="color: ${color}; font-weight: bold;">${value === null ? 'null' : typeof value === 'number' ? value.toFixed(2) : value}</span>`;
   };
@@ -186,6 +190,17 @@ export function updateDebugInfo(info: DebugInfo) {
     <div style="margin-bottom: 8px;">
       <span style="color: #888;">Current Position:</span><br/>
       clientX: ${formatValue(info.clientX, Math.abs(info.clientX) <= 8)}
+      <br/>
+      clientY: ${formatValue(info.clientY)}
+    </div>
+
+    <div style="margin-bottom: 8px;">
+      <span style="color: #888;">Hover Target:</span><br/>
+      tag: ${formatValue(info.targetTag, false)}
+      <br/>
+      id: ${formatValue(info.targetId, false)}
+      <br/>
+      class: ${formatValue(info.targetClass, false)}
     </div>
 
     <div style="margin-bottom: 8px;">
