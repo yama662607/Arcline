@@ -4,10 +4,16 @@ import '@/dev/reactPreamble';
 
 import { SwipeDetector } from '@/lib/gestures';
 import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from './shared-utils';
+import {
+  EdgeDetectionState,
+  getEdgeDetectionConfig,
+  subscribeEdgeDetectionConfig,
+} from './edge-detection-config';
 
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
 const HOTZONE_WIDTH_PX = 8;
+const SAMPLE_STALE_THRESHOLD_MS = 250;
 let hostElement: HTMLElement | null = null;
 let shadowRoot: ShadowRoot | null = null;
 let bootstrapHotzone: HTMLDivElement | null = null;
@@ -19,9 +25,22 @@ let currentMode: UiMode | null = null;
 let edgeDetectionHandler: ((e: PointerEvent) => void) | null = null;
 let pointerMoveHandler: ((e: PointerEvent) => void) | null = null;
 let pointerRawUpdateHandler: ((e: Event) => void) | null = null;
+let pointerLeaveHandler: ((e: PointerEvent) => void) | null = null;
 let gestureHandler: ((e: WheelEvent) => void) | null = null;
 const swipeDetector = new SwipeDetector(); // Uses default config with cooldown
 let gesturesEnabled = true;
+let edgeDetectionState: EdgeDetectionState = EdgeDetectionState.IDLE;
+let lastVelocityX = 0;
+let lastVelocityY = 0;
+let lastPointerEventTime = 0;
+let lastPointerScreenX: number | null = null;
+let lastPointerClientX: number | null = null;
+let lastPointerClientY: number | null = null;
+let config = getEdgeDetectionConfig();
+let lastInferenceTime = 0;
+subscribeEdgeDetectionConfig((next) => {
+  config = next;
+});
 
 interface DebugInfo {
   clientX: number;
@@ -36,13 +55,138 @@ interface DebugInfo {
   targetTag: string | null;
   targetId: string | null;
   targetClass: string | null;
+  screenX?: number;
+  windowScreenX?: number;
+  distanceFromWindowEdge?: number;
+  velocityX?: number;
+  velocityY?: number;
+  state?: EdgeDetectionState;
+  lastEventType?: string;
 }
 
 let updateDebugInfoFn: ((info: DebugInfo) => void) | null = null;
+let debugFrameId: number | null = null;
+let pendingDebugInfo: DebugInfo | null = null;
 
 declare global {
   interface Window {
     __arclineFloatingReady?: boolean;
+  }
+}
+
+function queueDebugInfo(info: DebugInfo) {
+  if (!updateDebugInfoFn) return;
+  pendingDebugInfo = info;
+  if (debugFrameId !== null) return;
+  debugFrameId = requestAnimationFrame(() => {
+    debugFrameId = null;
+    if (pendingDebugInfo && updateDebugInfoFn) {
+      updateDebugInfoFn(pendingDebugInfo);
+      pendingDebugInfo = null;
+    }
+  });
+}
+
+function recordPointerSample(event: PointerEvent, source: string, target: Element | null) {
+  const clientX = event.clientX;
+  const clientY = event.clientY;
+  const lastX = lastPointerClientX;
+  const lastY = lastPointerClientY;
+
+  lastPointerClientX = clientX;
+  lastPointerClientY = clientY;
+  lastPointerScreenX = event.screenX;
+  lastPointerEventTime = performance.now();
+  lastVelocityX = lastX !== null ? clientX - lastX : 0;
+  lastVelocityY = lastY !== null ? clientY - lastY : 0;
+  updateEdgeDetectionStateForX(clientX);
+
+  queueDebugInfo({
+    clientX,
+    clientY,
+    lastX,
+    inHotzone: clientX >= -1 && clientX <= HOTZONE_WIDTH_PX,
+    movingLeft: lastX !== null ? clientX < lastX : false,
+    startedOutside: lastX !== null ? lastX > HOTZONE_WIDTH_PX : false,
+    hotzoneIntersects: false,
+    shouldTrigger: clientX <= HOTZONE_WIDTH_PX,
+    rafPending: debugFrameId !== null,
+    targetTag: target?.tagName ?? null,
+    targetId: target?.id ?? null,
+    targetClass:
+      target && typeof target.className === 'string' ? (target.className as string) : null,
+    screenX: event.screenX,
+    windowScreenX: window.screenX,
+    distanceFromWindowEdge: event.screenX - window.screenX,
+    velocityX: lastVelocityX,
+    velocityY: lastVelocityY,
+    state: edgeDetectionState,
+    lastEventType: source,
+  });
+}
+
+function handlePointerLeave(event: PointerEvent) {
+  queueDebugInfo({
+    clientX: event.clientX,
+    clientY: event.clientY,
+    lastX: lastPointerClientX,
+    inHotzone: false,
+    movingLeft: lastVelocityX < 0,
+    startedOutside: true,
+    hotzoneIntersects: false,
+    shouldTrigger: false,
+    rafPending: debugFrameId !== null,
+    targetTag: null,
+    targetId: null,
+    targetClass: null,
+    screenX: event.screenX,
+    windowScreenX: window.screenX,
+    distanceFromWindowEdge: event.screenX - window.screenX,
+    velocityX: lastVelocityX,
+    velocityY: lastVelocityY,
+    state: edgeDetectionState,
+    lastEventType: 'pointerleave',
+  });
+
+  if (!config.pointerLeaveInferenceEnabled) {
+    return;
+  }
+
+  const now = performance.now();
+  const timeSinceSample = now - lastPointerEventTime;
+  const sampleFresh = timeSinceSample <= SAMPLE_STALE_THRESHOLD_MS;
+  const exitedDom = event.relatedTarget === null;
+  const movingLeftFast = lastVelocityX <= config.snapVelocityThreshold;
+  const movingVerticallySlow = Math.abs(lastVelocityY) <= config.maxVelocityYThreshold;
+
+  const lastClientX = lastPointerClientX ?? event.clientX;
+  const viewportClose = lastClientX <= config.viewportEdgeThresholdPx;
+
+  const lastScreenX = lastPointerScreenX ?? event.screenX;
+  const distanceFromWindowEdge = lastScreenX - window.screenX;
+  const windowClose = distanceFromWindowEdge <= config.windowEdgeThresholdPx;
+
+  const cooldownElapsed = now - lastInferenceTime >= config.inferenceCooldownMs;
+
+  if (
+    exitedDom &&
+    sampleFresh &&
+    movingLeftFast &&
+    movingVerticallySlow &&
+    viewportClose &&
+    windowClose &&
+    cooldownElapsed
+  ) {
+    lastInferenceTime = now;
+    maybeLogEdgeDebug('pointerleave-inference', {
+      lastClientX,
+      lastScreenX,
+      timeSinceSample,
+      distanceFromWindowEdge,
+      lastVelocityX,
+      lastVelocityY,
+    });
+    openFloatingUiFromEdge();
   }
 }
 
@@ -93,6 +237,34 @@ function ensureBootstrapHotzone() {
   shadowRoot.append(hotzone);
   bootstrapHotzone = hotzone;
   window.__arclineFloatingReady = true;
+}
+
+function setHostPointerEvents(enabled: boolean) {
+  if (!hostElement) return;
+  hostElement.style.pointerEvents = enabled ? 'auto' : 'none';
+}
+
+function openFloatingUiFromEdge() {
+  if (floatingInstance) {
+    floatingInstance.openFromHover();
+    setHostPointerEvents(false);
+    return;
+  }
+  void startFloatingUi();
+}
+
+function updateEdgeDetectionStateForX(x: number) {
+  if (x <= HOTZONE_WIDTH_PX) {
+    edgeDetectionState = EdgeDetectionState.BORDER;
+    return;
+  }
+  edgeDetectionState =
+    x <= config.viewportEdgeThresholdPx ? EdgeDetectionState.PROXIMITY : EdgeDetectionState.IDLE;
+}
+
+function maybeLogEdgeDebug(source: string, payload: Record<string, unknown>) {
+  if (!config.debugLogging) return;
+  console.debug('[Arcline][EdgeDetection]', source, payload);
 }
 
 async function startFloatingUi(options?: { instant?: boolean; commandPalette?: boolean }) {
@@ -158,122 +330,39 @@ function setupEdgeDetection() {
       });
   }
 
-  let debugRafId: number | null = null;
-  let moveDebugRafId: number | null = null;
-  let lastMoveX: number | null = null;
-  let pendingMoveEvent: {
-    clientX: number;
-    clientY: number;
-    target: Element | null;
-  } | null = null;
   let lastEnterTime = 0;
-  const DEBOUNCE_MS = 100; // Prevent rapid re-triggers
+  const ENTER_DEBOUNCE_MS = 100;
 
-  // Use hostElement's pointerenter for reliable detection
-  // hostElement is the 8px-wide fixed element on the left edge
   edgeDetectionHandler = (e: PointerEvent) => {
     const now = Date.now();
-
-    // Debounce to prevent rapid re-triggers
-    if (now - lastEnterTime < DEBOUNCE_MS) {
+    if (now - lastEnterTime < ENTER_DEBOUNCE_MS) {
       return;
     }
     lastEnterTime = now;
-
-    if (updateDebugInfoFn) {
-      if (debugRafId === null) {
-        debugRafId = requestAnimationFrame(() => {
-          debugRafId = null;
-          const target = e.target instanceof Element ? e.target : null;
-          updateDebugInfoFn?.({
-            clientX: e.clientX,
-            lastX: null,
-            clientY: e.clientY,
-            inHotzone: true,
-            movingLeft: false,
-            startedOutside: false,
-            hotzoneIntersects: false,
-            shouldTrigger: true,
-            rafPending: false,
-            targetTag: target?.tagName ?? null,
-            targetId: target?.id ? target.id : null,
-            targetClass: target
-              ? typeof target.className === 'string'
-                ? target.className
-                : null
-              : null,
-          });
-        });
-      }
-    }
-
-    // Trigger floating UI
-    if (floatingInstance) {
-      floatingInstance.openFromHover();
-      // Disable pointer events on hostElement while UI is open
-      // to prevent re-triggering when hovering over the open UI
-      if (hostElement) {
-        hostElement.style.pointerEvents = 'none';
-      }
-    }
+    const target = e.target instanceof Element ? e.target : null;
+    recordPointerSample(e, 'pointerenter', target);
+    openFloatingUiFromEdge();
   };
 
   pointerMoveHandler = (e: PointerEvent) => {
-    if (!updateDebugInfoFn) return;
+    const target = e.target instanceof Element ? e.target : null;
+    recordPointerSample(e, 'pointermove', target);
+  };
 
-    pendingMoveEvent = {
-      clientX: e.clientX,
-      clientY: e.clientY,
-      target: e.target instanceof Element ? e.target : null,
-    };
+  pointerRawUpdateHandler = (ev: Event) => {
+    if (!(ev instanceof PointerEvent)) return;
+    const target = ev.target instanceof Element ? ev.target : null;
+    recordPointerSample(ev, 'pointerrawupdate', target);
+  };
 
-    if (moveDebugRafId !== null) return;
-    moveDebugRafId = requestAnimationFrame(() => {
-      moveDebugRafId = null;
-
-      const pending = pendingMoveEvent;
-      if (!pending) return;
-      pendingMoveEvent = null;
-
-      const currentX = pending.clientX;
-      const currentY = pending.clientY;
-      const lastX = lastMoveX;
-      lastMoveX = currentX;
-
-      const inHotzone = currentX >= -1 && currentX <= HOTZONE_WIDTH_PX;
-      const movingLeft = lastX !== null ? currentX < lastX : false;
-      const startedOutside = lastX !== null ? lastX > 8 : false;
-
-      const target = pending.target;
-      updateDebugInfoFn?.({
-        clientX: currentX,
-        clientY: currentY,
-        lastX,
-        inHotzone,
-        movingLeft,
-        startedOutside,
-        hotzoneIntersects: false,
-        shouldTrigger: inHotzone,
-        rafPending: false,
-        targetTag: target?.tagName ?? null,
-        targetId: target?.id ? target.id : null,
-        targetClass: target
-          ? typeof target.className === 'string'
-            ? target.className
-            : null
-          : null,
-      });
-    });
+  pointerLeaveHandler = (e: PointerEvent) => {
+    handlePointerLeave(e);
   };
 
   hostElement.addEventListener('pointerenter', edgeDetectionHandler);
   window.addEventListener('pointermove', pointerMoveHandler, { passive: true });
-  pointerRawUpdateHandler = (ev: Event) => {
-    if (ev instanceof PointerEvent) {
-      pointerMoveHandler?.(ev);
-    }
-  };
   window.addEventListener('pointerrawupdate', pointerRawUpdateHandler, { passive: true });
+  document.addEventListener('pointerleave', pointerLeaveHandler, true);
 }
 
 function teardownEdgeDetection() {
@@ -290,6 +379,11 @@ function teardownEdgeDetection() {
   if (pointerRawUpdateHandler) {
     window.removeEventListener('pointerrawupdate', pointerRawUpdateHandler);
     pointerRawUpdateHandler = null;
+  }
+
+  if (pointerLeaveHandler) {
+    document.removeEventListener('pointerleave', pointerLeaveHandler, true);
+    pointerLeaveHandler = null;
   }
 }
 
