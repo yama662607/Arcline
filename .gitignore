@@ -73,3 +73,5 @@ extension/lint_all.txt
 # Chrome dev profile
 .chrome-dev-profile/
 apps/
+
+scripts/arc-investigation/
