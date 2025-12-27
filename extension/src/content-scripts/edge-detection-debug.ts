@@ -5,11 +5,18 @@
  * Shows real-time cursor position and trigger conditions
  */
 
+import {
+  getEdgeDetectionConfig,
+  updateEdgeDetectionConfig,
+  type EdgeDetectionConfig,
+} from './edge-detection-config';
+
 let debugWindow: HTMLDivElement | null = null;
 let isEnabled = false;
 let eventHistory: Array<{ x: number; time: number; triggered: boolean }> = [];
 let eventCount = 0;
 let triggerCount = 0;
+let config = getEdgeDetectionConfig();
 
 const MAX_HISTORY = 200;
 
@@ -26,6 +33,13 @@ interface DebugInfo {
   targetTag: string | null;
   targetId: string | null;
   targetClass: string | null;
+  screenX?: number;
+  windowScreenX?: number;
+  distanceFromWindowEdge?: number;
+  velocityX?: number;
+  velocityY?: number;
+  state?: string;
+  lastEventType?: string;
 }
 
 export function enableEdgeDetectionDebug() {
@@ -41,7 +55,7 @@ export function enableEdgeDetectionDebug() {
     position: fixed;
     top: 20px;
     right: 20px;
-    width: 400px;
+    width: 420px;
     max-height: 80vh;
     overflow-y: auto;
     background: rgba(0, 0, 0, 0.95);
@@ -53,7 +67,7 @@ export function enableEdgeDetectionDebug() {
     z-index: 2147483647;
     box-shadow: 0 4px 20px rgba(0, 255, 0, 0.3);
     border: 2px solid #00ff00;
-    pointer-events: none;
+    pointer-events: auto;
     user-select: none;
   `;
 
@@ -62,10 +76,71 @@ export function enableEdgeDetectionDebug() {
       🔍 Edge Detection Debug
     </div>
     <div id="debug-content" style="line-height: 1.6;"></div>
+    <div style="margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 4px; border: 1px solid #00ff00;">
+      <div style="font-weight: bold; margin-bottom: 6px; color: #00ffff;">⚙️ Thresholds</div>
+      <div id="config-ui" style="font-size: 10px; line-height: 1.8;"></div>
+    </div>
   `;
 
   document.documentElement.appendChild(debugWindow);
+  renderConfigUi();
 }
+
+function renderConfigUi() {
+  if (!debugWindow) return;
+  const container = debugWindow.querySelector('#config-ui');
+  if (!container) return;
+
+  const makeSlider = (
+    key: keyof EdgeDetectionConfig,
+    label: string,
+    min: number,
+    max: number,
+    step: number
+  ) => {
+    const val = config[key] as number;
+    return `
+      <div style="margin-bottom: 4px;">
+        <span style="color: #888;">${label}:</span>
+        <input type="range" min="${min}" max="${max}" step="${step}" value="${val}"
+               data-key="${key}" style="width: 120px; margin-left: 8px; vertical-align: middle;"
+               oninput="window.__arclineEdgeConfigUpdate?.('${key}', Number(this.value))">
+        <span style="color: #ffff00; margin-left: 6px; font-weight: bold;">${val}</span>
+      </div>
+    `;
+  };
+
+  const makeCheckbox = (key: keyof EdgeDetectionConfig, label: string) => {
+    const checked = config[key] as boolean;
+    return `
+      <div style="margin-bottom: 4px;">
+        <input type="checkbox" ${checked ? 'checked' : ''} data-key="${key}"
+               onchange="window.__arclineEdgeConfigUpdate?.('${key}', this.checked)"
+               style="margin-right: 6px; vertical-align: middle;">
+        <span style="color: #888;">${label}</span>
+      </div>
+    `;
+  };
+
+  container.innerHTML = `
+    ${makeCheckbox('pointerLeaveInferenceEnabled', 'Enable pointerleave inference')}
+    ${makeSlider('snapVelocityThreshold', 'Snap velocity threshold (px)', -20, 0, 1)}
+    ${makeSlider('maxVelocityYThreshold', 'Max Y velocity threshold (px)', 0, 30, 1)}
+    ${makeSlider('viewportEdgeThresholdPx', 'Viewport edge threshold (px)', 0, 200, 4)}
+    ${makeSlider('windowEdgeThresholdPx', 'Window edge threshold (px)', 0, 100, 2)}
+    ${makeSlider('inferenceCooldownMs', 'Inference cooldown (ms)', 0, 1000, 50)}
+    ${makeCheckbox('debugLogging', 'Debug logging')}
+  `;
+}
+
+(window as any).__arclineEdgeConfigUpdate = (
+  key: keyof EdgeDetectionConfig,
+  value: boolean | number
+) => {
+  updateEdgeDetectionConfig({ [key]: value });
+  config = getEdgeDetectionConfig();
+  renderConfigUi();
+};
 
 export function disableEdgeDetectionDebug() {
   if (debugWindow) {
@@ -141,6 +216,78 @@ function showNotification(message: string, success: boolean) {
   setTimeout(() => notification.remove(), 2000);
 }
 
+function generatePositionHtml(
+  info: DebugInfo,
+  formatValue: (v: number | null | boolean | string, highlight?: boolean) => string
+) {
+  return `
+    <div style="margin-bottom: 8px;">
+      <span style="color: #888;">Current Position:</span><br/>
+      clientX: ${formatValue(info.clientX, Math.abs(info.clientX) <= 8)}
+      <br/>
+      clientY: ${formatValue(info.clientY)}
+      <br/>
+      screenX: ${formatValue(info.screenX ?? null)}
+      <br/>
+      windowScreenX: ${formatValue(info.windowScreenX ?? null)}
+      <br/>
+      distanceFromWindowEdge: ${formatValue(info.distanceFromWindowEdge ?? null)}
+      <br/>
+      velocityX: ${formatValue(info.velocityX ?? null)}
+      <br/>
+      velocityY: ${formatValue(info.velocityY ?? null)}
+      <br/>
+      state: ${formatValue(info.state ?? null)}
+      <br/>
+      lastEventType: ${formatValue(info.lastEventType ?? null)}
+    </div>
+  `;
+}
+
+function generateTargetHtml(
+  info: DebugInfo,
+  formatValue: (v: number | null | boolean | string, highlight?: boolean) => string
+) {
+  return `
+    <div style="margin-bottom: 8px;">
+      <span style="color: #888;">Hover Target:</span><br/>
+      tag: ${formatValue(info.targetTag, false)}
+      <br/>
+      id: ${formatValue(info.targetId, false)}
+      <br/>
+      class: ${formatValue(info.targetClass, false)}
+    </div>
+  `;
+}
+
+function generateConditionsHtml(info: DebugInfo) {
+  return `
+    <div style="margin-bottom: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
+      <span style="color: #888;">Conditions:</span><br/>
+      <div style="margin-top: 4px;">
+        ${info.inHotzone ? '✅' : '❌'} In Hotzone (-1 ≤ x ≤ 8)<br/>
+        ${info.movingLeft ? '✅' : '❌'} Moving Left<br/>
+        ${info.startedOutside ? '✅' : '❌'} Started Outside (x > 8)<br/>
+        ${info.hotzoneIntersects ? '✅' : '❌'} Trajectory Intersects<br/>
+        ${info.lastEventType === 'pointerleave' ? '🚪' : '  '} Pointer Leave Event<br/>
+        ${typeof info.velocityX === 'number' && info.velocityX <= -6 ? '⚡' : '  '} Fast Left Velocity (≤ -6px)<br/>
+        ${typeof info.velocityY === 'number' && Math.abs(info.velocityY) <= 8 ? '↕️' : '  '} Slow Y Velocity (|Y| ≤ 8px)<br/>
+        ${typeof info.distanceFromWindowEdge === 'number' && info.distanceFromWindowEdge <= 24 ? '📍' : '  '} Near Window Edge (≤ 24px)
+      </div>
+    </div>
+  `;
+}
+
+function generateTriggerHtml(info: DebugInfo) {
+  return `
+    <div style="padding: 8px; background: ${info.shouldTrigger ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)'}; border-radius: 4px; border: 2px solid ${info.shouldTrigger ? '#00ff00' : '#ff0000'};">
+      <span style="font-weight: bold; font-size: 13px;">
+        ${info.shouldTrigger ? '🚀 SHOULD TRIGGER' : '⏸️  NO TRIGGER'}
+      </span>
+    </div>
+  `;
+}
+
 export function updateDebugInfo(info: DebugInfo) {
   if (!isEnabled || !debugWindow) return;
 
@@ -149,7 +296,6 @@ export function updateDebugInfo(info: DebugInfo) {
     triggerCount++;
   }
 
-  // Track event history (keep last MAX_HISTORY)
   eventHistory.push({
     x: info.clientX,
     time: Date.now(),
@@ -170,7 +316,7 @@ export function updateDebugInfo(info: DebugInfo) {
   const historyHtml = eventHistory
     .slice()
     .reverse()
-    .slice(0, 10) // Show only last 10 in UI
+    .slice(0, 10)
     .map((e) => {
       const age = Date.now() - e.time;
       const color = e.triggered ? '#00ff00' : '#666';
@@ -187,42 +333,18 @@ export function updateDebugInfo(info: DebugInfo) {
       <span style="font-size: 10px; color: #666;">History: ${eventHistory.length}/${MAX_HISTORY}</span>
     </div>
 
-    <div style="margin-bottom: 8px;">
-      <span style="color: #888;">Current Position:</span><br/>
-      clientX: ${formatValue(info.clientX, Math.abs(info.clientX) <= 8)}
-      <br/>
-      clientY: ${formatValue(info.clientY)}
-    </div>
+    ${generatePositionHtml(info, formatValue)}
 
-    <div style="margin-bottom: 8px;">
-      <span style="color: #888;">Hover Target:</span><br/>
-      tag: ${formatValue(info.targetTag, false)}
-      <br/>
-      id: ${formatValue(info.targetId, false)}
-      <br/>
-      class: ${formatValue(info.targetClass, false)}
-    </div>
+    ${generateTargetHtml(info, formatValue)}
 
     <div style="margin-bottom: 8px;">
       <span style="color: #888;">Previous Position:</span><br/>
       lastX: ${formatValue(info.lastX)}
     </div>
 
-    <div style="margin-bottom: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
-      <span style="color: #888;">Conditions:</span><br/>
-      <div style="margin-top: 4px;">
-        ${info.inHotzone ? '✅' : '❌'} In Hotzone (-1 ≤ x ≤ 8)<br/>
-        ${info.movingLeft ? '✅' : '❌'} Moving Left<br/>
-        ${info.startedOutside ? '✅' : '❌'} Started Outside (x > 8)<br/>
-        ${info.hotzoneIntersects ? '✅' : '❌'} Trajectory Intersects
-      </div>
-    </div>
+    ${generateConditionsHtml(info)}
 
-    <div style="padding: 8px; background: ${info.shouldTrigger ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)'}; border-radius: 4px; border: 2px solid ${info.shouldTrigger ? '#00ff00' : '#ff0000'};">
-      <span style="font-weight: bold; font-size: 13px;">
-        ${info.shouldTrigger ? '🚀 SHOULD TRIGGER' : '⏸️  NO TRIGGER'}
-      </span>
-    </div>
+    ${generateTriggerHtml(info)}
 
     <div style="margin-top: 10px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
       <span style="color: #888;">Event History (last 10 of ${eventHistory.length}):</span><br/>
