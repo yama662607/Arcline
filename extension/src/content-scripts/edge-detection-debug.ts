@@ -40,6 +40,7 @@ interface DebugInfo {
   velocityY?: number;
   state?: string;
   lastEventType?: string;
+  coalescedEventsCount?: number;
 }
 
 export function enableEdgeDetectionDebug() {
@@ -53,16 +54,14 @@ export function enableEdgeDetectionDebug() {
   debugWindow.id = 'arcline-edge-debug';
   debugWindow.style.cssText = `
     position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 420px;
-    max-height: 80vh;
-    overflow-y: auto;
+    top: 10px;
+    right: 10px;
+    width: 900px;
     background: rgba(0, 0, 0, 0.95);
     color: #00ff00;
     font-family: 'Monaco', 'Courier New', monospace;
-    font-size: 11px;
-    padding: 15px;
+    font-size: 10px;
+    padding: 12px;
     border-radius: 8px;
     z-index: 2147483647;
     box-shadow: 0 4px 20px rgba(0, 255, 0, 0.3);
@@ -72,18 +71,49 @@ export function enableEdgeDetectionDebug() {
   `;
 
   debugWindow.innerHTML = `
-    <div style="font-weight: bold; margin-bottom: 10px; color: #00ffff; font-size: 14px;">
-      🔍 Edge Detection Debug
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #00ff00;">
+      <div style="font-weight: bold; color: #00ffff; font-size: 13px;">
+        🔍 Edge Detection Debug (Phase 1-3)
+      </div>
+      <div style="font-size: 9px; color: #888;">
+        Ctrl+Shift+D: Toggle | Ctrl+Shift+R: Reset | Ctrl+Shift+C: Copy
+      </div>
     </div>
-    <div id="debug-content" style="line-height: 1.6;"></div>
-    <div style="margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 4px; border: 1px solid #00ff00;">
-      <div style="font-weight: bold; margin-bottom: 6px; color: #00ffff;">⚙️ Thresholds</div>
-      <div id="config-ui" style="font-size: 10px; line-height: 1.8;"></div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+      <!-- Left Column: Position & State -->
+      <div>
+        <div style="font-weight: bold; color: #00ffff; font-size: 11px; margin-bottom: 4px;">📍 Position & State</div>
+        <div id="position-info" style="line-height: 1.5;"></div>
+      </div>
+
+      <!-- Middle Column: Conditions & Trigger -->
+      <div>
+        <div style="font-weight: bold; color: #00ffff; font-size: 11px; margin-bottom: 4px;">✓ Conditions</div>
+        <div id="conditions-info" style="line-height: 1.5;"></div>
+        <div id="trigger-status" style="margin-top: 6px;"></div>
+      </div>
+
+      <!-- Right Column: Config & History -->
+      <div>
+        <div style="font-weight: bold; color: #00ffff; font-size: 11px; margin-bottom: 4px;">⚙️ Settings</div>
+        <div id="config-ui" style="font-size: 9px; line-height: 1.4; margin-bottom: 8px;"></div>
+        <div style="font-weight: bold; color: #00ffff; font-size: 11px; margin-bottom: 4px;">📊 Stats & History</div>
+        <div id="stats-info" style="font-size: 9px; line-height: 1.4;"></div>
+      </div>
     </div>
+
+    <div id="help-info" style="margin-top: 8px; padding: 6px; background: rgba(0, 100, 255, 0.1); border-radius: 4px; border: 1px solid #0088ff; font-size: 9px; line-height: 1.4; color: #88ccff;"></div>
   `;
 
   document.documentElement.appendChild(debugWindow);
   renderConfigUi();
+
+  // Initialize help info
+  const helpContainer = debugWindow.querySelector('#help-info');
+  if (helpContainer) {
+    helpContainer.innerHTML = renderHelpInfo();
+  }
 }
 
 function renderConfigUi() {
@@ -91,7 +121,19 @@ function renderConfigUi() {
   const container = debugWindow.querySelector('#config-ui');
   if (!container) return;
 
-  const makeSlider = (
+  const makeCompactCheckbox = (key: keyof EdgeDetectionConfig, label: string) => {
+    const checked = config[key] as boolean;
+    return `
+      <label style="display: flex; align-items: center; margin-bottom: 2px; cursor: pointer;">
+        <input type="checkbox" ${checked ? 'checked' : ''} data-key="${key}"
+               onchange="window.__arclineEdgeConfigUpdate?.('${key}', this.checked)"
+               style="margin-right: 4px;">
+        <span style="color: ${checked ? '#00ff00' : '#666'};">${label}</span>
+      </label>
+    `;
+  };
+
+  const makeCompactSlider = (
     key: keyof EdgeDetectionConfig,
     label: string,
     min: number,
@@ -100,36 +142,21 @@ function renderConfigUi() {
   ) => {
     const val = config[key] as number;
     return `
-      <div style="margin-bottom: 4px;">
-        <span style="color: #888;">${label}:</span>
+      <div style="margin-bottom: 2px; display: flex; align-items: center; gap: 4px;">
+        <span style="color: #666; font-size: 8px; min-width: 40px;">${label}:</span>
         <input type="range" min="${min}" max="${max}" step="${step}" value="${val}"
-               data-key="${key}" style="width: 120px; margin-left: 8px; vertical-align: middle;"
+               data-key="${key}" style="width: 60px;"
                oninput="window.__arclineEdgeConfigUpdate?.('${key}', Number(this.value))">
-        <span style="color: #ffff00; margin-left: 6px; font-weight: bold;">${val}</span>
-      </div>
-    `;
-  };
-
-  const makeCheckbox = (key: keyof EdgeDetectionConfig, label: string) => {
-    const checked = config[key] as boolean;
-    return `
-      <div style="margin-bottom: 4px;">
-        <input type="checkbox" ${checked ? 'checked' : ''} data-key="${key}"
-               onchange="window.__arclineEdgeConfigUpdate?.('${key}', this.checked)"
-               style="margin-right: 6px; vertical-align: middle;">
-        <span style="color: #888;">${label}</span>
+        <span style="color: #ffff00; font-size: 9px; min-width: 25px;">${val}</span>
       </div>
     `;
   };
 
   container.innerHTML = `
-    ${makeCheckbox('pointerLeaveInferenceEnabled', 'Enable pointerleave inference')}
-    ${makeSlider('snapVelocityThreshold', 'Snap velocity threshold (px)', -20, 0, 1)}
-    ${makeSlider('maxVelocityYThreshold', 'Max Y velocity threshold (px)', 0, 30, 1)}
-    ${makeSlider('viewportEdgeThresholdPx', 'Viewport edge threshold (px)', 0, 200, 4)}
-    ${makeSlider('windowEdgeThresholdPx', 'Window edge threshold (px)', 0, 100, 2)}
-    ${makeSlider('inferenceCooldownMs', 'Inference cooldown (ms)', 0, 1000, 50)}
-    ${makeCheckbox('debugLogging', 'Debug logging')}
+    ${makeCompactCheckbox('pointerLeaveInferenceEnabled', 'Phase 2')}
+    ${makeCompactCheckbox('debugLogging', 'Console Log')}
+    ${makeCompactSlider('snapVelocityThreshold', 'VelX', -20, 0, 1)}
+    ${makeCompactSlider('windowEdgeThresholdPx', 'Edge', 0, 100, 2)}
   `;
 }
 
@@ -216,74 +243,97 @@ function showNotification(message: string, success: boolean) {
   setTimeout(() => notification.remove(), 2000);
 }
 
-function generatePositionHtml(
-  info: DebugInfo,
-  formatValue: (v: number | null | boolean | string, highlight?: boolean) => string
-) {
+function renderPositionInfo(info: DebugInfo) {
+  const fmt = (v: number | null | string | undefined, hl = false) => {
+    const color = hl ? '#ffff00' : '#00ff00';
+    return `<span style="color: ${color}; font-weight: bold;">${v === null || v === undefined ? '-' : typeof v === 'number' ? v.toFixed(1) : v}</span>`;
+  };
+
+  const HOTZONE = 8;
+
   return `
-    <div style="margin-bottom: 8px;">
-      <span style="color: #888;">Current Position:</span><br/>
-      clientX: ${formatValue(info.clientX, Math.abs(info.clientX) <= 8)}
-      <br/>
-      clientY: ${formatValue(info.clientY)}
-      <br/>
-      screenX: ${formatValue(info.screenX ?? null)}
-      <br/>
-      windowScreenX: ${formatValue(info.windowScreenX ?? null)}
-      <br/>
-      distanceFromWindowEdge: ${formatValue(info.distanceFromWindowEdge ?? null)}
-      <br/>
-      velocityX: ${formatValue(info.velocityX ?? null)}
-      <br/>
-      velocityY: ${formatValue(info.velocityY ?? null)}
-      <br/>
-      state: ${formatValue(info.state ?? null)}
-      <br/>
-      lastEventType: ${formatValue(info.lastEventType ?? null)}
+    <div style="font-size: 9px; line-height: 1.6;">
+      clientX: ${fmt(info.clientX, info.clientX <= HOTZONE)}<br/>
+      clientY: ${fmt(info.clientY)}<br/>
+      screenX: ${fmt(info.screenX)}<br/>
+      winScreenX: ${fmt(info.windowScreenX)}<br/>
+      distFromEdge: ${fmt(info.distanceFromWindowEdge, (info.distanceFromWindowEdge ?? 100) <= config.windowEdgeThresholdPx)}<br/>
+      velocityX: ${fmt(info.velocityX, (info.velocityX ?? 0) <= config.snapVelocityThreshold)}<br/>
+      velocityY: ${fmt(info.velocityY)}<br/>
+      state: ${fmt(info.state)}<br/>
+      event: ${fmt(info.lastEventType)}<br/>
+      coalesced: ${fmt(info.coalescedEventsCount, (info.coalescedEventsCount ?? 0) > 1)}
     </div>
   `;
 }
 
-function generateTargetHtml(
-  info: DebugInfo,
-  formatValue: (v: number | null | boolean | string, highlight?: boolean) => string
-) {
+function renderConditionsInfo(info: DebugInfo) {
+  const check = (cond: boolean, label: string) =>
+    `<div>${cond ? '✅' : '❌'} ${label}</div>`;
+
+  // Phase 2 の実際の判定条件を反映
+  const phase2Enabled = config.pointerLeaveInferenceEnabled;
+  const isPointerLeave = info.lastEventType === 'pointerleave';
+  const fastLeftVel = (info.velocityX ?? 0) <= config.snapVelocityThreshold;
+  const slowYVel = Math.abs(info.velocityY ?? 0) <= config.maxVelocityYThreshold;
+  const nearWinEdge = (info.distanceFromWindowEdge ?? 100) <= config.windowEdgeThresholdPx;
+  const phase2Trigger = phase2Enabled && isPointerLeave && fastLeftVel && slowYVel && nearWinEdge && info.inHotzone;
+
   return `
-    <div style="margin-bottom: 8px;">
-      <span style="color: #888;">Hover Target:</span><br/>
-      tag: ${formatValue(info.targetTag, false)}
-      <br/>
-      id: ${formatValue(info.targetId, false)}
-      <br/>
-      class: ${formatValue(info.targetClass, false)}
+    <div style="font-size: 9px; line-height: 1.6;">
+      ${check(info.inHotzone, 'In Hotzone (≤8px)')}
+      ${check(info.movingLeft, 'Moving Left')}
+      ${check(info.startedOutside, 'Started Outside')}
+      ${check(isPointerLeave, 'Pointer Leave')}
+      ${check(fastLeftVel, `Fast Left Vel (≤${config.snapVelocityThreshold})`)}
+      ${check(slowYVel, `Slow Y Vel (≤${config.maxVelocityYThreshold})`)}
+      ${check(nearWinEdge, `Near Win Edge (≤${config.windowEdgeThresholdPx})`)}
+      ${check((info.coalescedEventsCount ?? 0) > 1, 'Multi-Coalesced')}
+      ${phase2Trigger ? '<div style="color: #ffff00; font-weight: bold;">⚡ Phase 2 Ready</div>' : ''}
     </div>
   `;
 }
 
-function generateConditionsHtml(info: DebugInfo) {
+function renderTriggerStatus(info: DebugInfo) {
   return `
-    <div style="margin-bottom: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
-      <span style="color: #888;">Conditions:</span><br/>
-      <div style="margin-top: 4px;">
-        ${info.inHotzone ? '✅' : '❌'} In Hotzone (-1 ≤ x ≤ 8)<br/>
-        ${info.movingLeft ? '✅' : '❌'} Moving Left<br/>
-        ${info.startedOutside ? '✅' : '❌'} Started Outside (x > 8)<br/>
-        ${info.hotzoneIntersects ? '✅' : '❌'} Trajectory Intersects<br/>
-        ${info.lastEventType === 'pointerleave' ? '🚪' : '  '} Pointer Leave Event<br/>
-        ${typeof info.velocityX === 'number' && info.velocityX <= -6 ? '⚡' : '  '} Fast Left Velocity (≤ -6px)<br/>
-        ${typeof info.velocityY === 'number' && Math.abs(info.velocityY) <= 8 ? '↕️' : '  '} Slow Y Velocity (|Y| ≤ 8px)<br/>
-        ${typeof info.distanceFromWindowEdge === 'number' && info.distanceFromWindowEdge <= 24 ? '📍' : '  '} Near Window Edge (≤ 24px)
-      </div>
-    </div>
-  `;
-}
-
-function generateTriggerHtml(info: DebugInfo) {
-  return `
-    <div style="padding: 8px; background: ${info.shouldTrigger ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)'}; border-radius: 4px; border: 2px solid ${info.shouldTrigger ? '#00ff00' : '#ff0000'};">
-      <span style="font-weight: bold; font-size: 13px;">
-        ${info.shouldTrigger ? '🚀 SHOULD TRIGGER' : '⏸️  NO TRIGGER'}
+    <div style="padding: 6px; background: ${info.shouldTrigger ? 'rgba(0, 255, 0, 0.2)' : 'rgba(100, 100, 100, 0.2)'}; border-radius: 4px; border: 2px solid ${info.shouldTrigger ? '#00ff00' : '#666'}; text-align: center;">
+      <span style="font-weight: bold; font-size: 11px;">
+        ${info.shouldTrigger ? '🚀 TRIGGER' : '⏸️ NO TRIGGER'}
       </span>
+    </div>
+  `;
+}
+
+function renderStatsInfo() {
+  const historyHtml = eventHistory
+    .slice()
+    .reverse()
+    .slice(0, 5)
+    .map((e) => {
+      const age = Date.now() - e.time;
+      const color = e.triggered ? '#00ff00' : '#444';
+      return `<div style="color: ${color};">${e.triggered ? '🚀' : '  '} x=${e.x.toFixed(0)} (${age}ms)</div>`;
+    })
+    .join('');
+
+  return `
+    <div style="font-size: 9px; line-height: 1.4;">
+      <div>Events: <span style="color: #00ff00; font-weight: bold;">${eventCount}</span></div>
+      <div>Triggers: <span style="color: ${triggerCount > 0 ? '#ffff00' : '#00ff00'}; font-weight: bold;">${triggerCount}</span></div>
+      <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #333;">Recent (5):</div>
+      ${historyHtml || '<div style="color: #444;">No events</div>'}
+    </div>
+  `;
+}
+
+function renderHelpInfo() {
+  return `
+    <div style="line-height: 1.5;">
+      <strong style="color: #00ffff;">💡 使い方:</strong>
+      カーソルを画面左端に移動してエッジ検知をテスト。
+      <strong style="color: #ffff00;">clientX ≤ 8px</strong> でホットゾーン。
+      <strong style="color: #ffff00;">coalesced > 1</strong> なら Phase 1 が動作中（高速移動対応）。
+      <strong style="color: #ffff00;">Pointer Leave + 条件</strong> なら Phase 2 が動作中（ウィンドウ枠対応）。
     </div>
   `;
 }
@@ -305,61 +355,35 @@ export function updateDebugInfo(info: DebugInfo) {
     eventHistory.shift();
   }
 
-  const content = debugWindow.querySelector('#debug-content');
-  if (!content) return;
+  // Update position info
+  const positionContainer = debugWindow.querySelector('#position-info');
+  if (positionContainer) {
+    positionContainer.innerHTML = renderPositionInfo(info);
+  }
 
-  const formatValue = (value: number | null | boolean | string, highlight = false) => {
-    const color = highlight ? '#ffff00' : '#00ff00';
-    return `<span style="color: ${color}; font-weight: bold;">${value === null ? 'null' : typeof value === 'number' ? value.toFixed(2) : value}</span>`;
-  };
+  // Update conditions info
+  const conditionsContainer = debugWindow.querySelector('#conditions-info');
+  if (conditionsContainer) {
+    conditionsContainer.innerHTML = renderConditionsInfo(info);
+  }
 
-  const historyHtml = eventHistory
-    .slice()
-    .reverse()
-    .slice(0, 10)
-    .map((e) => {
-      const age = Date.now() - e.time;
-      const color = e.triggered ? '#00ff00' : '#666';
-      return `<div style="color: ${color}; font-size: 10px;">
-        ${e.triggered ? '🚀' : '  '} x=${e.x.toFixed(1)} (${age}ms ago)
-      </div>`;
-    })
-    .join('');
+  // Update trigger status
+  const triggerContainer = debugWindow.querySelector('#trigger-status');
+  if (triggerContainer) {
+    triggerContainer.innerHTML = renderTriggerStatus(info);
+  }
 
-  content.innerHTML = `
-    <div style="margin-bottom: 8px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
-      <span style="color: #888;">Statistics:</span><br/>
-      Events: ${formatValue(eventCount)} | Triggers: ${formatValue(triggerCount, triggerCount > 0)}<br/>
-      <span style="font-size: 10px; color: #666;">History: ${eventHistory.length}/${MAX_HISTORY}</span>
-    </div>
+  // Update stats info
+  const statsContainer = debugWindow.querySelector('#stats-info');
+  if (statsContainer) {
+    statsContainer.innerHTML = renderStatsInfo();
+  }
 
-    ${generatePositionHtml(info, formatValue)}
-
-    ${generateTargetHtml(info, formatValue)}
-
-    <div style="margin-bottom: 8px;">
-      <span style="color: #888;">Previous Position:</span><br/>
-      lastX: ${formatValue(info.lastX)}
-    </div>
-
-    ${generateConditionsHtml(info)}
-
-    ${generateTriggerHtml(info)}
-
-    <div style="margin-top: 10px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
-      <span style="color: #888;">Event History (last 10 of ${eventHistory.length}):</span><br/>
-      <div style="margin-top: 4px; font-family: monospace;">
-        ${historyHtml || '<span style="color: #666;">No events yet</span>'}
-      </div>
-    </div>
-
-    <div style="margin-top: 10px; font-size: 10px; color: #666; line-height: 1.4;">
-      <strong>Shortcuts:</strong><br/>
-      Ctrl+Shift+D: Toggle<br/>
-      Ctrl+Shift+R: Reset<br/>
-      Ctrl+Shift+C: Copy (logs to console)
-    </div>
-  `;
+  // Update help info
+  const helpContainer = debugWindow.querySelector('#help-info');
+  if (helpContainer) {
+    helpContainer.innerHTML = renderHelpInfo();
+  }
 }
 
 // Toggle debug with keyboard shortcut

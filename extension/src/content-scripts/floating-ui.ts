@@ -62,6 +62,7 @@ interface DebugInfo {
   velocityY?: number;
   state?: EdgeDetectionState;
   lastEventType?: string;
+  coalescedEventsCount?: number;
 }
 
 let updateDebugInfoFn: ((info: DebugInfo) => void) | null = null;
@@ -87,7 +88,12 @@ function queueDebugInfo(info: DebugInfo) {
   });
 }
 
-function recordPointerSample(event: PointerEvent, source: string, target: Element | null) {
+function recordPointerSample(
+  event: PointerEvent,
+  source: string,
+  target: Element | null,
+  options?: { coalescedEventsCount?: number }
+) {
   const clientX = event.clientX;
   const clientY = event.clientY;
   const lastX = lastPointerClientX;
@@ -105,7 +111,7 @@ function recordPointerSample(event: PointerEvent, source: string, target: Elemen
     clientX,
     clientY,
     lastX,
-    inHotzone: clientX >= -1 && clientX <= HOTZONE_WIDTH_PX,
+    inHotzone: clientX <= HOTZONE_WIDTH_PX, // 負の値も含める
     movingLeft: lastX !== null ? clientX < lastX : false,
     startedOutside: lastX !== null ? lastX > HOTZONE_WIDTH_PX : false,
     hotzoneIntersects: false,
@@ -122,19 +128,28 @@ function recordPointerSample(event: PointerEvent, source: string, target: Elemen
     velocityY: lastVelocityY,
     state: edgeDetectionState,
     lastEventType: source,
+    coalescedEventsCount: options?.coalescedEventsCount,
   });
 }
 
 function handlePointerLeave(event: PointerEvent) {
+  // pointerleave 時の clientX が負の値 = ウィンドウ左端を超えた = ホットゾーン通過
+  const currentClientX = event.clientX;
+  const isInHotzone = currentClientX <= HOTZONE_WIDTH_PX;
+
+  // 速度を計算（最後の pointermove からの移動）
+  const inferredVelocityX = lastPointerClientX !== null ? currentClientX - lastPointerClientX : 0;
+  const displayVelocityX = inferredVelocityX !== 0 ? inferredVelocityX : lastVelocityX;
+
   queueDebugInfo({
-    clientX: event.clientX,
+    clientX: currentClientX,
     clientY: event.clientY,
     lastX: lastPointerClientX,
-    inHotzone: false,
-    movingLeft: lastVelocityX < 0,
-    startedOutside: true,
+    inHotzone: isInHotzone, // 現在の位置で判定（負の値も含める）
+    movingLeft: displayVelocityX < 0 || currentClientX < (lastPointerClientX ?? 0),
+    startedOutside: (lastPointerClientX ?? 0) > HOTZONE_WIDTH_PX,
     hotzoneIntersects: false,
-    shouldTrigger: false,
+    shouldTrigger: isInHotzone, // ホットゾーン内なら shouldTrigger=true
     rafPending: debugFrameId !== null,
     targetTag: null,
     targetId: null,
@@ -142,12 +157,24 @@ function handlePointerLeave(event: PointerEvent) {
     screenX: event.screenX,
     windowScreenX: window.screenX,
     distanceFromWindowEdge: event.screenX - window.screenX,
-    velocityX: lastVelocityX,
+    velocityX: displayVelocityX, // 推論された速度を使用
     velocityY: lastVelocityY,
     state: edgeDetectionState,
     lastEventType: 'pointerleave',
   });
 
+  // pointerleave 時に clientX がホットゾーン内（負の値を含む）なら直接起動
+  if (isInHotzone && (lastPointerClientX ?? 0) > HOTZONE_WIDTH_PX) {
+    maybeLogEdgeDebug('pointerleave-hotzone-direct', {
+      currentClientX,
+      lastClientX: lastPointerClientX,
+      inferredVelocityX,
+    });
+    openFloatingUiFromEdge();
+    return;
+  }
+
+  // Phase 2 の推論ロジック
   if (!config.pointerLeaveInferenceEnabled) {
     return;
   }
@@ -346,13 +373,57 @@ function setupEdgeDetection() {
 
   pointerMoveHandler = (e: PointerEvent) => {
     const target = e.target instanceof Element ? e.target : null;
-    recordPointerSample(e, 'pointermove', target);
+
+    // Phase 1: getCoalescedEvents() で間引きされたイベントもチェック
+    // 高速移動時にホットゾーンを「飛び越える」問題を解決
+    const coalescedEvents = e.getCoalescedEvents?.() || [e];
+
+    // デバッグ情報に coalesced events の数を記録
+    recordPointerSample(e, 'pointermove', target, {
+      coalescedEventsCount: coalescedEvents.length,
+    });
+
+    // 中間イベントでホットゾーン通過をチェック（負の値も含める）
+    for (const event of coalescedEvents) {
+      if (event.clientX <= HOTZONE_WIDTH_PX) {
+        // ホットゾーン内を通過 → Floating UI を起動
+        maybeLogEdgeDebug('coalesced-hotzone-detected', {
+          clientX: event.clientX,
+          screenX: event.screenX,
+          totalCoalescedEvents: coalescedEvents.length,
+          eventIndex: coalescedEvents.indexOf(event),
+        });
+        openFloatingUiFromEdge();
+        break;
+      }
+    }
   };
 
   pointerRawUpdateHandler = (ev: Event) => {
     if (!(ev instanceof PointerEvent)) return;
     const target = ev.target instanceof Element ? ev.target : null;
-    recordPointerSample(ev, 'pointerrawupdate', target);
+
+    // Phase 1: getCoalescedEvents() で間引きされたイベントもチェック
+    const coalescedEvents = ev.getCoalescedEvents?.() || [ev];
+
+    // デバッグ情報に coalesced events の数を記録
+    recordPointerSample(ev, 'pointerrawupdate', target, {
+      coalescedEventsCount: coalescedEvents.length,
+    });
+
+    // 中間イベントでホットゾーン通過をチェック（負の値も含める）
+    for (const event of coalescedEvents) {
+      if (event.clientX <= HOTZONE_WIDTH_PX) {
+        maybeLogEdgeDebug('coalesced-rawupdate-hotzone-detected', {
+          clientX: event.clientX,
+          screenX: event.screenX,
+          totalCoalescedEvents: coalescedEvents.length,
+          eventIndex: coalescedEvents.indexOf(event),
+        });
+        openFloatingUiFromEdge();
+        break;
+      }
+    }
   };
 
   pointerLeaveHandler = (e: PointerEvent) => {
