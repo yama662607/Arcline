@@ -145,56 +145,72 @@ export async function addServiceWorkerBridgeMock(
         | ((message: unknown, callback?: (response: unknown) => void) => unknown)
         | undefined;
 
-      runtime.sendMessage = ((message: unknown, callback?: (response: unknown) => void) => {
-        // Handle Bridge messages
-        if (!message || typeof message !== 'object') {
-          if (originalSendMessage) {
-            return originalSendMessage(message, callback);
+      const isRecord = (value: unknown): value is Record<string, unknown> =>
+        Boolean(value) && typeof value === 'object';
+
+      const notifyMessageListeners = (response: unknown) => {
+        messageListeners.forEach((listener) => {
+          try {
+            listener(response, {}, () => {});
+          } catch (_e) {
+            // Silently handle listener errors
           }
-          return;
-        }
+        });
+      };
 
-        const payload = message as Record<string, unknown>;
-        const payloadType = payload.type;
-
-        if (payloadType === 'query' || payloadType === 'mutation') {
-          // Mock responses for common methods
-          setTimeout(() => {
-            const response = handleMessage(payload, mockSpaces);
-
-            // Call callback if provided
-            if (callback) {
-              callback(response);
-            }
-
-            // Notify message listeners
-            messageListeners.forEach((listener) => {
-              try {
-                listener(response, {}, () => {});
-              } catch (_e) {
-                // Silently handle listener errors
-              }
-            });
-          }, 10);
-
-          return;
-        }
-
-        // Handle legacy commands
-        if (typeof payload.command === 'string') {
-          setTimeout(() => {
-            if (payload.command === 'requestUiMode') {
-              if (callback) callback({ mode: mockSettings.uiMode });
-            }
-            // Add other legacy commands if needed
-          }, 10);
-          return;
-        }
-
-        // Call original sendMessage if it existed
+      const callOriginalSendMessage = (
+        message: unknown,
+        callback?: (response: unknown) => void
+      ) => {
         if (originalSendMessage) {
           return originalSendMessage(message, callback);
         }
+        return undefined;
+      };
+
+      const handleBridgeMessage = (
+        payload: Record<string, unknown>,
+        callback?: (response: unknown) => void
+      ) => {
+        setTimeout(() => {
+          const response = handleMessage(payload, mockSpaces);
+          if (callback) {
+            callback(response);
+          }
+          notifyMessageListeners(response);
+        }, 10);
+      };
+
+      const handleLegacyCommand = (
+        payload: Record<string, unknown>,
+        callback?: (response: unknown) => void
+      ): boolean => {
+        if (typeof payload.command !== 'string') return false;
+        setTimeout(() => {
+          if (payload.command === 'requestUiMode') {
+            if (callback) callback({ mode: mockSettings.uiMode });
+          }
+          // Add other legacy commands if needed
+        }, 10);
+        return true;
+      };
+
+      runtime.sendMessage = ((message: unknown, callback?: (response: unknown) => void) => {
+        if (!isRecord(message)) {
+          return callOriginalSendMessage(message, callback);
+        }
+
+        const payloadType = message.type;
+        if (payloadType === 'query' || payloadType === 'mutation') {
+          handleBridgeMessage(message, callback);
+          return;
+        }
+
+        if (handleLegacyCommand(message, callback)) {
+          return;
+        }
+
+        return callOriginalSendMessage(message, callback);
       }) as unknown as Record<string, unknown>['sendMessage'];
 
       // Helper function to handle message processing
@@ -402,66 +418,69 @@ export async function addServiceWorkerBridgeMock(
         response: { id?: string; data?: unknown },
         message: Record<string, unknown>
       ) {
+        const params = getTogglePinnedParams(message);
+        if (!params) return response;
+
+        togglePinnedAcrossSpaces(mockSpaces, params);
+        response.data = true;
+        return response;
+      }
+
+      function getTogglePinnedParams(message: Record<string, unknown>) {
         const params = message.params;
         const paramsObj =
           params && typeof params === 'object' ? (params as Record<string, unknown>) : undefined;
         const tabId = typeof paramsObj?.tabId === 'number' ? paramsObj.tabId : undefined;
         const pinned = typeof paramsObj?.pinned === 'boolean' ? paramsObj.pinned : undefined;
+        if (tabId === undefined || pinned === undefined) return null;
+        return { tabId, pinned };
+      }
 
-        if (tabId === undefined || pinned === undefined) {
-          return response;
-        }
-
-        for (const space of mockSpaces) {
-          // Try to find in pinnedTabs
-          const pinnedIndex = space.pinnedTabs.findIndex((t) => t.id === tabId);
-          if (pinnedIndex !== -1) {
-            const tab = space.pinnedTabs[pinnedIndex];
-            if (!pinned) {
-              // Unpin: Move to temporaryTabs
-              space.pinnedTabs.splice(pinnedIndex, 1);
-              tab.pinned = false;
-              space.temporaryTabs.push(tab);
-            }
-            response.data = true;
-            return response;
-          }
-
-          // Try to find in temporaryTabs
-          const tempIndex = space.temporaryTabs.findIndex((t) => t.id === tabId);
-          if (tempIndex !== -1) {
-            const tab = space.temporaryTabs[tempIndex];
-            if (pinned) {
-              // Pin: Move to pinnedTabs
-              space.temporaryTabs.splice(tempIndex, 1);
-              tab.pinned = true;
-              space.pinnedTabs.push(tab);
-            }
-            response.data = true;
-            return response;
-          }
-
-          // Try to find in tabs (general tabs)
-          const tabIndex = space.tabs.findIndex((t) => t.id === tabId);
-          if (tabIndex !== -1) {
-            const tab = space.tabs[tabIndex];
-            if (pinned) {
-              // Pin: Move to pinnedTabs
-              space.tabs.splice(tabIndex, 1);
-              tab.pinned = true;
-              space.pinnedTabs.push(tab);
-            } else {
-              // Already unpinned logic not needed if in 'tabs' which implies unpinned usually?
-              // But valid to ensure property
-              tab.pinned = false;
-            }
-            response.data = true;
-            return response;
+      function togglePinnedAcrossSpaces(
+        spaces: MockSpace[],
+        params: { tabId: number; pinned: boolean }
+      ) {
+        for (const space of spaces) {
+          if (applyTogglePinned(space, params.tabId, params.pinned)) {
+            return true;
           }
         }
+        return false;
+      }
 
-        response.data = true;
-        return response;
+      function applyTogglePinned(space: MockSpace, tabId: number, pinned: boolean): boolean {
+        const moveTab = (fromList: MockTab[], toList: MockTab[], nextPinned: boolean): boolean => {
+          const index = fromList.findIndex((tab) => tab.id === tabId);
+          if (index === -1) return false;
+          const tab = fromList.splice(index, 1)[0];
+          if (!tab) return false;
+          tab.pinned = nextPinned;
+          toList.push(tab);
+          return true;
+        };
+
+        const updateTabPinnedFlag = (list: MockTab[], nextPinned: boolean): boolean => {
+          const tab = list.find((item) => item.id === tabId);
+          if (!tab) return false;
+          tab.pinned = nextPinned;
+          return true;
+        };
+
+        const actions = pinned
+          ? [
+              () => moveTab(space.temporaryTabs, space.pinnedTabs, true),
+              () => moveTab(space.tabs, space.pinnedTabs, true),
+            ]
+          : [
+              () => moveTab(space.pinnedTabs, space.temporaryTabs, false),
+              () => updateTabPinnedFlag(space.tabs, false),
+            ];
+
+        for (const action of actions) {
+          if (action()) return true;
+        }
+
+        return false;
       }
 
       function handleTabOperations(response: { id?: string; data?: unknown }) {

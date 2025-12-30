@@ -43,6 +43,12 @@ interface DebugInfo {
   coalescedEventsCount?: number;
 }
 
+declare global {
+  interface Window {
+    __arclineEdgeConfigUpdate?: (key: keyof EdgeDetectionConfig, value: boolean | number) => void;
+  }
+}
+
 export function enableEdgeDetectionDebug() {
   if (debugWindow) return;
   isEnabled = true;
@@ -160,10 +166,7 @@ function renderConfigUi() {
   `;
 }
 
-(window as any).__arclineEdgeConfigUpdate = (
-  key: keyof EdgeDetectionConfig,
-  value: boolean | number
-) => {
+window.__arclineEdgeConfigUpdate = (key: keyof EdgeDetectionConfig, value: boolean | number) => {
   updateEdgeDetectionConfig({ [key]: value });
   config = getEdgeDetectionConfig();
   renderConfigUi();
@@ -268,8 +271,7 @@ function renderPositionInfo(info: DebugInfo) {
 }
 
 function renderConditionsInfo(info: DebugInfo) {
-  const check = (cond: boolean, label: string) =>
-    `<div>${cond ? '✅' : '❌'} ${label}</div>`;
+  const check = (cond: boolean, label: string) => `<div>${cond ? '✅' : '❌'} ${label}</div>`;
 
   // Phase 2 の実際の判定条件を反映
   const phase2Enabled = config.pointerLeaveInferenceEnabled;
@@ -277,7 +279,8 @@ function renderConditionsInfo(info: DebugInfo) {
   const fastLeftVel = (info.velocityX ?? 0) <= config.snapVelocityThreshold;
   const slowYVel = Math.abs(info.velocityY ?? 0) <= config.maxVelocityYThreshold;
   const nearWinEdge = (info.distanceFromWindowEdge ?? 100) <= config.windowEdgeThresholdPx;
-  const phase2Trigger = phase2Enabled && isPointerLeave && fastLeftVel && slowYVel && nearWinEdge && info.inHotzone;
+  const phase2Trigger =
+    phase2Enabled && isPointerLeave && fastLeftVel && slowYVel && nearWinEdge && info.inHotzone;
 
   return `
     <div style="font-size: 9px; line-height: 1.6;">

@@ -95,4 +95,11 @@ export class SwipeDetector {
       this.cooldownTimer = null;
     }
   }
+
+  /**
+   * Get current accumulated delta X for UI feedback
+   */
+  getCurrentDelta(): number {
+    return this.totalDeltaX;
+  }
 }

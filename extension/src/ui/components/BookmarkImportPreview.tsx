@@ -9,6 +9,50 @@ interface BookmarkImportPreviewProps {
   onCancel: () => void;
 }
 
+const hasChildren = (
+  item: ImportedBookmark
+): item is ImportedBookmark & { children: ImportedBookmark[] } =>
+  item.isFolder === true && Array.isArray(item.children);
+
+const walkBookmarks = (
+  items: ImportedBookmark[],
+  basePath: string,
+  onItem: (item: ImportedBookmark, path: string) => void
+) => {
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item) continue;
+    const path = `${basePath}/${i}`;
+    onItem(item, path);
+    if (hasChildren(item)) {
+      walkBookmarks(item.children, path, onItem);
+    }
+  }
+};
+
+const collectSelectedBookmarks = (
+  items: ImportedBookmark[],
+  basePath: string,
+  selectedItems: Set<string>
+): ImportedBookmark[] => {
+  const selected: ImportedBookmark[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item) continue;
+    const path = `${basePath}/${i}`;
+    if (!selectedItems.has(path)) continue;
+
+    if (hasChildren(item)) {
+      const children = collectSelectedBookmarks(item.children, path, selectedItems);
+      selected.push({ ...item, children });
+      continue;
+    }
+
+    selected.push(item);
+  }
+  return selected;
+};
+
 export function BookmarkImportPreview({ result, onConfirm, onCancel }: BookmarkImportPreviewProps) {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -48,15 +92,9 @@ export function BookmarkImportPreview({ result, onConfirm, onCancel }: BookmarkI
     children: ImportedBookmark[],
     parentPath: string
   ) => {
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      if (!child) continue;
-      const childPath = `${parentPath}/${i}`;
+    walkBookmarks(children, parentPath, (_child, childPath) => {
       selection.add(childPath);
-      if (child.isFolder && child.children) {
-        addChildrenToSelection(selection, child.children, childPath);
-      }
-    }
+    });
   };
 
   const removeChildrenFromSelection = (
@@ -64,31 +102,16 @@ export function BookmarkImportPreview({ result, onConfirm, onCancel }: BookmarkI
     children: ImportedBookmark[],
     parentPath: string
   ) => {
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      if (!child) continue;
-      const childPath = `${parentPath}/${i}`;
+    walkBookmarks(children, parentPath, (_child, childPath) => {
       selection.delete(childPath);
-      if (child.isFolder && child.children) {
-        removeChildrenFromSelection(selection, child.children, childPath);
-      }
-    }
+    });
   };
 
   const selectAll = () => {
     const allPaths = new Set<string>();
-    const addAllPaths = (items: ImportedBookmark[], basePath: string) => {
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (!item) continue;
-        const path = `${basePath}/${i}`;
-        allPaths.add(path);
-        if (item.isFolder && item.children) {
-          addAllPaths(item.children, path);
-        }
-      }
-    };
-    addAllPaths(result.bookmarks, '');
+    walkBookmarks(result.bookmarks, '', (_item, path) => {
+      allPaths.add(path);
+    });
     setSelectedItems(allPaths);
   };
 
@@ -97,30 +120,7 @@ export function BookmarkImportPreview({ result, onConfirm, onCancel }: BookmarkI
   };
 
   const getSelectedBookmarks = (): ImportedBookmark[] => {
-    const collectItems = (
-      items: ImportedBookmark[],
-      basePath: string,
-      result: ImportedBookmark[]
-    ): void => {
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (!item) continue;
-        const path = `${basePath}/${i}`;
-        if (!selectedItems.has(path)) continue;
-
-        if (item.isFolder && item.children) {
-          const children: ImportedBookmark[] = [];
-          collectItems(item.children, path, children);
-          result.push({ ...item, children });
-        } else {
-          result.push(item);
-        }
-      }
-    };
-
-    const selected: ImportedBookmark[] = [];
-    collectItems(result.bookmarks, '', selected);
-    return selected;
+    return collectSelectedBookmarks(result.bookmarks, '', selectedItems);
   };
 
   const handleConfirm = () => {

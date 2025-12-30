@@ -564,27 +564,36 @@ export async function broadcastSpacesSnapshot(): Promise<void> {
   }
 }
 
+function findAdjacentTabId(
+  spaces: Array<{
+    pinnedTabs: Array<{ id?: number }>;
+    tabs: Array<{ id?: number }>;
+    temporaryTabs: Array<{ id?: number }>;
+  }>,
+  tabId: number
+): number | undefined {
+  for (const space of spaces) {
+    const allTabs = [...space.pinnedTabs, ...space.tabs, ...space.temporaryTabs];
+    const index = allTabs.findIndex((tab) => tab.id === tabId);
+    if (index === -1) continue;
+
+    const nextTab = allTabs[index + 1]?.id;
+    if (nextTab) return nextTab;
+
+    const previousTab = allTabs[index - 1]?.id;
+    if (previousTab) return previousTab;
+
+    return undefined;
+  }
+  return undefined;
+}
+
 export async function closeTab(tabId: number): Promise<void> {
   try {
     const tab = await chrome.tabs.get(tabId);
     if (tab.active) {
       const spaces = await getSpacesSnapshot();
-      let nextTabId: number | undefined;
-
-      for (const space of spaces) {
-        const allTabs = [...space.pinnedTabs, ...space.tabs, ...space.temporaryTabs];
-        const index = allTabs.findIndex((t) => t.id === tabId);
-        if (index !== -1) {
-          // Found the space and the tab
-          // Try next, then previous
-          if (index + 1 < allTabs.length) {
-            nextTabId = allTabs[index + 1]?.id;
-          } else if (index - 1 >= 0) {
-            nextTabId = allTabs[index - 1]?.id;
-          }
-          break;
-        }
-      }
+      const nextTabId = findAdjacentTabId(spaces, tabId);
 
       if (nextTabId) {
         await chrome.tabs.update(nextTabId, { active: true });

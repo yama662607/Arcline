@@ -20,6 +20,9 @@ describe('command-handlers', () => {
     const handler = handlers.navigateSpace;
 
     expect(handler).toBeDefined();
+    if (!handler) {
+      throw new Error('navigateSpace handler was not registered');
+    }
 
     const sendResponse = vi.fn();
 
@@ -27,7 +30,7 @@ describe('command-handlers', () => {
     // The handler is async but returns boolean immediately (usually).
     // Our respondAsync helper calls the async function.
     // We need to wait for microtasks.
-    handler!({ direction: 'left' }, sendResponse);
+    handler({ direction: 'left' }, sendResponse);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mockNavigateSpace).toHaveBeenCalledWith('left');
@@ -36,7 +39,7 @@ describe('command-handlers', () => {
     // 2. Valid Right Request
     mockNavigateSpace.mockClear();
     sendResponse.mockClear();
-    handler!({ direction: 'right' }, sendResponse);
+    handler({ direction: 'right' }, sendResponse);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mockNavigateSpace).toHaveBeenCalledWith('right');
@@ -47,7 +50,7 @@ describe('command-handlers', () => {
     sendResponse.mockClear();
     mockNavigateSpace.mockRejectedValue(new Error('Navigation failed'));
 
-    handler!({ direction: 'left' }, sendResponse);
+    handler({ direction: 'left' }, sendResponse);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mockNavigateSpace).toHaveBeenCalledWith('left');
@@ -56,7 +59,7 @@ describe('command-handlers', () => {
     // 4. Invalid Params
     sendResponse.mockClear();
     mockNavigateSpace.mockClear();
-    handler!({ direction: 'up' }, sendResponse);
+    handler({ direction: 'up' }, sendResponse);
     // Should return false synchronously and call sendResponse with error
 
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));

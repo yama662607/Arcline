@@ -32,7 +32,6 @@ let gesturesEnabled = true;
 let swipeResetTimer: ReturnType<typeof setTimeout> | null = null;
 let swipeDebugEnabled = false;
 let swipeDebugWindow: HTMLDivElement | null = null;
-let isFloatingUIOpen = false; // Track if Floating UI is currently open
 let swipeEventHistory: Array<{
   time: number;
   deltaX: number;
@@ -335,7 +334,6 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
     } else {
       floatingInstance.openFromHover();
     }
-    isFloatingUIOpen = true; // Mark as open
     return;
   }
 
@@ -348,7 +346,6 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
         bootstrapHotzone = null;
       },
       onClosed: () => {
-        isFloatingUIOpen = false; // Mark as closed
         enableHostElementPointerEvents();
       },
     })
@@ -365,7 +362,6 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
   } else {
     floatingInstance?.openFromHover();
   }
-  isFloatingUIOpen = true; // Mark as open
 }
 
 function setupEdgeDetection() {
@@ -494,33 +490,101 @@ function isPageHorizontallyScrollable(): boolean {
   return scrollWidth > clientWidth + 5; // 5px tolerance for rounding
 }
 
-/**
- * Check if user is intentionally scrolling the page (not swiping for space navigation)
- * Returns true if:
- * - Page is horizontally scrollable AND
- * - Current scroll position is not at the edge corresponding to swipe direction
- */
-function isIntentionalPageScroll(deltaX: number): boolean {
-  if (!isPageHorizontallyScrollable()) {
-    return false;
-  }
+type SwipeDebugContext = {
+  deltaX: number;
+  deltaY: number;
+  scrollable: boolean;
+  scrollLeft: number;
+  currentDelta: number;
+  isInsideFloatingUI: boolean;
+  pathLength: number;
+  targetInfo: string;
+  processingTime: number;
+};
 
+function buildSwipeDebugContext(e: WheelEvent, startTime: number): SwipeDebugContext {
+  const scrollable = isPageHorizontallyScrollable();
   const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-  const scrollWidth = document.documentElement.scrollWidth;
-  const clientWidth = document.documentElement.clientWidth;
-  const maxScroll = scrollWidth - clientWidth;
+  const currentDelta = swipeDetector.getCurrentDelta();
+  const path = e.composedPath();
+  const isInsideFloatingUI = Boolean(shadowRoot && path.includes(shadowRoot.host));
+  const pathLength = path.length;
+  const targetInfo = `target=${(e.target as HTMLElement)?.tagName || 'unknown'}, host=${shadowRoot?.host?.tagName || 'none'}`;
 
-  // Swiping left (deltaX > 0) when not at right edge = probably want to scroll page
-  if (deltaX > 0 && scrollLeft < maxScroll - 10) {
-    return true;
+  return {
+    deltaX: e.deltaX,
+    deltaY: e.deltaY,
+    scrollable,
+    scrollLeft,
+    currentDelta,
+    isInsideFloatingUI,
+    pathLength,
+    targetInfo,
+    processingTime: performance.now() - startTime,
+  };
+}
+
+function reportSwipeDebug(
+  context: SwipeDebugContext,
+  reason: string,
+  prevented: boolean,
+  currentDeltaOverride?: number
+) {
+  updateSwipeDebugInfo({
+    deltaX: context.deltaX,
+    deltaY: context.deltaY,
+    prevented,
+    reason,
+    scrollable: context.scrollable,
+    scrollLeft: context.scrollLeft,
+    currentDelta: currentDeltaOverride ?? context.currentDelta,
+    processingTime: context.processingTime,
+    isInsideFloatingUI: context.isInsideFloatingUI,
+    pathLength: context.pathLength,
+    targetInfo: context.targetInfo,
+  });
+}
+
+function handleHorizontalSwipe(e: WheelEvent, context: SwipeDebugContext) {
+  const nextDelta = context.currentDelta + e.deltaX;
+  updateFloatingUISlidePosition(nextDelta);
+
+  if (swipeResetTimer) {
+    clearTimeout(swipeResetTimer);
   }
+  swipeResetTimer = setTimeout(() => {
+    resetFloatingUISlidePosition();
+    swipeResetTimer = null;
+  }, 300);
 
-  // Swiping right (deltaX < 0) when not at left edge = probably want to scroll page
-  if (deltaX < 0 && scrollLeft > 10) {
-    return true;
+  const direction = swipeDetector.process(e);
+
+  reportSwipeDebug(context, direction ? `space-nav-${direction}` : 'accumulating', true, nextDelta);
+
+  if (!direction) return;
+
+  if (swipeResetTimer) {
+    clearTimeout(swipeResetTimer);
+    swipeResetTimer = null;
   }
+  resetFloatingUISlidePosition();
 
-  return false;
+  if (typeof crypto.randomUUID !== 'function') return;
+
+  chrome.runtime.sendMessage(
+    {
+      method: 'navigateSpace',
+      params: { direction },
+      id: crypto.randomUUID(),
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        // Ignore
+      }
+    }
+  );
+
+  showFeedback(direction);
 }
 
 function setupTrackpadGestures() {
@@ -528,47 +592,28 @@ function setupTrackpadGestures() {
 
   gestureHandler = (e: WheelEvent) => {
     const startTime = performance.now();
-    const scrollable = isPageHorizontallyScrollable();
-    const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-    const currentDelta = swipeDetector.getCurrentDelta();
-
-    // Check if event originated from within Floating UI shadow root
-    // This is more reliable than isFloatingUIOpen flag which may be out of sync during animations
-    const path = e.composedPath();
-    const isInsideFloatingUI = shadowRoot && path.includes(shadowRoot.host);
-
-    // Debug info
-    const pathLength = path.length;
-    const targetInfo = `target=${(e.target as HTMLElement)?.tagName || 'unknown'}, host=${shadowRoot?.host?.tagName || 'none'}`;
+    const context = buildSwipeDebugContext(e, startTime);
 
     // Console debug: log events that should prevent browser back but might not be
-    if (isInsideFloatingUI && Math.abs(e.deltaX) >= 3 && Math.abs(e.deltaY) <= Math.abs(e.deltaX)) {
+    if (
+      context.isInsideFloatingUI &&
+      Math.abs(context.deltaX) >= 3 &&
+      Math.abs(context.deltaY) <= Math.abs(context.deltaX)
+    ) {
       console.log('[Arcline Debug] 🔍 Horizontal swipe inside Floating UI detected:', {
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-        isInsideFloatingUI,
-        pathLength,
-        targetInfo,
+        deltaX: context.deltaX,
+        deltaY: context.deltaY,
+        isInsideFloatingUI: context.isInsideFloatingUI,
+        pathLength: context.pathLength,
+        targetInfo: context.targetInfo,
         shadowRootHost: shadowRoot?.host,
         willPreventDefault: true,
       });
     }
 
-    if (!isInsideFloatingUI) {
+    if (!context.isInsideFloatingUI) {
       // Event is outside Floating UI: ignore all gesture detection, allow native scrolling
-      updateSwipeDebugInfo({
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-        prevented: false,
-        reason: 'floating-ui-closed',
-        scrollable,
-        scrollLeft,
-        currentDelta,
-        processingTime: performance.now() - startTime,
-        isInsideFloatingUI: false,
-        pathLength,
-        targetInfo,
-      });
+      reportSwipeDebug(context, 'floating-ui-closed', false);
       return;
     }
 
@@ -576,23 +621,11 @@ function setupTrackpadGestures() {
 
     // Check vertical-dominant FIRST, before preventDefault()
     // This ensures smooth vertical scrolling is never blocked
-    const isVerticalDominant = Math.abs(e.deltaY) > Math.abs(e.deltaX);
+    const isVerticalDominant = Math.abs(context.deltaY) > Math.abs(context.deltaX);
 
     if (!gesturesEnabled) {
       resetFloatingUISlidePosition();
-      updateSwipeDebugInfo({
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-        prevented: false,
-        reason: 'gestures-disabled',
-        scrollable,
-        scrollLeft,
-        currentDelta,
-        processingTime: performance.now() - startTime,
-        isInsideFloatingUI: true,
-        pathLength,
-        targetInfo,
-      });
+      reportSwipeDebug(context, 'gestures-disabled', false);
       return;
     }
 
@@ -601,19 +634,7 @@ function setupTrackpadGestures() {
     // CRITICAL: Check this BEFORE preventDefault() to never block vertical scrolling
     if (isVerticalDominant) {
       resetFloatingUISlidePosition();
-      updateSwipeDebugInfo({
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-        prevented: false,
-        reason: 'vertical-dominant',
-        scrollable,
-        scrollLeft,
-        currentDelta,
-        processingTime: performance.now() - startTime,
-        isInsideFloatingUI: true,
-        pathLength,
-        targetInfo,
-      });
+      reportSwipeDebug(context, 'vertical-dominant', false);
       return;
     }
 
@@ -626,20 +647,8 @@ function setupTrackpadGestures() {
 
     // Ignore noise: very small horizontal movements (< 3px) are likely accidental
     // Note: preventDefault() was already called above, so these are also prevented
-    if (Math.abs(e.deltaX) < 3) {
-      updateSwipeDebugInfo({
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-        prevented: true,
-        reason: 'noise-threshold',
-        scrollable,
-        scrollLeft,
-        currentDelta,
-        processingTime: performance.now() - startTime,
-        isInsideFloatingUI: true,
-        pathLength,
-        targetInfo,
-      });
+    if (Math.abs(context.deltaX) < 3) {
+      reportSwipeDebug(context, 'noise-threshold', true);
       return;
     }
 
@@ -650,62 +659,7 @@ function setupTrackpadGestures() {
 
     // Inside Floating UI: horizontal swipe = space navigation
 
-    // Get current accumulation for UI feedback
-    const nextDelta = currentDelta + e.deltaX;
-
-    // Update Floating UI slide position
-    updateFloatingUISlidePosition(nextDelta);
-
-    // Reset panel position after user stops swiping
-    if (swipeResetTimer) {
-      clearTimeout(swipeResetTimer);
-    }
-    swipeResetTimer = setTimeout(() => {
-      resetFloatingUISlidePosition();
-      swipeResetTimer = null;
-    }, 300);
-
-    const direction = swipeDetector.process(e);
-
-    updateSwipeDebugInfo({
-      deltaX: e.deltaX,
-      deltaY: e.deltaY,
-      prevented: true,
-      reason: direction ? `space-nav-${direction}` : 'accumulating',
-      scrollable,
-      scrollLeft,
-      currentDelta: nextDelta,
-      processingTime: performance.now() - startTime,
-      isInsideFloatingUI: true,
-      pathLength,
-      targetInfo,
-    });
-
-    if (direction) {
-      // Clear the reset timer since we're completing the swipe
-      if (swipeResetTimer) {
-        clearTimeout(swipeResetTimer);
-        swipeResetTimer = null;
-      }
-      resetFloatingUISlidePosition();
-
-      if (typeof crypto.randomUUID !== 'function') return;
-
-      chrome.runtime.sendMessage(
-        {
-          method: 'navigateSpace',
-          params: { direction },
-          id: crypto.randomUUID(),
-        },
-        () => {
-          if (chrome.runtime.lastError) {
-            // Ignore
-          }
-        }
-      );
-
-      showFeedback(direction);
-    }
+    handleHorizontalSwipe(e, context);
   };
 
   // passive: false is required to use preventDefault() for blocking browser gestures
@@ -730,7 +684,9 @@ function updateFloatingUISlidePosition(totalDelta: number) {
   if (!shadowRoot) return;
 
   // Find the Floating UI container (the panel that should slide)
-  const floatingContainer = shadowRoot.querySelector('#arcline-floating-ui-container') as HTMLDivElement;
+  const floatingContainer = shadowRoot.querySelector(
+    '#arcline-floating-ui-container'
+  ) as HTMLDivElement;
   if (!floatingContainer) return;
 
   // Convert delta to pixels (negative delta = swipe left, positive = swipe right)
@@ -748,7 +704,9 @@ function updateFloatingUISlidePosition(totalDelta: number) {
 function resetFloatingUISlidePosition() {
   if (!shadowRoot) return;
 
-  const floatingContainer = shadowRoot.querySelector('#arcline-floating-ui-container') as HTMLDivElement;
+  const floatingContainer = shadowRoot.querySelector(
+    '#arcline-floating-ui-container'
+  ) as HTMLDivElement;
   if (!floatingContainer) return;
 
   // Smooth return to original position
@@ -970,7 +928,8 @@ function exportSwipeLogsToClipboard() {
 
   // Calculate statistics
   const preventRate = swipeEventCount > 0 ? (swipePreventCount / swipeEventCount) * 100 : 0;
-  const eventsPerSecond = sessionDuration > 0 ? (swipeEventCount / (sessionDuration / 1000)).toFixed(2) : '0';
+  const eventsPerSecond =
+    sessionDuration > 0 ? (swipeEventCount / (sessionDuration / 1000)).toFixed(2) : '0';
 
   // Group events by reason
   const reasonCounts: Record<string, number> = {};
@@ -1012,7 +971,9 @@ function exportSwipeLogsToClipboard() {
     .writeText(jsonString)
     .then(() => {
       console.log('[Arcline Debug] ✅ Logs exported to clipboard!');
-      console.log(`Total events: ${swipeEventCount}, Prevented: ${swipePreventCount}, Prevent rate: ${preventRate.toFixed(1)}%`);
+      console.log(
+        `Total events: ${swipeEventCount}, Prevented: ${swipePreventCount}, Prevent rate: ${preventRate.toFixed(1)}%`
+      );
     })
     .catch((err) => {
       console.error('[Arcline Debug] ❌ Failed to copy to clipboard:', err);
@@ -1034,7 +995,7 @@ function printSwipeLogsToConsole() {
   const sessionDuration = now - logStartTime;
   const preventRate = swipeEventCount > 0 ? (swipePreventCount / swipeEventCount) * 100 : 0;
 
-  console.group('[Arcline Debug] 📊 Swipe Event Logs');
+  console.log('[Arcline Debug] 📊 Swipe Event Logs');
   console.log(`Total events: ${swipeEventCount}`);
   console.log(`Prevented events: ${swipePreventCount}`);
   console.log(`Prevent rate: ${preventRate.toFixed(1)}%`);
@@ -1042,20 +1003,23 @@ function printSwipeLogsToConsole() {
   console.log(`Events in history: ${swipeEventHistory.length}`);
   console.log('---');
 
-  console.table(
-    swipeEventHistory.map((event, index) => ({
-      '#': index,
-      'Time (s)': ((event.time - firstEventTime) / 1000).toFixed(3),
-      'ΔX': event.deltaX.toFixed(1),
-      'ΔY': event.deltaY.toFixed(1),
-      Prevented: event.prevented ? '🚫' : '✅',
-      Reason: event.reason,
-      'Acc Delta': event.currentDelta.toFixed(1),
-      'Process (ms)': event.processingTime.toFixed(2),
-    }))
-  );
+  const rows = swipeEventHistory.map((event, index) => {
+    const time = ((event.time - firstEventTime) / 1000).toFixed(3);
+    return [
+      `#${index}`,
+      `t=${time}s`,
+      `dx=${event.deltaX.toFixed(1)}`,
+      `dy=${event.deltaY.toFixed(1)}`,
+      `prevented=${event.prevented ? '🚫' : '✅'}`,
+      `reason=${event.reason}`,
+      `acc=${event.currentDelta.toFixed(1)}`,
+      `proc=${event.processingTime.toFixed(2)}ms`,
+    ].join(' | ');
+  });
 
-  console.groupEnd();
+  for (const row of rows) {
+    console.log(row);
+  }
 }
 
 /**
@@ -1074,7 +1038,8 @@ function exportSwipeLogsToFile() {
 
   // Calculate statistics
   const preventRate = swipeEventCount > 0 ? (swipePreventCount / swipeEventCount) * 100 : 0;
-  const eventsPerSecond = sessionDuration > 0 ? (swipeEventCount / (sessionDuration / 1000)).toFixed(2) : '0';
+  const eventsPerSecond =
+    sessionDuration > 0 ? (swipeEventCount / (sessionDuration / 1000)).toFixed(2) : '0';
 
   // Group events by reason
   const reasonCounts: Record<string, number> = {};
@@ -1140,11 +1105,13 @@ function exportSwipeLogsToFile() {
 
   console.log('[Arcline Debug] ✅ Logs exported to file!');
   console.log(`Filename: ${filename}`);
-  console.log(`Total events: ${swipeEventCount}, Prevented: ${swipePreventCount}, Prevent rate: ${preventRate.toFixed(1)}%`);
+  console.log(
+    `Total events: ${swipeEventCount}, Prevented: ${swipePreventCount}, Prevent rate: ${preventRate.toFixed(1)}%`
+  );
   console.log('💡 Move the downloaded file to docs/logs/ directory');
 }
 
-function updateSwipeDebugInfo(info: {
+type SwipeDebugInfo = {
   deltaX: number;
   deltaY: number;
   prevented: boolean;
@@ -1156,9 +1123,9 @@ function updateSwipeDebugInfo(info: {
   isInsideFloatingUI?: boolean;
   pathLength?: number;
   targetInfo?: string;
-}) {
-  if (!swipeDebugEnabled || !swipeDebugWindow) return;
+};
 
+function recordSwipeEvent(info: SwipeDebugInfo) {
   swipeEventCount++;
   if (info.prevented) {
     swipePreventCount++;
@@ -1179,51 +1146,63 @@ function updateSwipeDebugInfo(info: {
     targetInfo: info.targetInfo,
   });
 
-  // Keep last 1000 events for detailed analysis
   if (swipeEventHistory.length > 1000) {
     swipeEventHistory.shift();
   }
+}
 
-  // Update location badge (Floating UI Open/Closed)
+function updateSwipeLocationBadge(info: SwipeDebugInfo) {
+  if (!swipeDebugWindow) return;
   const locationBadge = swipeDebugWindow.querySelector('#swipe-location-badge');
-  if (locationBadge) {
-    const isOpen = info.reason !== 'floating-ui-closed';
-    const badgeText = isOpen ? '✅ FLOATING UI OPEN' : '❌ FLOATING UI CLOSED';
-    const badgeBg = isOpen ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)';
-    const badgeBorder = isOpen ? '#00ff00' : '#ff0000';
-    const badgeColor = isOpen ? '#00ff00' : '#ff0000';
+  if (!locationBadge) return;
 
-    locationBadge.innerHTML = badgeText;
-    (locationBadge as HTMLElement).style.background = badgeBg;
-    (locationBadge as HTMLElement).style.border = `2px solid ${badgeBorder}`;
-    (locationBadge as HTMLElement).style.color = badgeColor;
+  const isOpen = info.reason !== 'floating-ui-closed';
+  const badgeText = isOpen ? '✅ FLOATING UI OPEN' : '❌ FLOATING UI CLOSED';
+  const badgeBg = isOpen ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)';
+  const badgeBorder = isOpen ? '#00ff00' : '#ff0000';
+  const badgeColor = isOpen ? '#00ff00' : '#ff0000';
+
+  locationBadge.innerHTML = badgeText;
+  (locationBadge as HTMLElement).style.background = badgeBg;
+  (locationBadge as HTMLElement).style.border = `2px solid ${badgeBorder}`;
+  (locationBadge as HTMLElement).style.color = badgeColor;
+}
+
+function countPreventedEvents(): number {
+  let count = 0;
+  for (const event of swipeEventHistory) {
+    if (event.prevented) count += 1;
   }
+  return count;
+}
 
-  // Calculate prevent rate
-  const preventedCount = swipeEventHistory.filter((e) => e.prevented).length;
-  const preventRate = swipeEventHistory.length > 0 ? (preventedCount / swipeEventHistory.length) * 100 : 0;
-
-  // Update prevent rate visualization
+function updatePreventRate(preventedCount: number) {
+  if (!swipeDebugWindow) return;
   const preventRateBar = swipeDebugWindow.querySelector('#prevent-rate-bar');
   const preventRateValue = swipeDebugWindow.querySelector('#prevent-rate-value');
-  if (preventRateBar && preventRateValue) {
-    const barWidth = `${preventRate}%`;
-    let barColor = '#00ff00'; // Green (good)
-    if (preventRate > 70) {
-      barColor = '#ff0000'; // Red (bad)
-    } else if (preventRate > 30) {
-      barColor = '#ffff00'; // Yellow (warning)
-    }
+  if (!preventRateBar || !preventRateValue) return;
 
-    (preventRateBar as HTMLElement).style.width = barWidth;
-    (preventRateBar as HTMLElement).style.backgroundColor = barColor;
-    preventRateValue.innerHTML = `<span style="color: ${barColor};">${preventRate.toFixed(0)}%</span>`;
+  const preventRate =
+    swipeEventHistory.length > 0 ? (preventedCount / swipeEventHistory.length) * 100 : 0;
+  const barWidth = `${preventRate}%`;
+  let barColor = '#00ff00';
+  if (preventRate > 70) {
+    barColor = '#ff0000';
+  } else if (preventRate > 30) {
+    barColor = '#ffff00';
   }
 
-  // Update current event info (larger font)
+  (preventRateBar as HTMLElement).style.width = barWidth;
+  (preventRateBar as HTMLElement).style.backgroundColor = barColor;
+  preventRateValue.innerHTML = `<span style="color: ${barColor};">${preventRate.toFixed(0)}%</span>`;
+}
+
+function updateSwipeCurrentInfo(info: SwipeDebugInfo) {
+  if (!swipeDebugWindow) return;
   const currentContainer = swipeDebugWindow.querySelector('#swipe-current-info');
-  if (currentContainer) {
-    currentContainer.innerHTML = `
+  if (!currentContainer) return;
+
+  currentContainer.innerHTML = `
       <div><strong>deltaX:</strong> <span style="color: ${Math.abs(info.deltaX) > Math.abs(info.deltaY) ? '#ffff00' : '#00ff00'}; font-size: 13px;">${info.deltaX.toFixed(1)}</span></div>
       <div><strong>deltaY:</strong> <span style="color: ${Math.abs(info.deltaY) > Math.abs(info.deltaX) ? '#ffff00' : '#00ff00'}; font-size: 13px;">${info.deltaY.toFixed(1)}</span></div>
       <div><strong>accumulated:</strong> <span style="color: #00ff00; font-size: 13px;">${info.currentDelta.toFixed(1)}</span></div>
@@ -1236,49 +1215,69 @@ function updateSwipeDebugInfo(info: {
         ${info.targetInfo ? `<div><strong>target:</strong> <span style="color: #ffff00; font-size: 11px;">${info.targetInfo}</span></div>` : ''}
       </div>
     `;
-  }
+}
 
-  // Update page state info
+function updateSwipePageInfo(info: SwipeDebugInfo) {
+  if (!swipeDebugWindow) return;
   const pageContainer = swipeDebugWindow.querySelector('#swipe-page-info');
-  if (pageContainer) {
-    pageContainer.innerHTML = `
+  if (!pageContainer) return;
+
+  pageContainer.innerHTML = `
       <div><strong>scrollable:</strong> <span style="color: ${info.scrollable ? '#ffff00' : '#00ff00'}; font-size: 13px;">${info.scrollable ? 'YES' : 'NO'}</span></div>
       <div><strong>scrollLeft:</strong> <span style="color: #00ff00; font-size: 13px;">${info.scrollLeft.toFixed(0)}</span></div>
       <div><strong>scrollWidth:</strong> <span style="color: #00ff00; font-size: 13px;">${document.documentElement.scrollWidth}</span></div>
       <div><strong>clientWidth:</strong> <span style="color: #00ff00; font-size: 13px;">${document.documentElement.clientWidth}</span></div>
     `;
-  }
+}
 
-  // Update stats info
+function updateSwipeStatsInfo(preventedCount: number) {
+  if (!swipeDebugWindow) return;
   const statsContainer = swipeDebugWindow.querySelector('#swipe-stats-info');
-  if (statsContainer) {
-    const now = Date.now();
-    const recentEvents = swipeEventHistory.filter((e) => now - e.time < 1000);
-    const eventsPerSec = recentEvents.length;
+  if (!statsContainer) return;
 
-    statsContainer.innerHTML = `
+  const now = Date.now();
+  const recentEvents = swipeEventHistory.filter((e) => now - e.time < 1000);
+  const eventsPerSec = recentEvents.length;
+
+  statsContainer.innerHTML = `
       <div><strong>total events:</strong> <span style="color: #00ff00; font-size: 13px;">${swipeEventCount}</span></div>
       <div><strong>events/sec:</strong> <span style="color: ${eventsPerSec > 60 ? '#ff0000' : '#00ff00'}; font-size: 13px;">${eventsPerSec}</span></div>
       <div><strong>prevented:</strong> <span style="color: #ffff00; font-size: 13px;">${preventedCount}</span></div>
     `;
-  }
+}
 
-  // Update history (larger font)
+function updateSwipeHistoryInfo() {
+  if (!swipeDebugWindow) return;
   const historyContainer = swipeDebugWindow.querySelector('#swipe-history-info');
-  if (historyContainer) {
-    const historyHtml = swipeEventHistory
-      .slice()
-      .reverse()
-      .slice(0, 10)
-      .map((e, i) => {
-        const age = Date.now() - e.time;
-        const color = e.prevented ? '#ff0000' : '#00ff00';
-        const icon = e.prevented ? '🚫' : '✅';
-        return `<div style="color: ${color};"><strong>${i + 1}.</strong> ${icon} dx=${e.deltaX.toFixed(0)} dy=${e.deltaY.toFixed(0)} | <span style="color: #ffff00;">${e.reason}</span> | ${age}ms ago</div>`;
-      })
-      .join('');
-    historyContainer.innerHTML = historyHtml || '<div style="color: #444;">No events</div>';
-  }
+  if (!historyContainer) return;
+
+  const historyHtml = swipeEventHistory
+    .slice()
+    .reverse()
+    .slice(0, 10)
+    .map((event, index) => {
+      const age = Date.now() - event.time;
+      const color = event.prevented ? '#ff0000' : '#00ff00';
+      const icon = event.prevented ? '🚫' : '✅';
+      return `<div style="color: ${color};"><strong>${index + 1}.</strong> ${icon} dx=${event.deltaX.toFixed(0)} dy=${event.deltaY.toFixed(0)} | <span style="color: #ffff00;">${event.reason}</span> | ${age}ms ago</div>`;
+    })
+    .join('');
+
+  historyContainer.innerHTML = historyHtml || '<div style="color: #444;">No events</div>';
+}
+
+function updateSwipeDebugInfo(info: SwipeDebugInfo) {
+  if (!swipeDebugEnabled || !swipeDebugWindow) return;
+
+  recordSwipeEvent(info);
+  updateSwipeLocationBadge(info);
+
+  const preventedCount = countPreventedEvents();
+  updatePreventRate(preventedCount);
+  updateSwipeCurrentInfo(info);
+  updateSwipePageInfo(info);
+  updateSwipeStatsInfo(preventedCount);
+  updateSwipeHistoryInfo();
 }
 
 // Keyboard shortcuts for swipe debug

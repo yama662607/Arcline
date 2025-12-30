@@ -209,47 +209,38 @@ interface ArcItem {
  * Parse Arc Browser StorableSidebar.json format
  */
 export function parseArcJson(jsonContent: string): ImportedBookmark[] {
-  const bookmarks: ImportedBookmark[] = [];
-
   try {
     const data = JSON.parse(jsonContent) as ArcSidebarData;
-
-    // Try different Arc JSON structures
-    // Structure 1: sidebar.containers
-    if (data.sidebar?.containers) {
-      for (const container of data.sidebar.containers) {
-        const folder = parseArcContainer(container, data);
-        if (folder.children && folder.children.length > 0) {
-          bookmarks.push(folder);
-        }
-      }
-    }
-
-    // Structure 2: containers directly
-    if (data.containers) {
-      for (const container of data.containers) {
-        const folder = parseArcContainer(container, data);
-        if (folder.children && folder.children.length > 0) {
-          bookmarks.push(folder);
-        }
-      }
-    }
-
-    // Structure 3: items directly (flat list)
-    if (data.items) {
-      const items = parseArcItems(data.items, data);
-      bookmarks.push(...items);
-    }
-
-    // Structure 4: sidebarSyncState.items (newer Arc format)
-    if (data.sidebarSyncState?.items) {
-      const itemsMap = data.sidebarSyncState.items;
-      const rootItems = Object.values(itemsMap).filter((item) => !item.parentID);
-      const items = parseArcItemsWithMap(rootItems, itemsMap);
-      bookmarks.push(...items);
-    }
+    return collectArcBookmarks(data);
   } catch (error) {
     console.error('[Arcline] Failed to parse Arc JSON:', error);
+    return [];
+  }
+}
+
+function collectArcBookmarks(data: ArcSidebarData): ImportedBookmark[] {
+  const bookmarks: ImportedBookmark[] = [];
+  const containerSources = [data.sidebar?.containers, data.containers].filter(
+    (source): source is ArcContainer[] => Array.isArray(source)
+  );
+
+  for (const containers of containerSources) {
+    for (const container of containers) {
+      const folder = parseArcContainer(container, data);
+      if (folder.children && folder.children.length > 0) {
+        bookmarks.push(folder);
+      }
+    }
+  }
+
+  if (data.items) {
+    bookmarks.push(...parseArcItems(data.items, data));
+  }
+
+  if (data.sidebarSyncState?.items) {
+    const itemsMap = data.sidebarSyncState.items;
+    const rootItems = Object.values(itemsMap).filter((item) => !item.parentID);
+    bookmarks.push(...parseArcItemsWithMap(rootItems, itemsMap));
   }
 
   return bookmarks;
