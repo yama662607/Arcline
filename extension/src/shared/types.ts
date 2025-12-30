@@ -51,6 +51,8 @@ export interface SpaceSnapshot {
   windowId: number;
   created_at?: number;
   last_active_at?: number;
+  isFavorite?: boolean; // For bottom space bar display
+  order?: number; // Display order in space list
 }
 
 export interface SearchResult {

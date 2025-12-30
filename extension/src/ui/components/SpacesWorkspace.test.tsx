@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFavorites } from '@/hooks/use-spaces-query';
 import type { SpaceSnapshot, TabEntry } from '@/shared/types';
@@ -10,8 +9,12 @@ import { SpacesWorkspace } from './SpacesWorkspace';
 type MockSpacesState = {
   spaces: SpaceSnapshot[];
   activeSpaceId: number | null;
+  previousSpaceId: number | null;
+  favoriteSpaceIds: number[];
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
+  setFavoriteSpaces: (spaceIds: number[]) => void;
+  toggleFavoriteSpace: (spaceId: number) => void;
 };
 
 // Mock Component Mocks
@@ -50,6 +53,7 @@ vi.mock('@dnd-kit/core', () => ({
   // Mock other exports used
   DragOverlay: () => <div data-testid="drag-overlay" />,
   PointerSensor: class {},
+  KeyboardSensor: class {},
   useSensor: vi.fn(),
   useSensors: vi.fn(),
   closestCenter: vi.fn(),
@@ -63,7 +67,9 @@ vi.mock('@/hooks/use-spaces-query', () => ({
   useAddToFavorites: vi.fn(() => ({ mutate: vi.fn() })),
   useOpenUrlInTab: vi.fn(() => ({ mutate: vi.fn() })),
   useSetActiveSpace: vi.fn(() => ({ mutate: vi.fn() })),
-  useCreateSpace: vi.fn(() => ({ mutate: vi.fn() })),
+  useCreateSpace: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useRemoveSpace: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useUpdateSpace: vi.fn(() => ({ mutateAsync: vi.fn() })),
 }));
 
 vi.mock('@/store', () => ({
@@ -114,8 +120,12 @@ describe('SpacesWorkspace', () => {
         const state: MockSpacesState = {
           activeSpaceId: 1,
           spaces: [space],
+          previousSpaceId: null,
+          favoriteSpaceIds: [],
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setActiveSpace: vi.fn<(spaceId: number) => void>(),
+          setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
+          toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
         };
         return selector(state);
       }
@@ -141,41 +151,16 @@ describe('SpacesWorkspace', () => {
     // New Arc-style layout components
     expect(screen.getByTestId('search-bar')).toBeInTheDocument();
     expect(screen.getByTestId('new-tab-button')).toBeInTheDocument();
-    expect(screen.getByTestId('space-switcher')).toBeInTheDocument();
-
-    // Navigation buttons
-    expect(screen.getByRole('button', { name: 'Spaces' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
+    // Note: Bottom space bar is now used instead of space-switcher for floating variant
   });
 
   it('shows Spaces content by default', () => {
     renderComponent();
 
     expect(screen.getByTestId('favorites-bar')).toBeInTheDocument();
-    expect(screen.getByTestId('space-manager')).toBeInTheDocument();
     // Check for Tab Lists (Pinned and Temporary)
     expect(screen.getByText('Pinned')).toBeInTheDocument(); // from mock EnhancedTabList title
     expect(screen.getByText('Temporary')).toBeInTheDocument();
-  });
-
-  it('switches to Archive tab', async () => {
-    const user = userEvent.setup();
-    renderComponent();
-
-    await user.click(screen.getByRole('button', { name: 'Archive' }));
-
-    expect(screen.getByTestId('archive-manager')).toBeInTheDocument();
-    expect(screen.queryByTestId('space-manager')).not.toBeInTheDocument();
-  });
-
-  it('switches to Settings tab', async () => {
-    const user = userEvent.setup();
-    renderComponent();
-
-    await user.click(screen.getByRole('button', { name: 'Settings' }));
-
-    expect(screen.getByTestId('settings-panel')).toBeInTheDocument();
   });
 
   it('displays message when no spaces active', () => {
@@ -185,16 +170,22 @@ describe('SpacesWorkspace', () => {
         const state: MockSpacesState = {
           activeSpaceId: 999,
           spaces: [],
+          previousSpaceId: null,
+          favoriteSpaceIds: [],
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setActiveSpace: vi.fn<(spaceId: number) => void>(),
+          setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
+          toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
         };
         return selector(state);
       }
     );
 
     renderComponent();
-    expect(screen.getByText(/No spaces available/)).toBeInTheDocument();
-    expect(screen.queryByTestId('enhanced-tab-list')).not.toBeInTheDocument();
+    expect(screen.getByText(/No space/)).toBeInTheDocument();
+    // Tab lists should not be rendered when no active space
+    expect(screen.queryByText('Pinned')).not.toBeInTheDocument();
+    expect(screen.queryByText('Temporary')).not.toBeInTheDocument();
   });
 
   it('displays context menu when triggered', () => {

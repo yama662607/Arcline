@@ -1,9 +1,15 @@
+import * as Dialog from '@radix-ui/react-dialog';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { useMemo, useState } from 'react';
 
+import { getSpaceTheme } from '@/lib/space-theme';
 import { queryClient } from '@/lib/query-client';
 import { useSpacesSync } from '@/lib/useSpacesSync';
 import { useSpacesStore } from '@/store';
+import { ArchiveManager } from '@/ui/components/ArchiveManager';
+import { HeaderMenu } from '@/ui/components/HeaderMenu';
+import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpacesWorkspace } from '@/ui/components/SpacesWorkspace';
 
 interface FloatingAppProps {
@@ -22,12 +28,17 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
     [spaces, activeSpaceId]
   );
 
+  const [showSettings, setShowSettings] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
+
+  const spaceTheme = getSpaceTheme(activeSpace?.themeColor);
+
   return (
-    <div
-      className="flex h-full flex-col text-slate-100 transition-all duration-500"
-      style={{
-        background: 'linear-gradient(180deg, #191a1a 0%, #141414 55%, #0b0b0b 100%)',
-      }}
+    <motion.div
+      id="arcline-floating-ui-container"
+      animate={{ background: spaceTheme.gradient }}
+      transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+      className="flex h-full flex-col text-slate-100"
     >
       {/* Header with glass effect for readability */}
       <header className="flex items-center justify-between bg-black/30 backdrop-blur-md border-b border-white/10 px-4 py-2.5">
@@ -54,6 +65,10 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
           >
             {pinned ? '📌' : 'Pin'}
           </button>
+          <HeaderMenu
+            onOpenSettings={() => setShowSettings(true)}
+            onOpenArchive={() => setShowArchive(true)}
+          />
           <button
             type="button"
             className="rounded-md bg-white/10 hover:bg-white/20 px-2 py-1 text-xs text-white/80 transition border border-white/10 backdrop-blur-sm"
@@ -68,7 +83,31 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
       <div className="flex-1 overflow-hidden">
         <SpacesWorkspace variant="floating" />
       </div>
-    </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <Dialog.Root open={showSettings} onOpenChange={setShowSettings}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+            <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-xl">
+              <SettingsPanel variant="floating" />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
+
+      {/* Archive Modal */}
+      {showArchive && (
+        <Dialog.Root open={showArchive} onOpenChange={setShowArchive}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+            <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-xl">
+              <ArchiveManager variant="floating" />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
+    </motion.div>
   );
 }
 

@@ -31,16 +31,24 @@ vi.mock('@/store', () => ({
 type MockSpacesState = {
   spaces: SpaceSnapshot[];
   activeSpaceId: number | null;
+  previousSpaceId: number | null;
+  favoriteSpaceIds: number[];
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
+  setFavoriteSpaces: (spaceIds: number[]) => void;
+  toggleFavoriteSpace: (spaceId: number) => void;
 };
 
 // Mock the store implementation
 const mockStore: MockSpacesState = {
   spaces: [],
   activeSpaceId: null,
+  previousSpaceId: null,
+  favoriteSpaceIds: [],
   setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
   setActiveSpace: vi.fn<(spaceId: number) => void>(),
+  setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
+  toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
 };
 
 vi.mocked(useSpacesStore).mockImplementation((selector) => {

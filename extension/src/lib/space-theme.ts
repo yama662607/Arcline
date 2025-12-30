@@ -126,3 +126,22 @@ export function getSpaceDisplayIcon(icon?: string, name?: string): string {
   }
   return '📁';
 }
+
+/**
+ * Theme transition configuration for smooth animations
+ */
+export const THEME_TRANSITION = {
+  duration: 0.5,
+  ease: [0.4, 0, 0.2, 1] as [number, number, number, number],
+};
+
+/**
+ * Get animated gradient style with CSS transition
+ */
+export function getAnimatedGradientStyle(color?: SpaceColor): React.CSSProperties {
+  const theme = getSpaceTheme(color);
+  return {
+    background: theme.gradient,
+    transition: `background ${THEME_TRANSITION.duration}s cubic-bezier(${THEME_TRANSITION.ease.join(',')})`,
+  };
+}

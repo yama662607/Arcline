@@ -19,14 +19,14 @@ import {
 import { getSpaceTheme } from '@/lib/space-theme';
 import type { TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
-import { ArchiveManager } from '@/ui/components/ArchiveManager';
+import { BottomSpaceBar } from '@/ui/components/BottomSpaceBar';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
 import { FavoritesBar } from '@/ui/components/FavoritesBar';
 import { NewTabButton } from '@/ui/components/NewTabButton';
 import { SearchBar } from '@/ui/components/SearchBar';
-import { SettingsPanel } from '@/ui/components/SettingsPanel';
+import { SpaceContentView } from '@/ui/components/SpaceContentView';
+import { SpaceManagementModal } from '@/ui/components/SpaceManagementModal';
 import { SpaceManager } from '@/ui/components/SpaceManager';
-import { SpaceSwitcher } from '@/ui/components/SpaceSwitcher';
 import { TabRow } from '@/ui/components/TabRow';
 
 interface SpacesWorkspaceProps {
@@ -34,8 +34,8 @@ interface SpacesWorkspaceProps {
 }
 
 export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<'spaces' | 'archive' | 'settings'>('spaces');
   const [activeDragId, setActiveDragId] = useState<number | string | null>(null);
+  const [showManageSpaces, setShowManageSpaces] = useState(false);
 
   const { mutate: reorderTab } = useReorderTab();
   const { mutate: toggleTabPinned } = useToggleTabPinned();
@@ -189,71 +189,49 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
         {/* Main Content Area */}
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="h-full overflow-y-auto px-3">
-            {/* Tab Navigation */}
-            <div className="sticky top-0 z-10 bg-black/30 backdrop-blur-md rounded-xl mb-3 border border-white/5 p-1">
-              <div className="flex gap-1">
-                {(['spaces', 'archive', 'settings'] as const).map((tab) => (
-                  <button
-                    type="button"
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 px-3 py-1.5 text-sm font-medium transition-all rounded-lg ${
-                      activeTab === tab
-                        ? 'text-white bg-white/20 shadow-sm'
-                        : 'text-white/50 hover:text-white/80 hover:bg-white/5'
-                    }`}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Content */}
             <div className="space-y-4 pb-4">
-              {activeTab === 'spaces' && (
-                <>
-                  {/* Space Header */}
-                  <div className="flex items-center gap-2">
-                    {activeSpace?.icon && <span className="text-2xl">{activeSpace.icon}</span>}
-                    <SpaceManager variant={componentVariant} />
+              {/* Space Header */}
+              <div className="flex items-center gap-2">
+                {activeSpace?.icon && <span className="text-2xl">{activeSpace.icon}</span>}
+                <SpaceManager variant={componentVariant} />
+              </div>
+
+              {/* Content with slide animation */}
+              <SpaceContentView activeSpaceId={activeSpaceId}>
+                {activeSpace ? (
+                  <div className="space-y-3">
+                    <EnhancedTabList
+                      tabs={activeSpace.pinnedTabs}
+                      title="Pinned"
+                      emptyMessage="No pinned tabs"
+                      variant={componentVariant}
+                      floatingContext={variant === 'floating' ? 'pinned' : undefined}
+                    />
+                    <EnhancedTabList
+                      tabs={visibleTemporaryTabs}
+                      title="Temporary"
+                      emptyMessage="No temporary tabs"
+                      variant={componentVariant}
+                      floatingContext={variant === 'floating' ? 'temporary' : undefined}
+                    />
                   </div>
-
-                  {activeSpace ? (
-                    <div className="space-y-3">
-                      <EnhancedTabList
-                        tabs={activeSpace.pinnedTabs}
-                        title="Pinned"
-                        emptyMessage="No pinned tabs"
-                        variant={componentVariant}
-                        floatingContext={variant === 'floating' ? 'pinned' : undefined}
-                      />
-                      <EnhancedTabList
-                        tabs={visibleTemporaryTabs}
-                        title="Temporary"
-                        emptyMessage="No temporary tabs"
-                        variant={componentVariant}
-                        floatingContext={variant === 'floating' ? 'temporary' : undefined}
-                      />
-                    </div>
-                  ) : (
-                    <div className="px-4 py-8 text-center text-xs text-white/50">
-                      No spaces available. Create a space to get started.
-                    </div>
-                  )}
-                </>
-              )}
-
-              {activeTab === 'archive' && <ArchiveManager variant={componentVariant} />}
-              {activeTab === 'settings' && <SettingsPanel variant={componentVariant} />}
+                ) : (
+                  <div className="px-4 py-8 text-center text-xs text-white/50">
+                    No spaces available. Create a space to get started.
+                  </div>
+                )}
+              </SpaceContentView>
             </div>
           </div>
         </div>
 
-        {/* Bottom Section - New Tab Button + Space Switcher */}
+        {/* Bottom Section - New Tab Button + Bottom Space Bar */}
         <div className="flex-shrink-0 px-3 pb-3 space-y-2">
           <NewTabButton variant={componentVariant} />
-          <SpaceSwitcher variant={componentVariant} />
+          <BottomSpaceBar
+            variant={componentVariant}
+            onManageSpaces={() => setShowManageSpaces(true)}
+          />
         </div>
 
         <DragOverlay>
@@ -262,6 +240,9 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
           ) : null}
         </DragOverlay>
       </div>
+
+      {/* Space Management Modal */}
+      <SpaceManagementModal isOpen={showManageSpaces} onClose={() => setShowManageSpaces(false)} />
     </DndContext>
   );
 }

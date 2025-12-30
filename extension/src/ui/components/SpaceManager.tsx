@@ -9,7 +9,6 @@ interface SpaceManagerProps {
   variant?: 'standalone' | 'floating';
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: space management UI
 export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
   const [isCreatingSpace, setIsCreatingSpace] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState('');
@@ -70,103 +69,45 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
     'cyan',
   ];
 
-  if (variant === 'floating') {
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-3 py-2">
-          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-            Spaces
-            {!isLoading && !error && (
-              <span className="ml-1 text-[10px] font-normal text-slate-500">({spaces.length})</span>
-            )}
-          </h3>
-          <button
-            type="button"
-            onClick={() => setIsCreatingSpace(true)}
-            className="text-xs text-slate-400 hover:text-white transition-colors"
-            data-testid="spaces-new-button"
-            title="Create new space"
-          >
-            + New
-          </button>
-        </div>
+  // Shared modal for creating spaces
+  const createSpaceModal = isCreatingSpace && (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div
+        className="bg-surface p-6 rounded-lg border border-surface-light max-w-md w-full mx-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-space-title"
+      >
+        <h3 id="create-space-title" className="text-lg font-medium text-white mb-4">
+          Create New Space
+        </h3>
 
-        {isLoading && (
-          <div className="px-3 py-2" data-testid="loading-spinner">
-            <div className="animate-pulse space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-8 bg-surface-light rounded" />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="px-3 py-2 text-red-400 text-xs">
-            読み込みエラー: {(error as Error).message}
-          </div>
-        )}
-
-        {!isLoading && !error && (
-          <div className="space-y-1">
-            {spaces.map((space) => (
-              <SpaceContextMenu key={space.id} space={space}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleSwitchSpace(space.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      handleSwitchSpace(space.id);
-                    }
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-light cursor-pointer transition-colors w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-                >
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: space.color }}
-                    aria-hidden="true"
-                  />
-                  <span className="text-sm text-slate-200 truncate">{space.name}</span>
-                  {spaces.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveSpace(space.id);
-                      }}
-                      className="ml-auto text-xs text-slate-500 hover:text-red-400 transition-colors"
-                      title="Remove space"
-                      aria-label="Remove space"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </SpaceContextMenu>
-            ))}
-          </div>
-        )}
-
-        {isCreatingSpace && (
-          <div className="px-3 py-2 border-t border-surface-light">
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="space-name" className="block text-sm font-medium text-slate-300 mb-2">
+              Space Name
+            </label>
             <input
+              id="space-name"
               type="text"
               value={newSpaceName}
               onChange={(e) => setNewSpaceName(e.target.value)}
               placeholder="Space name"
-              className="w-full px-2 py-1 text-sm bg-surface-light rounded border border-surface-light focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
             />
-            <div className="flex gap-1 mt-2" role="radiogroup" aria-label="Space color">
+          </div>
+
+          <div>
+            <div className="block text-sm font-medium text-slate-300 mb-2">Color</div>
+            <div className="flex gap-2" role="radiogroup" aria-label="Space color">
               {colors.map((color) => (
                 <button
                   type="button"
                   key={color}
                   onClick={() => setNewSpaceColor(color)}
-                  className={`w-4 h-4 rounded-full border-2 ${
+                  className={`w-8 h-8 rounded-full border-2 ${
                     newSpaceColor === color ? 'border-white' : 'border-transparent'
-                  }`}
+                  } hover:scale-110 transition-transform`}
                   style={{ backgroundColor: color }}
                   role="radio"
                   aria-checked={newSpaceColor === color}
@@ -174,30 +115,125 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
                 />
               ))}
             </div>
-            <div className="flex gap-2 mt-2">
-              <button
-                type="button"
-                onClick={handleCreateSpace}
-                disabled={!newSpaceName.trim() || createSpaceMutation.isPending}
-                className="flex-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {createSpaceMutation.isPending ? 'Creating...' : 'Create'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreatingSpace(false);
-                  setNewSpaceName('');
-                  setNewSpaceColor('blue' as TabGroupColor);
-                }}
-                className="flex-1 px-2 py-1 text-xs bg-surface-light text-slate-300 rounded hover:bg-surface"
-              >
-                Cancel
-              </button>
-            </div>
           </div>
-        )}
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            type="button"
+            onClick={handleCreateSpace}
+            disabled={!newSpaceName.trim() || createSpaceMutation.isPending}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {createSpaceMutation.isPending ? 'Creating...' : 'Create Space'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsCreatingSpace(false);
+              setNewSpaceName('');
+            }}
+            className="flex-1 px-4 py-2 bg-surface-light text-slate-300 rounded hover:bg-surface"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
+    </div>
+  );
+
+  if (variant === 'floating') {
+    // Floating variant: compact space management for popup
+    return (
+      <>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-medium text-white">
+              Spaces
+              {!isLoading && !error && (
+                <span className="ml-2 text-xs font-normal text-slate-400">({spaces.length})</span>
+              )}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setIsCreatingSpace(true)}
+              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              + New
+            </button>
+          </div>
+
+          {isLoading && (
+            <div data-testid="loading-spinner">
+              <div className="animate-pulse space-y-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-12 bg-surface-light rounded-lg" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-xs">
+              Failed to load spaces: {(error as Error).message}
+            </div>
+          )}
+
+          {!isLoading && !error && (
+            <div className="grid gap-2">
+              {spaces.map((space) => (
+                <SpaceContextMenu key={space.id} space={space}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="p-3 rounded-lg border border-surface-light bg-surface/50 hover:bg-surface transition-all cursor-pointer group w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+                    onClick={() => handleSwitchSpace(space.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleSwitchSpace(space.id);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: space.color }}
+                          aria-hidden="true"
+                        />
+                        <div>
+                          <h3 className="text-sm font-medium text-white">{space.name}</h3>
+                          <p className="text-xs text-slate-400">
+                            {space.pinnedTabs?.length ?? 0} pinned,{' '}
+                            {space.temporaryTabs?.length ?? 0} temporary
+                          </p>
+                        </div>
+                      </div>
+
+                      {spaces.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveSpace(space.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                          title="Remove space"
+                          aria-label="Remove space"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </SpaceContextMenu>
+              ))}
+            </div>
+          )}
+        </div>
+        {createSpaceModal}
+      </>
     );
   }
 
@@ -301,80 +337,7 @@ export function SpaceManager({ variant = 'standalone' }: SpaceManagerProps) {
         </div>
       )}
 
-      {isCreatingSpace && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div
-            className="bg-surface p-6 rounded-lg border border-surface-light max-w-md w-full mx-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-space-title"
-          >
-            <h3 id="create-space-title" className="text-lg font-medium text-white mb-4">
-              Create New Space
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="space-name"
-                  className="block text-sm font-medium text-slate-300 mb-2"
-                >
-                  Space Name
-                </label>
-                <input
-                  id="space-name"
-                  type="text"
-                  value={newSpaceName}
-                  onChange={(e) => setNewSpaceName(e.target.value)}
-                  placeholder="Space name"
-                  className="w-full px-3 py-2 bg-surface-light border border-surface-light rounded focus:outline-none focus:border-blue-500 text-white"
-                />
-              </div>
-
-              <div>
-                <div className="block text-sm font-medium text-slate-300 mb-2">Color</div>
-                <div className="flex gap-2" role="radiogroup" aria-label="Space color">
-                  {colors.map((color) => (
-                    <button
-                      type="button"
-                      key={color}
-                      onClick={() => setNewSpaceColor(color)}
-                      className={`w-8 h-8 rounded-full border-2 ${
-                        newSpaceColor === color ? 'border-white' : 'border-transparent'
-                      } hover:scale-110 transition-transform`}
-                      style={{ backgroundColor: color }}
-                      role="radio"
-                      aria-checked={newSpaceColor === color}
-                      aria-label={`Select ${color} color`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={handleCreateSpace}
-                disabled={!newSpaceName.trim() || createSpaceMutation.isPending}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {createSpaceMutation.isPending ? 'Creating...' : 'Create Space'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreatingSpace(false);
-                  setNewSpaceName('');
-                }}
-                className="flex-1 px-4 py-2 bg-surface-light text-slate-300 rounded hover:bg-surface"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {createSpaceModal}
     </div>
   );
 }
