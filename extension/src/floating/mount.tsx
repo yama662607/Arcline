@@ -11,8 +11,8 @@ import React, {
   useState,
 } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { getSpaceTheme } from '@/lib/space-theme';
 import { queryClient } from '@/lib/query-client';
+import { getSpaceTheme } from '@/lib/space-theme';
 import { useSpacesStore } from '@/store';
 import stylesText from '@/styles.css?inline';
 

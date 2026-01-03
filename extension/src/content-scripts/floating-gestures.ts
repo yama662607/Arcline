@@ -90,6 +90,15 @@ function updateFloatingUISlidePosition(shadowRoot: ShadowRoot | null, totalDelta
   const translateX = -totalDelta * 0.8;
   floatingContainer.style.transition = 'none';
   floatingContainer.style.transform = `translateX(${translateX}px)`;
+
+  // Dispatch swipe progress event (normalized to -1 to 1)
+  // Assume threshold is ~100px for full swipe
+  const progress = Math.max(-1, Math.min(1, totalDelta / 100));
+  window.dispatchEvent(
+    new CustomEvent('arcline-swipe-progress', {
+      detail: { progress },
+    })
+  );
 }
 
 function resetFloatingUISlidePosition(shadowRoot: ShadowRoot | null) {
@@ -101,6 +110,13 @@ function resetFloatingUISlidePosition(shadowRoot: ShadowRoot | null) {
 
   floatingContainer.style.transition = 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)';
   floatingContainer.style.transform = 'translateX(0)';
+
+  // Reset swipe progress
+  window.dispatchEvent(
+    new CustomEvent('arcline-swipe-progress', {
+      detail: { progress: 0 },
+    })
+  );
 }
 
 function ensureFeedbackStyles(shadowRoot: ShadowRoot | null) {

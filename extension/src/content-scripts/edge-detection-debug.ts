@@ -6,9 +6,9 @@
  */
 
 import {
+  type EdgeDetectionConfig,
   getEdgeDetectionConfig,
   updateEdgeDetectionConfig,
-  type EdgeDetectionConfig,
 } from './edge-detection-config';
 
 let debugWindow: HTMLDivElement | null = null;

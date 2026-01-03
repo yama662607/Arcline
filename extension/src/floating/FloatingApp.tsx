@@ -2,9 +2,8 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useMemo, useState } from 'react';
-
-import { getSpaceTheme } from '@/lib/space-theme';
 import { queryClient } from '@/lib/query-client';
+import { getSpaceTheme } from '@/lib/space-theme';
 import { useSpacesSync } from '@/lib/useSpacesSync';
 import { useSpacesStore } from '@/store';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';

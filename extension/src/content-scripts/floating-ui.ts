@@ -3,7 +3,6 @@
 import '@/dev/reactPreamble';
 
 import type { SwipeDirection } from '@/lib/gestures';
-import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from './shared-utils';
 import {
   EdgeDetectionState,
   getEdgeDetectionConfig,
@@ -19,6 +18,7 @@ import {
   printSwipeLogsToConsole,
   resetSwipeDebugStats,
 } from './floating-swipe-debug';
+import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from './shared-utils';
 
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
