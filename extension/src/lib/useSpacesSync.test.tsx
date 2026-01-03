@@ -33,10 +33,12 @@ type MockSpacesState = {
   activeSpaceId: number | null;
   previousSpaceId: number | null;
   favoriteSpaceIds: number[];
+  swipeProgress: number;
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
   setFavoriteSpaces: (spaceIds: number[]) => void;
   toggleFavoriteSpace: (spaceId: number) => void;
+  setSwipeProgress: (progress: number) => void;
 };
 
 // Mock the store implementation
@@ -45,10 +47,12 @@ const mockStore: MockSpacesState = {
   activeSpaceId: null,
   previousSpaceId: null,
   favoriteSpaceIds: [],
+  swipeProgress: 0,
   setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
   setActiveSpace: vi.fn<(spaceId: number) => void>(),
   setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
   toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
+  setSwipeProgress: vi.fn<(progress: number) => void>(),
 };
 
 vi.mocked(useSpacesStore).mockImplementation((selector) => {

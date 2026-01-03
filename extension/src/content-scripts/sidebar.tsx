@@ -8,11 +8,10 @@ import {
 } from '@/hooks/use-spaces-query';
 import { queryClient } from '@/lib/query-client';
 import { useSpacesSync } from '@/lib/useSpacesSync';
-import type { PinnedItem, TabEntry } from '@/shared/types';
+import type { TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
-import { PinnedItemContextMenu } from '@/ui/components/PinnedItemContextMenu';
 import { PinnedItemList } from '@/ui/components/PinnedItems';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceManager } from '@/ui/components/SpaceManager';
@@ -39,11 +38,7 @@ function SidebarAppContent() {
     y: number;
   } | null>(null);
 
-  const [pinnedContextMenu, setPinnedContextMenu] = useState<{
-    item: PinnedItem;
-    x: number;
-    y: number;
-  } | null>(null);
+  // Pinned context menu is now handled by PinnedItemContextMenu (Radix UI)
 
   if (isCollapsed) {
     return (
@@ -213,18 +208,7 @@ function SidebarAppContent() {
                       </button>
                     </div>
                   </div>
-                  <PinnedItemList
-                    items={activeSpace.pinnedItems}
-                    spaceName={activeSpace.name}
-                    onContextMenu={(item, event) => {
-                      const rect = (event.target as HTMLElement).getBoundingClientRect();
-                      setPinnedContextMenu({
-                        item,
-                        x: rect.left,
-                        y: rect.bottom,
-                      });
-                    }}
-                  />
+                  <PinnedItemList items={activeSpace.pinnedItems} spaceName={activeSpace.name} />
                 </div>
                 <EnhancedTabList
                   tabs={activeSpace.temporaryTabs}
@@ -266,15 +250,6 @@ function SidebarAppContent() {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
-        />
-      )}
-
-      {pinnedContextMenu && (
-        <PinnedItemContextMenu
-          item={pinnedContextMenu.item}
-          x={pinnedContextMenu.x}
-          y={pinnedContextMenu.y}
-          onClose={() => setPinnedContextMenu(null)}
         />
       )}
     </div>

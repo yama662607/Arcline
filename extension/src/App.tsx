@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-
+import { CommandPalette } from '@/floating/CommandPalette';
 import { queryClient } from '@/lib/query-client';
 import { getSpaceTheme } from '@/lib/space-theme';
 import type { UiMode } from '@/lib/ui-mode';
@@ -9,8 +9,6 @@ import { useSpacesSync } from '@/lib/useSpacesSync';
 import { useSpacesStore } from '@/store';
 import { SpacesWorkspace } from '@/ui/components/SpacesWorkspace';
 import { ThemeProvider } from '@/ui/theme/ThemeContext';
-
-import { CommandPalette } from '@/floating/CommandPalette';
 
 function AppContent() {
   const [uiMode, setUiMode] = useState<UiMode>('floating');

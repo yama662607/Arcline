@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCommandHandlers, type CommandHandlersDeps } from './command-handlers';
+import { type CommandHandlersDeps, createCommandHandlers } from './command-handlers';
 
 describe('command-handlers', () => {
   it('should handle navigateSpace command', async () => {

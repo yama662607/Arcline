@@ -9,10 +9,12 @@ interface SpacesState {
   activeSpaceId: number | null;
   previousSpaceId: number | null;
   favoriteSpaceIds: number[];
+  swipeProgress: number; // -1 to 1, 0 = no swipe
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
   setFavoriteSpaces: (spaceIds: number[]) => void;
   toggleFavoriteSpace: (spaceId: number) => void;
+  setSwipeProgress: (progress: number) => void;
 }
 
 export const useSpacesStore = create<SpacesState>()(
@@ -23,6 +25,7 @@ export const useSpacesStore = create<SpacesState>()(
         activeSpaceId: null,
         previousSpaceId: null,
         favoriteSpaceIds: [],
+        swipeProgress: 0,
         setSpaces: (spaces) =>
           set((state) => {
             const hasActive = spaces.some((space) => space.id === state.activeSpaceId);
@@ -41,6 +44,7 @@ export const useSpacesStore = create<SpacesState>()(
           set((state) => ({
             previousSpaceId: state.activeSpaceId,
             activeSpaceId: spaceId,
+            swipeProgress: 0, // Reset swipe progress on space change
           })),
         setFavoriteSpaces: (spaceIds) => set({ favoriteSpaceIds: spaceIds }),
         toggleFavoriteSpace: (spaceId) =>
@@ -49,6 +53,7 @@ export const useSpacesStore = create<SpacesState>()(
               ? state.favoriteSpaceIds.filter((id) => id !== spaceId)
               : [...state.favoriteSpaceIds, spaceId],
           })),
+        setSwipeProgress: (progress) => set({ swipeProgress: progress }),
       }),
       {
         name: 'arcline-spaces',
