@@ -1,7 +1,7 @@
 import { FileUp, FolderOpen, Upload } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 
-import { importBookmarks, type ImportResult } from '@/lib/bookmark-import';
+import { type ImportResult, importBookmarks } from '@/lib/bookmark-import';
 
 interface BookmarkImportProps {
   onImport: (result: ImportResult) => void;

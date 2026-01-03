@@ -4,19 +4,31 @@
  */
 
 import { Globe, Search } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { useOpenUrlInTab } from '@/hooks/use-spaces-query';
+import { useActiveTab, useOpenUrlInTab } from '@/hooks/use-spaces-query';
 
 interface SearchBarProps {
   onOpenCommandPalette?: () => void;
   variant?: 'standalone' | 'floating';
 }
 
+function formatDisplayUrl(url?: string) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    // Remove protocol and trailing slash for cleaner display
+    return parsed.hostname + parsed.pathname.replace(/\/$/, '') + parsed.search;
+  } catch {
+    return url;
+  }
+}
+
 export function SearchBar({ onOpenCommandPalette, variant = 'standalone' }: SearchBarProps) {
   const [inputValue, setInputValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const { mutate: openUrlInTab } = useOpenUrlInTab();
+  const { data: activeTab } = useActiveTab();
 
   const isFloating = variant === 'floating';
 
@@ -49,15 +61,24 @@ export function SearchBar({ onOpenCommandPalette, variant = 'standalone' }: Sear
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
-    // Optionally open command palette on focus
-    if (onOpenCommandPalette && !inputValue) {
-      onOpenCommandPalette();
+    // Load current URL into input when focused
+    if (activeTab?.url && !inputValue) {
+      setInputValue(activeTab.url);
     }
-  }, [onOpenCommandPalette, inputValue]);
+  }, [activeTab?.url, inputValue]);
 
   const handleBlur = useCallback(() => {
     setIsFocused(false);
+    // Clear input when blurred
+    setInputValue('');
   }, []);
+
+  // Clear input value when focus state changes
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue('');
+    }
+  }, [isFocused]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -92,7 +113,11 @@ export function SearchBar({ onOpenCommandPalette, variant = 'standalone' }: Sear
           onFocus={handleFocus}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          placeholder="Search or Enter URL..."
+          placeholder={
+            activeTab?.url && !isFocused
+              ? formatDisplayUrl(activeTab.url)
+              : 'Search or Enter URL...'
+          }
           className={`flex-1 bg-transparent border-none outline-none text-white placeholder-white/50 ${
             isFloating ? 'ml-2 text-sm' : 'ml-3 text-base'
           }`}

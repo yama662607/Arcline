@@ -2,10 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
-
+import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
 import { useSettings, useUpdateSettings } from '@/hooks/use-spaces-query';
 import type { ImportedBookmark, ImportResult } from '@/lib/bookmark-import';
-import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
 import { settingsFormSchema } from '@/shared/settings';
 import type { Settings } from '@/shared/types';
 import { BookmarkImport } from './BookmarkImport';

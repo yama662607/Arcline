@@ -1,24 +1,24 @@
-import * as Dialog from '@radix-ui/react-dialog';
 import {
+  closestCenter,
   DndContext,
   type DragEndEvent,
   KeyboardSensor,
   PointerSensor,
-  closestCenter,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
 import {
-  SortableContext,
   arrayMove,
+  SortableContext,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import * as Dialog from '@radix-ui/react-dialog';
 import { useState } from 'react';
 
 import { useCreateSpace, useRemoveSpace, useUpdateSpace } from '@/hooks/use-spaces-query';
-import { SPACE_ICONS, getSpaceDisplayIcon, getSpaceTheme } from '@/lib/space-theme';
+import { getSpaceDisplayIcon, getSpaceTheme, SPACE_ICONS } from '@/lib/space-theme';
 import type { SpaceColor, SpaceSnapshot } from '@/shared/types';
 import { useSpacesStore } from '@/store/spacesSlice';
 
