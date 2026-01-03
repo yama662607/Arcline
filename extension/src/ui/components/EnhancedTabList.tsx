@@ -8,8 +8,8 @@ import {
   useCloseTab,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
-import { useUiStore } from '@/store';
 import type { TabEntry } from '@/shared/types';
+import { useUiStore } from '@/store';
 import { TabContextMenu } from '@/ui/components/context-menu/TabContextMenu';
 import { GlobalPinnedTabs } from '@/ui/components/GlobalPinnedTabs';
 import { TabRow } from '@/ui/components/TabRow';
@@ -105,25 +105,13 @@ export function EnhancedTabList({
       floatingContext === 'pinned' ? 'Pinned tabs drop zone' : 'Temporary tabs drop zone';
 
     return (
-      <div
-        className="rounded-xl bg-black/20 backdrop-blur-sm border border-white/5 overflow-hidden transition-colors"
-        role="region"
-        aria-label={dropZoneAriaLabel}
-      >
-        <div className="px-3 py-2 bg-black/10">
-          <h3 className="text-xs font-medium text-white/70 uppercase tracking-wider drop-shadow-sm">
-            {title} ({tabs.length})
-          </h3>
-        </div>
-
+      <div role="region" aria-label={dropZoneAriaLabel}>
         {tabs.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-white/40 border-t border-white/5">
-            {emptyMessage}
-          </div>
+          <div className="px-3 py-4 text-center text-xs text-white/40">{emptyMessage}</div>
         ) : (
           <div
             ref={parentRef}
-            className="space-y-0.5 overflow-x-hidden max-h-[50vh] overflow-y-auto p-1"
+            className="space-y-0.5 overflow-x-hidden max-h-[50vh] overflow-y-auto"
             onScroll={handleScroll}
           >
             <SortableContext items={tabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -156,28 +144,30 @@ export function EnhancedTabList({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-white">
-          {title} ({tabs.length})
-        </h3>
+      {title && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium text-white">
+            {title} ({tabs.length})
+          </h3>
 
-        {tabs.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                for (const tab of tabs) {
-                  archiveTabMutation.mutate(tab.id);
-                }
-              }}
-              className="text-sm text-slate-400 hover:text-slate-300 transition-colors"
-              title="Archive all tabs"
-            >
-              Archive All
-            </button>
-          </div>
-        )}
-      </div>
+          {tabs.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  for (const tab of tabs) {
+                    archiveTabMutation.mutate(tab.id);
+                  }
+                }}
+                className="text-sm text-slate-400 hover:text-slate-300 transition-colors"
+                title="Archive all tabs"
+              >
+                Archive All
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {tabs.length === 0 ? (
         <div className="text-center py-8 text-slate-500">{emptyMessage}</div>

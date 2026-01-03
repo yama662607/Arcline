@@ -11,10 +11,12 @@ type MockSpacesState = {
   activeSpaceId: number | null;
   previousSpaceId: number | null;
   favoriteSpaceIds: number[];
+  swipeProgress: number;
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
   setFavoriteSpaces: (spaceIds: number[]) => void;
   toggleFavoriteSpace: (spaceId: number) => void;
+  setSwipeProgress: (progress: number) => void;
 };
 
 // Mock Component Mocks
@@ -122,10 +124,12 @@ describe('SpacesWorkspace', () => {
           spaces: [space],
           previousSpaceId: null,
           favoriteSpaceIds: [],
+          swipeProgress: 0,
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setActiveSpace: vi.fn<(spaceId: number) => void>(),
           setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
           toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
+          setSwipeProgress: vi.fn<(progress: number) => void>(),
         };
         return selector(state);
       }
@@ -158,9 +162,9 @@ describe('SpacesWorkspace', () => {
     renderComponent();
 
     expect(screen.getByTestId('favorites-bar')).toBeInTheDocument();
-    // Check for Tab Lists (Pinned and Temporary)
-    expect(screen.getByText('Pinned')).toBeInTheDocument(); // from mock EnhancedTabList title
-    expect(screen.getByText('Temporary')).toBeInTheDocument();
+    // Check for Tab Lists (now without section headers in Arc style)
+    const tabLists = screen.getAllByTestId('enhanced-tab-list');
+    expect(tabLists).toHaveLength(2); // Pinned and Temporary lists
   });
 
   it('displays message when no spaces active', () => {
@@ -172,10 +176,12 @@ describe('SpacesWorkspace', () => {
           spaces: [],
           previousSpaceId: null,
           favoriteSpaceIds: [],
+          swipeProgress: 0,
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setActiveSpace: vi.fn<(spaceId: number) => void>(),
           setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
           toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
+          setSwipeProgress: vi.fn<(progress: number) => void>(),
         };
         return selector(state);
       }
@@ -184,8 +190,7 @@ describe('SpacesWorkspace', () => {
     renderComponent();
     expect(screen.getByText(/No space/)).toBeInTheDocument();
     // Tab lists should not be rendered when no active space
-    expect(screen.queryByText('Pinned')).not.toBeInTheDocument();
-    expect(screen.queryByText('Temporary')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('enhanced-tab-list')).not.toBeInTheDocument();
   });
 
   it('displays context menu when triggered', () => {
