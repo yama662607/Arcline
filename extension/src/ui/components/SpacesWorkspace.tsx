@@ -19,7 +19,7 @@ import {
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
 import { getSpaceTheme } from '@/lib/space-theme';
-import type { TabEntry } from '@/shared/types';
+import type { SpaceSnapshot, TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { BookmarkImport } from '@/ui/components/BookmarkImport';
@@ -64,16 +64,27 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
     [spaces, activeSpaceId]
   );
 
-  const visibleTemporaryTabs = useMemo(() => {
-    if (!activeSpace) return [];
+  const getSpaceById = useCallback(
+    (spaceId: number | null): SpaceSnapshot | null =>
+      spaces.find((space) => space.id === spaceId) ?? null,
+    [spaces]
+  );
+
+  const buildTemporaryTabs = useCallback((space: SpaceSnapshot | null) => {
+    if (!space) return [];
     const dedupe = new Map<number, TabEntry>();
-    for (const tab of [...activeSpace.tabs, ...activeSpace.temporaryTabs]) {
+    for (const tab of [...space.tabs, ...space.temporaryTabs]) {
       if (!tab.pinned) {
         dedupe.set(tab.id, tab);
       }
     }
     return Array.from(dedupe.values());
-  }, [activeSpace]);
+  }, []);
+
+  const visibleTemporaryTabs = useMemo(() => {
+    if (!activeSpace) return [];
+    return buildTemporaryTabs(activeSpace);
+  }, [activeSpace, buildTemporaryTabs]);
 
   const { data: favorites } = useFavorites();
   const favoriteTabs: TabEntry[] = useMemo(() => {
@@ -196,69 +207,76 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
 
         {/* Main Content Area */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="flex h-full flex-col" data-arcline-space-transition>
-            <div className="flex-1 min-h-0 overflow-y-auto px-3">
-              <div className="space-y-4 pb-4">
+          <div className="flex h-full flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+              <div className="h-full">
                 {/* Content with slide animation */}
-                <SpaceContentView activeSpaceId={activeSpaceId}>
-                  {activeSpace ? (
-                    <div className="space-y-3">
-                      {/* Space Header */}
-                      <div className="flex items-center gap-2">
-                        {activeSpace.icon && <span className="text-xl">{activeSpace.icon}</span>}
-                        <h2 className="text-sm font-medium text-white/70">
-                          {activeSpace.name || 'No Space'}
-                        </h2>
-                        <div className="ml-auto">
-                          <MoreMenu
-                            variant={componentVariant}
-                            onOpenSettings={() => setShowSettings(true)}
-                            onOpenArchive={() => setShowArchive(true)}
-                            onOpenBookmarkImport={() => setShowBookmarkImport(true)}
-                          />
+                <SpaceContentView
+                  activeSpaceId={activeSpaceId}
+                  renderContent={(spaceId, { isActive }) => {
+                    const space = getSpaceById(spaceId);
+                    const temporaryTabs = buildTemporaryTabs(space);
+                    return space ? (
+                      <div className="space-y-3 px-3 pb-4 pt-4">
+                        {/* Space Header */}
+                        <div className="flex items-center gap-2">
+                          {space.icon && <span className="text-xl">{space.icon}</span>}
+                          <h2 className="text-sm font-medium text-white/70">
+                            {space.name || 'No Space'}
+                          </h2>
+                          <div className="ml-auto">
+                            <MoreMenu
+                              variant={componentVariant}
+                              onOpenSettings={() => setShowSettings(true)}
+                              onOpenArchive={() => setShowArchive(true)}
+                              onOpenBookmarkImport={() => setShowBookmarkImport(true)}
+                            />
+                          </div>
                         </div>
+
+                        <EnhancedTabList
+                          tabs={space.pinnedTabs}
+                          title=""
+                          emptyMessage="No pinned tabs"
+                          variant={componentVariant}
+                          floatingContext={variant === 'floating' ? 'pinned' : undefined}
+                          interactive={isActive}
+                        />
+
+                        {/* Divider with Clear button */}
+                        <div className="relative flex items-center gap-2 py-2">
+                          <div className="flex-1 h-px bg-white/10" />
+                          {temporaryTabs.length > 0 && isActive && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Close all temporary tabs
+                                const tabIds = temporaryTabs.map((t) => t.id);
+                                chrome.tabs.remove(tabIds);
+                              }}
+                              className="px-2 py-1 text-xs text-white/50 hover:text-white/80 transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
+                        <EnhancedTabList
+                          tabs={temporaryTabs}
+                          title=""
+                          emptyMessage="No temporary tabs"
+                          variant={componentVariant}
+                          floatingContext={variant === 'floating' ? 'temporary' : undefined}
+                          interactive={isActive}
+                        />
                       </div>
-
-                      <EnhancedTabList
-                        tabs={activeSpace.pinnedTabs}
-                        title=""
-                        emptyMessage="No pinned tabs"
-                        variant={componentVariant}
-                        floatingContext={variant === 'floating' ? 'pinned' : undefined}
-                      />
-
-                      {/* Divider with Clear button */}
-                      <div className="relative flex items-center gap-2 py-2">
-                        <div className="flex-1 h-px bg-white/10" />
-                        {visibleTemporaryTabs.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              // Close all temporary tabs
-                              const tabIds = visibleTemporaryTabs.map((t) => t.id);
-                              chrome.tabs.remove(tabIds);
-                            }}
-                            className="px-2 py-1 text-xs text-white/50 hover:text-white/80 transition-colors"
-                          >
-                            Clear
-                          </button>
-                        )}
+                    ) : (
+                      <div className="px-4 py-8 text-center text-xs text-white/50">
+                        No spaces available. Create a space to get started.
                       </div>
-
-                      <EnhancedTabList
-                        tabs={visibleTemporaryTabs}
-                        title=""
-                        emptyMessage="No temporary tabs"
-                        variant={componentVariant}
-                        floatingContext={variant === 'floating' ? 'temporary' : undefined}
-                      />
-                    </div>
-                  ) : (
-                    <div className="px-4 py-8 text-center text-xs text-white/50">
-                      No spaces available. Create a space to get started.
-                    </div>
-                  )}
-                </SpaceContentView>
+                    );
+                  }}
+                />
               </div>
             </div>
 

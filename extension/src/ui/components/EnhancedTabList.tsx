@@ -17,6 +17,104 @@ import { SortableTabRow } from './SortableTabRow';
 
 export type FloatingListContext = 'pinned' | 'temporary';
 
+type FloatingListRenderOptions = {
+  tabs: TabEntry[];
+  emptyMessage: string;
+  compact: boolean;
+  showFavicons: boolean;
+  floatingContext?: FloatingListContext;
+  interactive: boolean;
+  parentRef: React.RefObject<HTMLDivElement | null>;
+  handleScroll: () => void;
+  handleTabClick: (tab: TabEntry) => void;
+  handleTabClose: (e: React.MouseEvent, tab: TabEntry) => void;
+  handleTabArchive: (e: React.MouseEvent, tab: TabEntry) => void;
+  handlePinToggle: (e: React.MouseEvent, tab: TabEntry) => void;
+  onTabContextMenu?: (tab: TabEntry, event: React.MouseEvent<HTMLDivElement>) => void;
+  onLegacyDragStart?: (event: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
+};
+
+function renderFloatingList({
+  tabs,
+  emptyMessage,
+  compact,
+  showFavicons,
+  floatingContext,
+  interactive,
+  parentRef,
+  handleScroll,
+  handleTabClick,
+  handleTabClose,
+  handleTabArchive,
+  handlePinToggle,
+  onTabContextMenu,
+  onLegacyDragStart,
+}: FloatingListRenderOptions) {
+  if (!interactive) {
+    return (
+      <div role="region" aria-label="Tab list">
+        {tabs.length === 0 ? (
+          <div className="px-3 py-4 text-center text-xs text-white/40">{emptyMessage}</div>
+        ) : (
+          <div className="space-y-0.5 max-h-[50vh] overflow-y-auto pointer-events-none">
+            {tabs.map((tab) => (
+              <TabRow
+                key={tab.id}
+                tab={tab}
+                compact={compact}
+                variant="floating"
+                showFavicons={showFavicons}
+                disableNativeDrag={true}
+                isDragged={false}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const dropZoneAriaLabel =
+    floatingContext === 'pinned' ? 'Pinned tabs drop zone' : 'Temporary tabs drop zone';
+
+  return (
+    <div role="region" aria-label={dropZoneAriaLabel}>
+      {tabs.length === 0 ? (
+        <div className="px-3 py-4 text-center text-xs text-white/40">{emptyMessage}</div>
+      ) : (
+        <div
+          ref={parentRef}
+          className="space-y-0.5 overflow-x-hidden max-h-[50vh] overflow-y-auto"
+          onScroll={handleScroll}
+        >
+          <SortableContext items={tabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+            {tabs.map((tab) => (
+              <SortableTabRow key={tab.id} id={tab.id}>
+                <TabContextMenu tab={tab}>
+                  <TabRow
+                    tab={tab}
+                    compact={compact}
+                    variant="floating"
+                    showFavicons={showFavicons}
+                    onTabSelect={handleTabClick}
+                    onContextMenuCustom={onTabContextMenu}
+                    onPinToggle={handlePinToggle}
+                    onArchive={handleTabArchive}
+                    onClose={handleTabClose}
+                    onLegacyDragStart={onLegacyDragStart}
+                    disableNativeDrag={true}
+                    isDragged={false}
+                  />
+                </TabContextMenu>
+              </SortableTabRow>
+            ))}
+          </SortableContext>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface EnhancedTabListProps {
   tabs: TabEntry[];
   title: string;
@@ -27,6 +125,7 @@ interface EnhancedTabListProps {
   compact?: boolean;
   floatingContext?: FloatingListContext;
   onLegacyDragStart?: (event: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
+  interactive?: boolean;
 }
 
 export function EnhancedTabList({
@@ -39,6 +138,7 @@ export function EnhancedTabList({
   compact = false,
   floatingContext,
   onLegacyDragStart,
+  interactive = true,
 }: EnhancedTabListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const hasRestoredScroll = useRef(false);
@@ -101,45 +201,22 @@ export function EnhancedTabList({
   const isFloatingVariant = variant === 'floating';
 
   if (isFloatingVariant) {
-    const dropZoneAriaLabel =
-      floatingContext === 'pinned' ? 'Pinned tabs drop zone' : 'Temporary tabs drop zone';
-
-    return (
-      <div role="region" aria-label={dropZoneAriaLabel}>
-        {tabs.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-white/40">{emptyMessage}</div>
-        ) : (
-          <div
-            ref={parentRef}
-            className="space-y-0.5 overflow-x-hidden max-h-[50vh] overflow-y-auto"
-            onScroll={handleScroll}
-          >
-            <SortableContext items={tabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-              {tabs.map((tab) => (
-                <SortableTabRow key={tab.id} id={tab.id}>
-                  <TabContextMenu tab={tab}>
-                    <TabRow
-                      tab={tab}
-                      compact={compact}
-                      variant="floating"
-                      showFavicons={showFavicons}
-                      onTabSelect={handleTabClick}
-                      onContextMenuCustom={onTabContextMenu}
-                      onPinToggle={handlePinToggle}
-                      onArchive={handleTabArchive}
-                      onClose={handleTabClose}
-                      onLegacyDragStart={onLegacyDragStart}
-                      disableNativeDrag={true}
-                      isDragged={false}
-                    />
-                  </TabContextMenu>
-                </SortableTabRow>
-              ))}
-            </SortableContext>
-          </div>
-        )}
-      </div>
-    );
+    return renderFloatingList({
+      tabs,
+      emptyMessage,
+      compact,
+      showFavicons,
+      floatingContext,
+      interactive,
+      parentRef,
+      handleScroll,
+      handleTabClick,
+      handleTabClose,
+      handleTabArchive,
+      handlePinToggle,
+      onTabContextMenu,
+      onLegacyDragStart,
+    });
   }
 
   return (

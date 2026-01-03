@@ -212,7 +212,7 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
                   if (space.id === activeSpaceId) return;
                   const targetIndex = spaces.findIndex((s) => s.id === space.id);
                   const direction =
-                    targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'right' : 'left';
+                    targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'left' : 'right';
 
                   if (isFloatingVariant) {
                     window.dispatchEvent(
@@ -262,7 +262,7 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
               if (spaceId !== activeSpaceId) {
                 const targetIndex = spaces.findIndex((s) => s.id === spaceId);
                 const direction =
-                  targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'right' : 'left';
+                  targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'left' : 'right';
 
                 if (isFloatingVariant) {
                   window.dispatchEvent(
