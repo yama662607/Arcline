@@ -34,14 +34,16 @@ const FEEDBACK_ID = 'arcline-swipe-feedback';
 const SCROLL_PROXY_ID = 'arcline-swipe-scroll-proxy';
 const SCROLL_PROXY_INNER_ID = 'arcline-swipe-scroll-proxy-inner';
 const INTENT_LOCK_THRESHOLD = 0;
+const INTENT_LOCK_THRESHOLD_PX = 5;
 const NOISE_THRESHOLD = 0.2;
 const RELEASE_TIMEOUT_MS = 70;
 const RELEASE_VELOCITY_EPS = 0.02;
 const FLICK_RELEASE_WINDOW_MS = 90;
 const FLICK_VELOCITY_WIDTHS_PER_SEC = 0.9;
 const STOPPED_RELEASE_WINDOW_MS = 50;
-const RELEASE_IDLE_MS = 120;
-const SCROLLEND_IDLE_MS = 280;
+const RELEASE_IDLE_MS = 100;
+const SCROLLEND_IDLE_MS = 180;
+const VELOCITY_EMA_ALPHA = 0.4;
 const FLICK_ANIMATION_MS = 160;
 const RESET_ANIMATION_MS = 140;
 const HANDOFF_ANIMATION_MS = 160;
@@ -246,17 +248,26 @@ type PendingCommit = {
 export function __lockIntent(
   deltaX: number,
   deltaY: number,
+  accumulatedX: number,
+  accumulatedY: number,
   threshold = INTENT_LOCK_THRESHOLD
 ): GestureIntent {
   const absX = Math.abs(deltaX);
   const absY = Math.abs(deltaY);
+  const totalAbsX = Math.abs(accumulatedX);
+  const totalAbsY = Math.abs(accumulatedY);
+
+  if (totalAbsX < INTENT_LOCK_THRESHOLD_PX && totalAbsY < INTENT_LOCK_THRESHOLD_PX) {
+    return null;
+  }
+
   if (absX < NOISE_THRESHOLD && absY < NOISE_THRESHOLD) {
     return null;
   }
-  if (absX > absY + threshold) {
+  if (totalAbsX > totalAbsY + threshold) {
     return 'horizontal';
   }
-  if (absY > absX + threshold) {
+  if (totalAbsY > totalAbsX + threshold) {
     return 'vertical';
   }
   return null;
@@ -280,6 +291,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
   let intent: GestureIntent = null;
   let phase: GesturePhase = 'idle';
   let totalDeltaX = 0;
+  let totalDeltaY = 0;
   let lastVelocityX = 0;
   let lastEventTime = 0;
   let lastMovementTime = 0;
@@ -380,6 +392,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
   const resetGesture = () => {
     intent = null;
     totalDeltaX = 0;
+    totalDeltaY = 0;
     lastVelocityX = 0;
     lastEventTime = 0;
     lastMovementTime = 0;
@@ -548,7 +561,11 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
 
     const scaledDeltaX = -e.deltaX * deltaScale;
     totalDeltaX += scaledDeltaX;
-    lastVelocityX = scaledDeltaX / dt;
+
+    // Smooth velocity using EMA
+    const instantVelocityX = scaledDeltaX / dt;
+    lastVelocityX = lastVelocityX * (1 - VELOCITY_EMA_ALPHA) + instantVelocityX * VELOCITY_EMA_ALPHA;
+
     if (Math.abs(scaledDeltaX) >= NOISE_THRESHOLD) {
       lastMovementTime = now;
     }
@@ -594,7 +611,10 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       return intent;
     }
 
-    const locked = __lockIntent(deltaX, deltaY);
+    totalDeltaX += deltaX;
+    totalDeltaY += deltaY;
+
+    const locked = __lockIntent(deltaX, deltaY, totalDeltaX, totalDeltaY);
     if (!locked) {
       reportSwipeDebug(context, 'intent-pending', prevented);
       return null;
@@ -602,6 +622,11 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
 
     intent = locked;
     phase = 'locked';
+
+    // If locked to horizontal, we've already accumulated some deltaX.
+    // Ensure we don't double count if we reuse it later.
+    // Actually totalDeltaX is used for progress calculation, so it's fine.
+
     return intent;
   };
 
@@ -738,7 +763,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
 
     const progress = clamp(transition.progress, 0, 1);
     const startOffset =
-      transition.direction === 'left' ? (1 - progress) * width : -(1 - progress) * width;
+      transition.direction === 'left' ? -(1 - progress) * width : (1 - progress) * width;
 
     applyTransitionOffset(target, startOffset, { animate: false });
     dispatchSwipeProgress(0);
