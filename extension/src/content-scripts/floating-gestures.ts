@@ -41,7 +41,7 @@ const FLICK_RELEASE_WINDOW_MS = 90;
 const FLICK_VELOCITY_WIDTHS_PER_SEC = 0.9;
 const STOPPED_RELEASE_WINDOW_MS = 50;
 const RELEASE_IDLE_MS = 120;
-const SCROLLEND_FALLBACK_MS = 200;
+const SCROLLEND_IDLE_MS = 280;
 const FLICK_ANIMATION_MS = 160;
 const RESET_ANIMATION_MS = 140;
 const HANDOFF_ANIMATION_MS = 160;
@@ -340,7 +340,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
         }
         if (!pendingCommit) return;
         const timeSinceMove = performance.now() - lastMovementTime;
-        if (timeSinceMove < RELEASE_IDLE_MS) {
+        if (timeSinceMove < SCROLLEND_IDLE_MS) {
           return;
         }
         const { target, width, context, direction } = pendingCommit;
@@ -422,7 +422,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       const nextCommit = pendingCommit;
       clearPendingCommit();
       commitGesture(nextCommit.target, nextCommit.width, nextCommit.context, nextCommit.direction);
-    }, SCROLLEND_FALLBACK_MS);
+    }, SCROLLEND_IDLE_MS);
   };
 
   const resolveCommitDecision = (width: number, timeSinceMove: number) => {
