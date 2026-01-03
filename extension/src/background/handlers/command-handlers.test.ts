@@ -6,6 +6,7 @@ describe('command-handlers', () => {
     const mockNavigateSpace = vi.fn().mockResolvedValue(true);
     const mockDeps = {
       navigateSpace: mockNavigateSpace,
+      activateSpace: vi.fn(),
       // Minimal mocks for other deps to satisfy typing if strictly needed,
       // but createCommandHandlers takes deps and returns a map.
       // We only access one handler, so other deps are likely not accessed in this test case.
@@ -33,7 +34,7 @@ describe('command-handlers', () => {
     handler({ direction: 'left' }, sendResponse);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mockNavigateSpace).toHaveBeenCalledWith('left');
+    expect(mockNavigateSpace).toHaveBeenCalledWith('left', { transition: undefined });
     expect(sendResponse).toHaveBeenCalledWith({ ok: true, data: true });
 
     // 2. Valid Right Request
@@ -42,7 +43,7 @@ describe('command-handlers', () => {
     handler({ direction: 'right' }, sendResponse);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mockNavigateSpace).toHaveBeenCalledWith('right');
+    expect(mockNavigateSpace).toHaveBeenCalledWith('right', { transition: undefined });
     expect(sendResponse).toHaveBeenCalledWith({ ok: true, data: true });
 
     // 3. Error Handling
@@ -53,7 +54,7 @@ describe('command-handlers', () => {
     handler({ direction: 'left' }, sendResponse);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mockNavigateSpace).toHaveBeenCalledWith('left');
+    expect(mockNavigateSpace).toHaveBeenCalledWith('left', { transition: undefined });
     expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: 'Error: Navigation failed' });
 
     // 4. Invalid Params

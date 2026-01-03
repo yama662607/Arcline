@@ -18,11 +18,11 @@ test.describe('Pinned Tabs', () => {
 
     await page.reload();
 
-    // Wait for tabs to load - check for Search Bar (new Arc-style UI)
-    await expect(page.getByPlaceholder('Search or Enter URL...')).toBeVisible();
-    // Also verify tab sections are visible (use heading role for specificity)
-    await expect(page.getByRole('heading', { name: /Pinned/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /Temporary/i })).toBeVisible();
+    // Wait for tabs to load - check for Search Bar input
+    await expect(page.getByRole('textbox').first()).toBeVisible();
+    // Also verify drop zones are visible
+    await expect(page.getByRole('region', { name: /Pinned tabs drop zone/i })).toBeVisible();
+    await expect(page.getByRole('region', { name: /Temporary tabs drop zone/i })).toBeVisible();
   });
 
   test('should pin a tab via context menu', async ({ page }) => {

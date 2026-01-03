@@ -1,4 +1,5 @@
-import { SwipeDetector, type SwipeDirection } from '@/lib/gestures';
+import type { SwipeDirection } from '@/lib/gestures';
+import type { SpaceTransitionHandoff } from '@/shared/types';
 
 import { updateSwipeDebugInfo } from './floating-swipe-debug';
 
@@ -11,7 +12,10 @@ type GestureControllerDeps = {
   getShadowRoot: () => ShadowRoot | null;
   getHostElement: () => HTMLElement | null;
   ensureHost: () => void;
-  onNavigateSpace: (direction: SwipeDirection) => void;
+  onNavigateSpace: (
+    direction: SwipeDirection,
+    options: { mode: 'handoff' | 'flick'; transition?: SpaceTransitionHandoff }
+  ) => void;
 };
 
 type SwipeDebugContext = {
@@ -27,6 +31,28 @@ type SwipeDebugContext = {
 };
 
 const FEEDBACK_ID = 'arcline-swipe-feedback';
+const SCROLL_PROXY_ID = 'arcline-swipe-scroll-proxy';
+const SCROLL_PROXY_INNER_ID = 'arcline-swipe-scroll-proxy-inner';
+const INTENT_LOCK_THRESHOLD = 0;
+const NOISE_THRESHOLD = 0.2;
+const RELEASE_TIMEOUT_MS = 70;
+const RELEASE_VELOCITY_EPS = 0.02;
+const FLICK_RELEASE_WINDOW_MS = 90;
+const FLICK_VELOCITY_WIDTHS_PER_SEC = 0.9;
+const STOPPED_RELEASE_WINDOW_MS = 50;
+const RELEASE_IDLE_MS = 120;
+const SCROLLEND_FALLBACK_MS = 200;
+const FLICK_ANIMATION_MS = 160;
+const RESET_ANIMATION_MS = 140;
+const HANDOFF_ANIMATION_MS = 160;
+const COOLDOWN_MS = 220;
+
+const SUPPORTS_SCROLLEND =
+  typeof document !== 'undefined' &&
+  typeof document.documentElement !== 'undefined' &&
+  'onscrollend' in document.documentElement;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 function isPageHorizontallyScrollable(): boolean {
   const scrollWidth = document.documentElement.scrollWidth;
@@ -80,43 +106,75 @@ function reportSwipeDebug(
   });
 }
 
-function updateFloatingUISlidePosition(shadowRoot: ShadowRoot | null, totalDelta: number) {
-  if (!shadowRoot) return;
-  const floatingContainer = shadowRoot.querySelector(
-    '#arcline-floating-ui-container'
-  ) as HTMLDivElement | null;
-  if (!floatingContainer) return;
+function getTransitionTarget(shadowRoot: ShadowRoot | null) {
+  if (!shadowRoot) return null;
+  return shadowRoot.querySelector('[data-arcline-space-transition]') as HTMLElement | null;
+}
 
-  const translateX = -totalDelta * 0.8;
-  floatingContainer.style.transition = 'none';
-  floatingContainer.style.transform = `translateX(${translateX}px)`;
+function getTransitionWidth(target: HTMLElement | null): number {
+  if (!target) return 0;
+  return target.getBoundingClientRect().width || 0;
+}
 
-  // Dispatch swipe progress event (normalized to -1 to 1)
-  // Assume threshold is ~100px for full swipe
-  const progress = Math.max(-1, Math.min(1, totalDelta / 100));
+function dispatchSwipeProgress(progress: number) {
   window.dispatchEvent(
     new CustomEvent('arcline-swipe-progress', {
-      detail: { progress },
+      detail: { progress: -progress },
     })
   );
 }
 
-function resetFloatingUISlidePosition(shadowRoot: ShadowRoot | null) {
+function applyTransitionOffset(
+  target: HTMLElement,
+  offsetPx: number,
+  options: { animate: boolean; durationMs?: number }
+) {
+  if (options.animate) {
+    const duration = options.durationMs ?? 200;
+    target.style.transition = `transform ${duration}ms cubic-bezier(0.4, 0.0, 0.2, 1)`;
+  } else {
+    target.style.transition = 'none';
+  }
+
+  target.style.transform = `translateX(${offsetPx}px)`;
+}
+
+function showFeedback(
+  shadowRoot: ShadowRoot | null,
+  ensureHost: () => void,
+  direction: SwipeDirection
+) {
+  ensureHost();
   if (!shadowRoot) return;
-  const floatingContainer = shadowRoot.querySelector(
-    '#arcline-floating-ui-container'
-  ) as HTMLDivElement | null;
-  if (!floatingContainer) return;
+  ensureFeedbackStyles(shadowRoot);
 
-  floatingContainer.style.transition = 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)';
-  floatingContainer.style.transform = 'translateX(0)';
+  let el = shadowRoot.getElementById(FEEDBACK_ID) as HTMLDivElement | null;
+  if (!el) {
+    el = document.createElement('div');
+    el.id = FEEDBACK_ID;
+    el.className = 'arcline-feedback enter';
+    shadowRoot.append(el);
+  }
 
-  // Reset swipe progress
-  window.dispatchEvent(
-    new CustomEvent('arcline-swipe-progress', {
-      detail: { progress: 0 },
-    })
-  );
+  const leftIcon = `<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>`;
+  const rightIcon = `<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>`;
+  const leftLabel = 'Previous Space';
+  const rightLabel = 'Next Space';
+
+  el.innerHTML = `
+    ${direction === 'left' ? leftIcon : rightIcon}
+    <div class="arcline-feedback-label">${direction === 'left' ? leftLabel : rightLabel}</div>
+  `;
+
+  el.classList.remove('show');
+  el.classList.add('enter');
+  void el.offsetWidth;
+  el.classList.add('show');
+  el.classList.remove('enter');
+
+  setTimeout(() => {
+    el?.classList.remove('show');
+  }, 800);
 }
 
 function ensureFeedbackStyles(shadowRoot: ShadowRoot | null) {
@@ -174,161 +232,444 @@ function ensureFeedbackStyles(shadowRoot: ShadowRoot | null) {
   shadowRoot.append(style);
 }
 
-function showFeedback(
-  shadowRoot: ShadowRoot | null,
-  ensureHost: () => void,
-  direction: SwipeDirection
-) {
-  ensureHost();
-  if (!shadowRoot) return;
-  ensureFeedbackStyles(shadowRoot);
+type GestureIntent = 'horizontal' | 'vertical' | null;
 
-  let el = shadowRoot.getElementById(FEEDBACK_ID) as HTMLDivElement | null;
-  if (!el) {
-    el = document.createElement('div');
-    el.id = FEEDBACK_ID;
-    el.className = 'arcline-feedback enter';
-    shadowRoot.append(el);
+type GesturePhase = 'idle' | 'tracking' | 'locked' | 'committing' | 'cooldown';
+
+type PendingCommit = {
+  target: HTMLElement;
+  width: number;
+  context: SwipeDebugContext;
+  direction: SwipeDirection;
+};
+
+export function __lockIntent(
+  deltaX: number,
+  deltaY: number,
+  threshold = INTENT_LOCK_THRESHOLD
+): GestureIntent {
+  const absX = Math.abs(deltaX);
+  const absY = Math.abs(deltaY);
+  if (absX < NOISE_THRESHOLD && absY < NOISE_THRESHOLD) {
+    return null;
   }
+  if (absX > absY + threshold) {
+    return 'horizontal';
+  }
+  if (absY > absX + threshold) {
+    return 'vertical';
+  }
+  return null;
+}
 
-  const leftIcon = `<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>`;
-  const rightIcon = `<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>`;
-  const leftLabel = 'Previous Space';
-  const rightLabel = 'Next Space';
-
-  el.innerHTML = `
-    ${direction === 'left' ? leftIcon : rightIcon}
-    <div class="arcline-feedback-label">${direction === 'left' ? leftLabel : rightLabel}</div>
-  `;
-
-  el.classList.remove('show');
-  el.classList.add('enter');
-  void el.offsetWidth;
-  el.classList.add('show');
-  el.classList.remove('enter');
-
-  setTimeout(() => {
-    el?.classList.remove('show');
-  }, 800);
+export function __shouldCommitSwipe(
+  progress: number,
+  velocity: number
+): 'handoff' | 'flick' | 'cancel' {
+  if (Math.abs(velocity) > RELEASE_VELOCITY_EPS) {
+    return 'flick';
+  }
+  if (progress >= 0.5) {
+    return 'handoff';
+  }
+  return 'cancel';
 }
 
 export function createFloatingGestureController(deps: GestureControllerDeps) {
-  const swipeDetector = new SwipeDetector();
   let gesturesEnabled = true;
+  let intent: GestureIntent = null;
+  let phase: GesturePhase = 'idle';
+  let totalDeltaX = 0;
+  let lastVelocityX = 0;
+  let lastEventTime = 0;
+  let lastMovementTime = 0;
   let gestureHandler: ((e: WheelEvent) => void) | null = null;
   let swipeResetTimer: ReturnType<typeof setTimeout> | null = null;
+  let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
+  let scrollEndFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   let attachedHost: HTMLElement | null = null;
+  let deltaScale = 1;
+  let scrollProxy: HTMLDivElement | null = null;
+  let scrollProxyCenter = 0;
+  let ignoreScrollEnd = false;
+  let pendingCommit: PendingCommit | null = null;
+
+  const clearTimer = (timer: ReturnType<typeof setTimeout> | null) => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  };
+
+  const clearPendingCommit = () => {
+    pendingCommit = null;
+    clearTimer(scrollEndFallbackTimer);
+    scrollEndFallbackTimer = null;
+  };
+
+  const getScrollProxyCenter = (proxy: HTMLDivElement) => {
+    const center = (proxy.scrollWidth - proxy.clientWidth) / 2;
+    scrollProxyCenter = Number.isFinite(center) ? Math.max(0, center) : 0;
+    return scrollProxyCenter;
+  };
+
+  const ensureScrollProxy = (shadowRoot: ShadowRoot | null) => {
+    if (!shadowRoot || !SUPPORTS_SCROLLEND) return null;
+    let proxy = shadowRoot.getElementById(SCROLL_PROXY_ID) as HTMLDivElement | null;
+    if (!proxy) {
+      proxy = document.createElement('div');
+      proxy.id = SCROLL_PROXY_ID;
+      proxy.style.position = 'absolute';
+      proxy.style.inset = '0';
+      proxy.style.overflowX = 'auto';
+      proxy.style.overflowY = 'hidden';
+      proxy.style.pointerEvents = 'none';
+      proxy.style.zIndex = '0';
+      proxy.style.scrollbarWidth = 'none';
+      proxy.style.setProperty('-ms-overflow-style', 'none');
+      proxy.style.overscrollBehavior = 'contain';
+
+      const inner = document.createElement('div');
+      inner.id = SCROLL_PROXY_INNER_ID;
+      inner.style.width = '300%';
+      inner.style.height = '1px';
+      proxy.append(inner);
+
+      proxy.addEventListener('scrollend', () => {
+        if (ignoreScrollEnd || phase === 'committing' || phase === 'cooldown') {
+          return;
+        }
+        if (!pendingCommit) return;
+        const timeSinceMove = performance.now() - lastMovementTime;
+        if (timeSinceMove < RELEASE_IDLE_MS) {
+          return;
+        }
+        const { target, width, context, direction } = pendingCommit;
+        clearPendingCommit();
+        commitGesture(target, width, context, direction);
+      });
+
+      shadowRoot.append(proxy);
+    }
+
+    scrollProxy = proxy;
+    getScrollProxyCenter(proxy);
+    return proxy;
+  };
+
+  const updateScrollProxy = (shadowRoot: ShadowRoot | null, offsetPx: number) => {
+    const proxy = ensureScrollProxy(shadowRoot);
+    if (!proxy) return;
+    const center = getScrollProxyCenter(proxy);
+    const maxScroll = Math.max(0, proxy.scrollWidth - proxy.clientWidth);
+    const nextScrollLeft = clamp(center + offsetPx, 0, maxScroll);
+    if (proxy.scrollLeft !== nextScrollLeft) {
+      proxy.scrollLeft = nextScrollLeft;
+    }
+  };
+
+  const resetScrollProxy = () => {
+    if (!scrollProxy) return;
+    const center = getScrollProxyCenter(scrollProxy);
+    ignoreScrollEnd = true;
+    scrollProxy.scrollLeft = center;
+    window.setTimeout(() => {
+      ignoreScrollEnd = false;
+    }, 0);
+  };
+
+  const resetGesture = () => {
+    intent = null;
+    totalDeltaX = 0;
+    lastVelocityX = 0;
+    lastEventTime = 0;
+    lastMovementTime = 0;
+    dispatchSwipeProgress(0);
+    clearPendingCommit();
+    resetScrollProxy();
+  };
+
+  const enterCooldown = () => {
+    phase = 'cooldown';
+    clearTimer(cooldownTimer);
+    cooldownTimer = setTimeout(() => {
+      phase = 'idle';
+    }, COOLDOWN_MS);
+  };
+
+  const scheduleRelease = (
+    target: HTMLElement,
+    width: number,
+    context: SwipeDebugContext,
+    direction: SwipeDirection
+  ) => {
+    clearTimer(swipeResetTimer);
+    swipeResetTimer = setTimeout(() => {
+      swipeResetTimer = null;
+      commitGesture(target, width, context, direction);
+    }, RELEASE_TIMEOUT_MS);
+  };
+
+  const scheduleScrollEndFallback = (
+    target: HTMLElement,
+    width: number,
+    context: SwipeDebugContext,
+    direction: SwipeDirection
+  ) => {
+    pendingCommit = { target, width, context, direction };
+    clearTimer(scrollEndFallbackTimer);
+    scrollEndFallbackTimer = setTimeout(() => {
+      if (!pendingCommit) return;
+      const nextCommit = pendingCommit;
+      clearPendingCommit();
+      commitGesture(nextCommit.target, nextCommit.width, nextCommit.context, nextCommit.direction);
+    }, SCROLLEND_FALLBACK_MS);
+  };
+
+  const resolveCommitDecision = (width: number, timeSinceMove: number) => {
+    const progress = clamp(Math.abs(totalDeltaX) / width, 0, 1);
+    const velocityWidthsPerSec = width > 0 ? (Math.abs(lastVelocityX) * 1000) / width : 0;
+    const stopped = timeSinceMove >= STOPPED_RELEASE_WINDOW_MS;
+    const isFlick =
+      !stopped &&
+      timeSinceMove <= FLICK_RELEASE_WINDOW_MS &&
+      velocityWidthsPerSec >= FLICK_VELOCITY_WIDTHS_PER_SEC;
+    const decision = __shouldCommitSwipe(progress, isFlick ? lastVelocityX : 0);
+    return { decision, progress };
+  };
+
+  const commitCancel = (target: HTMLElement, context: SwipeDebugContext) => {
+    reportSwipeDebug(context, 'cancel', true, totalDeltaX);
+    phase = 'committing';
+    applyTransitionOffset(target, 0, { animate: true, durationMs: RESET_ANIMATION_MS });
+    enterCooldown();
+    resetGesture();
+  };
+
+  const commitFlick = (
+    target: HTMLElement,
+    width: number,
+    context: SwipeDebugContext,
+    uiDirection: SwipeDirection,
+    spaceDirection: SwipeDirection
+  ) => {
+    reportSwipeDebug(context, 'commit-flick', true, totalDeltaX);
+    phase = 'committing';
+    const endOffset = uiDirection === 'left' ? -width : width;
+    applyTransitionOffset(target, endOffset, {
+      animate: true,
+      durationMs: FLICK_ANIMATION_MS,
+    });
+
+    window.setTimeout(() => {
+      applyTransitionOffset(target, 0, { animate: false });
+      dispatchSwipeProgress(0);
+      resetGesture();
+      enterCooldown();
+      deps.onNavigateSpace(spaceDirection, { mode: 'flick' });
+    }, FLICK_ANIMATION_MS);
+  };
+
+  const commitHandoff = (
+    target: HTMLElement,
+    context: SwipeDebugContext,
+    uiDirection: SwipeDirection,
+    spaceDirection: SwipeDirection,
+    progress: number
+  ) => {
+    reportSwipeDebug(context, 'commit-handoff', true, totalDeltaX);
+    phase = 'committing';
+    const transition: SpaceTransitionHandoff = {
+      mode: 'handoff',
+      direction: uiDirection,
+      progress,
+      timestamp: Date.now(),
+    };
+
+    deps.onNavigateSpace(spaceDirection, { mode: 'handoff', transition });
+    enterCooldown();
+    window.setTimeout(() => {
+      applyTransitionOffset(target, 0, { animate: false });
+      dispatchSwipeProgress(0);
+      resetGesture();
+    }, COOLDOWN_MS);
+  };
+
+  const commitGesture = (
+    target: HTMLElement,
+    width: number,
+    context: SwipeDebugContext,
+    uiDirection: SwipeDirection,
+    options?: { forceRelease?: boolean }
+  ) => {
+    if (phase === 'committing' || phase === 'cooldown') {
+      return;
+    }
+
+    const now = performance.now();
+    const timeSinceMove = now - lastMovementTime;
+    if (!options?.forceRelease && timeSinceMove < RELEASE_IDLE_MS) {
+      clearTimer(swipeResetTimer);
+      swipeResetTimer = setTimeout(() => {
+        swipeResetTimer = null;
+        commitGesture(target, width, context, uiDirection);
+      }, RELEASE_IDLE_MS - timeSinceMove);
+      return;
+    }
+
+    clearPendingCommit();
+
+    const { decision, progress } = resolveCommitDecision(width, timeSinceMove);
+    const spaceDirection: SwipeDirection = uiDirection === 'left' ? 'right' : 'left';
+
+    if (decision === 'cancel') {
+      commitCancel(target, context);
+      return;
+    }
+
+    showFeedback(deps.getShadowRoot(), deps.ensureHost, spaceDirection);
+
+    if (decision === 'flick') {
+      commitFlick(target, width, context, uiDirection, spaceDirection);
+      return;
+    }
+
+    commitHandoff(target, context, uiDirection, spaceDirection, progress);
+  };
 
   const handleHorizontalSwipe = (
     e: WheelEvent,
     context: SwipeDebugContext,
-    shadowRoot: ShadowRoot | null
+    shadowRoot: ShadowRoot | null,
+    target: HTMLElement
   ) => {
-    const nextDelta = context.currentDelta + e.deltaX;
-    updateFloatingUISlidePosition(shadowRoot, nextDelta);
+    const now = performance.now();
+    const dt = Math.max(now - lastEventTime, 1);
+    lastEventTime = now;
 
-    if (swipeResetTimer) {
-      clearTimeout(swipeResetTimer);
+    const scaledDeltaX = -e.deltaX * deltaScale;
+    totalDeltaX += scaledDeltaX;
+    lastVelocityX = scaledDeltaX / dt;
+    if (Math.abs(scaledDeltaX) >= NOISE_THRESHOLD) {
+      lastMovementTime = now;
     }
+
+    const width = getTransitionWidth(target);
+    if (!width) {
+      reportSwipeDebug(context, 'no-width', true, totalDeltaX);
+      return;
+    }
+
+    const progress = clamp(totalDeltaX / width, -1, 1);
+    const direction: SwipeDirection = progress < 0 ? 'left' : 'right';
+    const offset = progress * width;
+
+    applyTransitionOffset(target, offset, { animate: false });
+    dispatchSwipeProgress(progress);
+
+    if (SUPPORTS_SCROLLEND) {
+      updateScrollProxy(shadowRoot, offset);
+      scheduleScrollEndFallback(target, width, context, direction);
+    } else {
+      scheduleRelease(target, width, context, direction);
+    }
+
+    reportSwipeDebug(context, 'tracking-horizontal', true, totalDeltaX);
+    if (!shadowRoot) return;
+  };
+
+  const getSkipReason = (context: SwipeDebugContext, target: HTMLElement | null) => {
+    if (!target) return 'no-target';
+    if (!context.isInsideFloatingUI) return 'floating-ui-closed';
+    if (!gesturesEnabled) return 'gestures-disabled';
+    return null;
+  };
+
+  const resolveIntent = (
+    deltaX: number,
+    deltaY: number,
+    context: SwipeDebugContext,
+    prevented: boolean
+  ) => {
+    if (intent) {
+      return intent;
+    }
+
+    const locked = __lockIntent(deltaX, deltaY);
+    if (!locked) {
+      reportSwipeDebug(context, 'intent-pending', prevented);
+      return null;
+    }
+
+    intent = locked;
+    phase = 'locked';
+    return intent;
+  };
+
+  const handleVerticalIntent = (context: SwipeDebugContext) => {
+    clearTimer(swipeResetTimer);
     swipeResetTimer = setTimeout(() => {
-      resetFloatingUISlidePosition(shadowRoot);
       swipeResetTimer = null;
-    }, 300);
-
-    const direction = swipeDetector.process(e);
-    reportSwipeDebug(
-      context,
-      direction ? `space-nav-${direction}` : 'accumulating',
-      true,
-      nextDelta
-    );
-
-    if (!direction) return;
-
-    if (swipeResetTimer) {
-      clearTimeout(swipeResetTimer);
-      swipeResetTimer = null;
-    }
-    resetFloatingUISlidePosition(shadowRoot);
-
-    deps.onNavigateSpace(direction);
-    showFeedback(shadowRoot, deps.ensureHost, direction);
+      resetGesture();
+      phase = 'idle';
+    }, RELEASE_TIMEOUT_MS);
+    clearPendingCommit();
+    reportSwipeDebug(context, 'locked-vertical', false, totalDeltaX);
   };
 
-  const logHorizontalSwipeInside = (context: SwipeDebugContext, shadowRoot: ShadowRoot | null) => {
-    if (
-      context.isInsideFloatingUI &&
-      Math.abs(context.deltaX) >= 3 &&
-      Math.abs(context.deltaY) <= Math.abs(context.deltaX)
-    ) {
-      console.log('[Arcline Debug] 🔍 Horizontal swipe inside Floating UI detected:', {
-        deltaX: context.deltaX,
-        deltaY: context.deltaY,
-        isInsideFloatingUI: context.isInsideFloatingUI,
-        pathLength: context.pathLength,
-        targetInfo: context.targetInfo,
-        shadowRootHost: shadowRoot?.host,
-        willPreventDefault: true,
-      });
-    }
-  };
+  const handleWheel = (e: WheelEvent) => {
+    const startTime = performance.now();
+    const shadowRoot = deps.getShadowRoot();
+    const context = buildSwipeDebugContext(e, startTime, shadowRoot);
+    context.currentDelta = totalDeltaX;
 
-  const handleOutsideFloatingUI = (context: SwipeDebugContext) => {
-    if (!context.isInsideFloatingUI) {
-      reportSwipeDebug(context, 'floating-ui-closed', false);
-      return true;
+    const target = getTransitionTarget(shadowRoot);
+    const skipReason = getSkipReason(context, target);
+    if (skipReason) {
+      reportSwipeDebug(context, skipReason, false);
+      return;
     }
-    return false;
-  };
+    const resolvedTarget = target as HTMLElement;
 
-  const handleGesturesDisabled = (context: SwipeDebugContext, shadowRoot: ShadowRoot | null) => {
-    if (!gesturesEnabled) {
-      resetFloatingUISlidePosition(shadowRoot);
-      reportSwipeDebug(context, 'gestures-disabled', false);
-      return true;
-    }
-    return false;
-  };
+    const scaledDeltaX = -e.deltaX * deltaScale;
+    const scaledDeltaY = e.deltaY * deltaScale;
 
-  const handleVerticalDominant = (context: SwipeDebugContext, shadowRoot: ShadowRoot | null) => {
-    const isVerticalDominant = Math.abs(context.deltaY) > Math.abs(context.deltaX);
-    if (isVerticalDominant) {
-      resetFloatingUISlidePosition(shadowRoot);
-      reportSwipeDebug(context, 'vertical-dominant', false);
-      return true;
+    if (phase === 'committing' || phase === 'cooldown') {
+      const isVerticalDominant = Math.abs(scaledDeltaY) > Math.abs(scaledDeltaX);
+      if (isVerticalDominant) {
+        reportSwipeDebug(context, 'cooldown-allow-vertical', false, totalDeltaX);
+      } else {
+        e.preventDefault();
+        e.stopPropagation();
+        reportSwipeDebug(context, 'cooldown-prevent', true, totalDeltaX);
+      }
+      return;
     }
-    return false;
-  };
 
-  const handleNoiseThreshold = (context: SwipeDebugContext) => {
-    if (Math.abs(context.deltaX) < 3) {
-      reportSwipeDebug(context, 'noise-threshold', true);
-      return true;
+    if (intent === 'vertical') {
+      handleVerticalIntent(context);
+      return;
     }
-    return false;
+
+    const isVerticalDominant = Math.abs(scaledDeltaY) > Math.abs(scaledDeltaX);
+    if (!intent && isVerticalDominant) {
+      handleVerticalIntent(context);
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const lockedIntent = resolveIntent(scaledDeltaX, scaledDeltaY, context, true);
+    if (!lockedIntent) {
+      return;
+    }
+
+    handleHorizontalSwipe(e, context, shadowRoot, resolvedTarget);
   };
 
   const setup = () => {
     if (gestureHandler) return;
-    gestureHandler = (e: WheelEvent) => {
-      const startTime = performance.now();
-      const shadowRoot = deps.getShadowRoot();
-      const context = buildSwipeDebugContext(e, startTime, shadowRoot);
-      context.currentDelta = swipeDetector.getCurrentDelta();
-
-      logHorizontalSwipeInside(context, shadowRoot);
-
-      if (handleOutsideFloatingUI(context)) return;
-      if (handleGesturesDisabled(context, shadowRoot)) return;
-      if (handleVerticalDominant(context, shadowRoot)) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (handleNoiseThreshold(context)) return;
-
-      handleHorizontalSwipe(e, context, shadowRoot);
-    };
+    gestureHandler = handleWheel;
 
     window.addEventListener('wheel', gestureHandler, { passive: false, capture: true });
 
@@ -349,12 +690,74 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       }
       gestureHandler = null;
     }
+
+    clearTimer(swipeResetTimer);
+    clearTimer(cooldownTimer);
+    clearTimer(scrollEndFallbackTimer);
+    scrollEndFallbackTimer = null;
+    resetGesture();
+    phase = 'idle';
   };
 
   const updateSettings = (settings: GestureSettings) => {
-    swipeDetector.updateConfig({ threshold: settings.gestureSensitivity });
     gesturesEnabled = settings.gesturesEnabled;
+    deltaScale = clamp(settings.gestureSensitivity / 100, 0.6, 1.6);
   };
 
-  return { setup, teardown, updateSettings };
+  const triggerFlickTransition = (direction: SwipeDirection, onComplete?: () => void) => {
+    const target = getTransitionTarget(deps.getShadowRoot());
+    const width = getTransitionWidth(target);
+    if (!target || !width || phase !== 'idle') {
+      return false;
+    }
+
+    phase = 'committing';
+    const endOffset = direction === 'left' ? -width : width;
+    applyTransitionOffset(target, endOffset, {
+      animate: true,
+      durationMs: FLICK_ANIMATION_MS,
+    });
+
+    window.setTimeout(() => {
+      applyTransitionOffset(target, 0, { animate: false });
+      dispatchSwipeProgress(0);
+      resetGesture();
+      enterCooldown();
+      onComplete?.();
+    }, FLICK_ANIMATION_MS);
+
+    return true;
+  };
+
+  const playHandoffTransition = (transition: SpaceTransitionHandoff): boolean => {
+    const target = getTransitionTarget(deps.getShadowRoot());
+    const width = getTransitionWidth(target);
+    if (!target || !width) {
+      return false;
+    }
+
+    const progress = clamp(transition.progress, 0, 1);
+    const startOffset =
+      transition.direction === 'left' ? (1 - progress) * width : -(1 - progress) * width;
+
+    applyTransitionOffset(target, startOffset, { animate: false });
+    dispatchSwipeProgress(0);
+
+    window.setTimeout(() => {
+      applyTransitionOffset(target, 0, {
+        animate: true,
+        durationMs: HANDOFF_ANIMATION_MS,
+      });
+    }, 0);
+
+    return true;
+  };
+
+  return {
+    setup,
+    teardown,
+    updateSettings,
+    triggerFlickTransition,
+    playHandoffTransition,
+  };
 }

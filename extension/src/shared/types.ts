@@ -144,6 +144,15 @@ export interface ActiveSpaceChangedMessage extends ExtensionMessage {
   spaceId: number;
 }
 
+export type SpaceTransitionMode = 'handoff' | 'flick';
+
+export interface SpaceTransitionHandoff {
+  mode: 'handoff';
+  direction: 'left' | 'right';
+  progress: number; // 0..1
+  timestamp: number;
+}
+
 export interface TogglePinMessage extends ExtensionMessage {
   command: 'toggleTabPinned';
   tabId: number;

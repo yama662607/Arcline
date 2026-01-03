@@ -3,6 +3,7 @@
 import '@/dev/reactPreamble';
 
 import type { SwipeDirection } from '@/lib/gestures';
+import type { SpaceTransitionHandoff } from '@/shared/types';
 import {
   EdgeDetectionState,
   getEdgeDetectionConfig,
@@ -45,6 +46,8 @@ let lastPointerClientX: number | null = null;
 let lastPointerClientY: number | null = null;
 let config = getEdgeDetectionConfig();
 let lastInferenceTime = 0;
+let pendingTransition: SpaceTransitionHandoff | null = null;
+let transitionApplyTimer: number | null = null;
 subscribeEdgeDetectionConfig((next) => {
   config = next;
 });
@@ -86,16 +89,19 @@ const gestureController = createFloatingGestureController({
   getShadowRoot: () => shadowRoot,
   getHostElement: () => hostElement,
   ensureHost,
-  onNavigateSpace: (direction) => sendNavigateSpace(direction),
+  onNavigateSpace: (direction, options) => sendNavigateSpace(direction, options),
 });
 
-function sendNavigateSpace(direction: SwipeDirection) {
+function sendNavigateSpace(
+  direction: SwipeDirection,
+  options?: { mode: 'handoff' | 'flick'; transition?: SpaceTransitionHandoff }
+) {
   if (typeof crypto.randomUUID !== 'function') return;
 
   chrome.runtime.sendMessage(
     {
       method: 'navigateSpace',
-      params: { direction },
+      params: { direction, transition: options?.transition },
       id: crypto.randomUUID(),
     },
     () => {
@@ -104,6 +110,60 @@ function sendNavigateSpace(direction: SwipeDirection) {
       }
     }
   );
+}
+
+function sendActivateSpace(spaceId: number) {
+  if (typeof crypto.randomUUID !== 'function') return;
+
+  chrome.runtime.sendMessage(
+    {
+      method: 'activateSpace',
+      params: { spaceId },
+      id: crypto.randomUUID(),
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        // Ignore
+      }
+    }
+  );
+}
+
+function clearTransitionApplyTimer() {
+  if (transitionApplyTimer !== null) {
+    window.clearTimeout(transitionApplyTimer);
+    transitionApplyTimer = null;
+  }
+}
+
+function scheduleTransitionApply() {
+  if (!pendingTransition) return;
+
+  const startedAt = Date.now();
+  const attempt = () => {
+    if (!pendingTransition) {
+      transitionApplyTimer = null;
+      return;
+    }
+
+    const applied = gestureController.playHandoffTransition(pendingTransition);
+    if (applied) {
+      pendingTransition = null;
+      transitionApplyTimer = null;
+      return;
+    }
+
+    if (Date.now() - startedAt > 600) {
+      pendingTransition = null;
+      transitionApplyTimer = null;
+      return;
+    }
+
+    transitionApplyTimer = window.setTimeout(attempt, 50);
+  };
+
+  clearTransitionApplyTimer();
+  attempt();
 }
 
 function queueDebugInfo(info: DebugInfo) {
@@ -345,6 +405,7 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
     } else {
       floatingInstance.openFromHover();
     }
+    scheduleTransitionApply();
     return;
   }
 
@@ -373,6 +434,7 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
   } else {
     floatingInstance?.openFromHover();
   }
+  scheduleTransitionApply();
 }
 
 function setupEdgeDetection() {
@@ -541,6 +603,9 @@ function teardownFloatingUi() {
 
   window.__arclineFloatingReady = false;
 
+  pendingTransition = null;
+  clearTransitionApplyTimer();
+
   teardownEdgeDetection();
   gestureController.teardown();
 
@@ -568,9 +633,19 @@ function applyUiMode(mode: UiMode) {
 
 function handleRuntimeMessage(message: unknown) {
   if (typeof message !== 'object' || message === null) return;
-  const payload = message as { command?: string; mode?: UiMode };
+  const payload = message as {
+    command?: string;
+    mode?: UiMode;
+    transition?: SpaceTransitionHandoff;
+  };
   if (payload.command === 'currentUiMode' && payload.mode) {
     applyUiMode(payload.mode);
+    return;
+  }
+
+  if (payload.command === 'spaceTransition' && payload.transition) {
+    pendingTransition = payload.transition;
+    scheduleTransitionApply();
     return;
   }
 
@@ -627,6 +702,19 @@ function handleWindowMessage(event: MessageEvent) {
   }
 }
 
+function handleSpaceBarSwitch(event: Event) {
+  const detail = (event as CustomEvent<{ spaceId: number; direction: SwipeDirection }>).detail;
+  if (!detail || typeof detail.spaceId !== 'number' || !detail.direction) return;
+
+  const started = gestureController.triggerFlickTransition(detail.direction, () => {
+    sendActivateSpace(detail.spaceId);
+  });
+
+  if (!started) {
+    sendActivateSpace(detail.spaceId);
+  }
+}
+
 async function initialize() {
   if (!hasChromeRuntime()) return;
 
@@ -643,6 +731,7 @@ async function initialize() {
 
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
   window.addEventListener('message', handleWindowMessage);
+  window.addEventListener('arcline-space-bar-switch', handleSpaceBarSwitch);
 
   void syncZoomLevel();
 }

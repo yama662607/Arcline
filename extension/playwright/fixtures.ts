@@ -27,13 +27,18 @@ export const test = base.extend<{
     const page = pages.length > 0 ? pages[0] : await context.newPage();
 
     const onConsole = (message: import('@playwright/test').ConsoleMessage) => {
-      if (message.type() === 'error') {
-        process.stderr.write(`[PAGE][${testInfo.testId}] CONSOLE_ERROR ${message.text()}\n`);
-        testInfo.annotations.push({
-          type: 'page-console-error',
-          description: message.text(),
-        });
+      if (message.type() !== 'error') {
+        return;
       }
+      const text = message.text();
+      if (text.includes('Failed to load resource')) {
+        return;
+      }
+      process.stderr.write(`[PAGE][${testInfo.testId}] CONSOLE_ERROR ${text}\n`);
+      testInfo.annotations.push({
+        type: 'page-console-error',
+        description: text,
+      });
     };
 
     const onPageError = (error: Error) => {

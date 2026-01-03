@@ -1,7 +1,13 @@
 import { type ChromeApi, chromeApi as defaultChromeApi } from '@/adapters/chrome-api';
 import type { UiMode } from '@/lib/ui-mode';
 import type { SwipeDirection } from '@/shared/gestures';
-import type { ArchivedTab, Settings, SpaceCreateRequest, TabEntry } from '@/shared/types';
+import type {
+  ArchivedTab,
+  Settings,
+  SpaceCreateRequest,
+  SpaceTransitionHandoff,
+  TabEntry,
+} from '@/shared/types';
 
 type RuntimeSendResponse = (response?: unknown) => void;
 
@@ -51,6 +57,7 @@ export type CommandHandlersDeps = {
   reorderFavorites: FavoritesFns['reorderFavorites'];
   reorderTab: BrowserFns['reorderTab'];
   navigateSpace: typeof import('../services/space-navigation')['navigateSpace'];
+  activateSpace: typeof import('../services/space-navigation')['activateSpace'];
 };
 
 function isTabEntry(value: unknown): value is TabEntry {
@@ -677,14 +684,36 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
       });
     },
     navigateSpace: (message, sendResponse) => {
-      const { direction } = message as { direction: SwipeDirection };
+      const { direction, transition } = message as {
+        direction: SwipeDirection;
+        transition?: SpaceTransitionHandoff | null;
+      };
       if (!direction || (direction !== 'left' && direction !== 'right')) {
         sendResponse({ ok: false, error: 'Valid direction required' });
         return false;
       }
       return respondAsync(async () => {
         try {
-          const success = await deps.navigateSpace(direction);
+          const success = await deps.navigateSpace(direction, { transition });
+          sendResponse({ ok: true, data: success });
+        } catch (error) {
+          sendResponse({ ok: false, error: String(error) });
+        }
+      });
+    },
+    activateSpace: (message, sendResponse) => {
+      const { spaceId, transition } = message as {
+        spaceId?: number;
+        transition?: SpaceTransitionHandoff | null;
+      };
+      if (typeof spaceId !== 'number') {
+        sendResponse({ ok: false, error: 'spaceId is required' });
+        return false;
+      }
+
+      return respondAsync(async () => {
+        try {
+          const success = await deps.activateSpace(spaceId, { transition });
           sendResponse({ ok: true, data: success });
         } catch (error) {
           sendResponse({ ok: false, error: String(error) });

@@ -196,75 +196,80 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
 
         {/* Main Content Area */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto px-3">
-            <div className="space-y-4 pb-4">
-              {/* Content with slide animation */}
-              <SpaceContentView activeSpaceId={activeSpaceId}>
-                {activeSpace ? (
-                  <div className="space-y-3">
-                    {/* Space Header */}
-                    <div className="flex items-center gap-2">
-                      {activeSpace.icon && <span className="text-xl">{activeSpace.icon}</span>}
-                      <h2 className="text-sm font-medium text-white/70">
-                        {activeSpace.name || 'No Space'}
-                      </h2>
-                      <div className="ml-auto">
-                        <MoreMenu
-                          variant={componentVariant}
-                          onOpenSettings={() => setShowSettings(true)}
-                          onOpenArchive={() => setShowArchive(true)}
-                          onOpenBookmarkImport={() => setShowBookmarkImport(true)}
-                        />
+          <div className="flex h-full flex-col" data-arcline-space-transition>
+            <div className="flex-1 min-h-0 overflow-y-auto px-3">
+              <div className="space-y-4 pb-4">
+                {/* Content with slide animation */}
+                <SpaceContentView activeSpaceId={activeSpaceId}>
+                  {activeSpace ? (
+                    <div className="space-y-3">
+                      {/* Space Header */}
+                      <div className="flex items-center gap-2">
+                        {activeSpace.icon && <span className="text-xl">{activeSpace.icon}</span>}
+                        <h2 className="text-sm font-medium text-white/70">
+                          {activeSpace.name || 'No Space'}
+                        </h2>
+                        <div className="ml-auto">
+                          <MoreMenu
+                            variant={componentVariant}
+                            onOpenSettings={() => setShowSettings(true)}
+                            onOpenArchive={() => setShowArchive(true)}
+                            onOpenBookmarkImport={() => setShowBookmarkImport(true)}
+                          />
+                        </div>
                       </div>
+
+                      <EnhancedTabList
+                        tabs={activeSpace.pinnedTabs}
+                        title=""
+                        emptyMessage="No pinned tabs"
+                        variant={componentVariant}
+                        floatingContext={variant === 'floating' ? 'pinned' : undefined}
+                      />
+
+                      {/* Divider with Clear button */}
+                      <div className="relative flex items-center gap-2 py-2">
+                        <div className="flex-1 h-px bg-white/10" />
+                        {visibleTemporaryTabs.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Close all temporary tabs
+                              const tabIds = visibleTemporaryTabs.map((t) => t.id);
+                              chrome.tabs.remove(tabIds);
+                            }}
+                            className="px-2 py-1 text-xs text-white/50 hover:text-white/80 transition-colors"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      <EnhancedTabList
+                        tabs={visibleTemporaryTabs}
+                        title=""
+                        emptyMessage="No temporary tabs"
+                        variant={componentVariant}
+                        floatingContext={variant === 'floating' ? 'temporary' : undefined}
+                      />
                     </div>
-
-                    <EnhancedTabList
-                      tabs={activeSpace.pinnedTabs}
-                      title=""
-                      emptyMessage="No pinned tabs"
-                      variant={componentVariant}
-                      floatingContext={variant === 'floating' ? 'pinned' : undefined}
-                    />
-
-                    {/* Divider with Clear button */}
-                    <div className="relative flex items-center gap-2 py-2">
-                      <div className="flex-1 h-px bg-white/10" />
-                      {visibleTemporaryTabs.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Close all temporary tabs
-                            const tabIds = visibleTemporaryTabs.map((t) => t.id);
-                            chrome.tabs.remove(tabIds);
-                          }}
-                          className="px-2 py-1 text-xs text-white/50 hover:text-white/80 transition-colors"
-                        >
-                          Clear
-                        </button>
-                      )}
+                  ) : (
+                    <div className="px-4 py-8 text-center text-xs text-white/50">
+                      No spaces available. Create a space to get started.
                     </div>
+                  )}
+                </SpaceContentView>
+              </div>
+            </div>
 
-                    <EnhancedTabList
-                      tabs={visibleTemporaryTabs}
-                      title=""
-                      emptyMessage="No temporary tabs"
-                      variant={componentVariant}
-                      floatingContext={variant === 'floating' ? 'temporary' : undefined}
-                    />
-                  </div>
-                ) : (
-                  <div className="px-4 py-8 text-center text-xs text-white/50">
-                    No spaces available. Create a space to get started.
-                  </div>
-                )}
-              </SpaceContentView>
+            <div className="flex-shrink-0 px-3 pb-3 pt-2">
+              <NewTabButton variant={componentVariant} />
             </div>
           </div>
         </div>
 
-        {/* Bottom Section - New Tab Button + Bottom Space Bar */}
-        <div className="flex-shrink-0 px-3 pb-3 space-y-2">
-          <NewTabButton variant={componentVariant} />
+        {/* Bottom Section - Bottom Space Bar */}
+        <div className="flex-shrink-0 px-3 pb-3">
           <BottomSpaceBar
             variant={componentVariant}
             onManageSpaces={() => setShowManageSpaces(true)}

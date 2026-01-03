@@ -41,7 +41,7 @@ import {
   toggleFavorite,
 } from './services/favorites';
 import { initializeGestureDetection, subscribeToSwipe } from './services/gestures';
-import { navigateSpace } from './services/space-navigation';
+import { activateSpace, navigateSpace } from './services/space-navigation';
 
 const LEGACY_UI_MODE_KEY = 'arclineoMode';
 const UI_MODE_KEY = 'arcline.uiMode.current';
@@ -136,12 +136,42 @@ async function configureSidePanelBehavior(enabled: boolean): Promise<void> {
 }
 
 async function closeSidePanel(): Promise<void> {
-  const panel = chrome.sidePanel as { close?: () => Promise<void> } | undefined;
+  const panel = chrome.sidePanel as
+    | { close?: (options?: { windowId?: number }) => Promise<void> }
+    | undefined;
   if (!panel || typeof panel.close !== 'function') {
     return;
   }
 
   try {
+    const windowId =
+      typeof chrome.windows?.getCurrent === 'function'
+        ? await new Promise<number | undefined>((resolve) => {
+            let resolved = false;
+            const maybePromise = chrome.windows.getCurrent((window) => {
+              resolved = true;
+              resolve(typeof window?.id === 'number' ? window.id : undefined);
+            }) as unknown;
+
+            if (
+              !resolved &&
+              maybePromise &&
+              typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
+            ) {
+              (maybePromise as Promise<chrome.windows.Window>)
+                .then((window) => {
+                  resolve(typeof window?.id === 'number' ? window.id : undefined);
+                })
+                .catch(() => resolve(undefined));
+            }
+          })
+        : undefined;
+
+    if (typeof windowId === 'number') {
+      await panel.close({ windowId });
+      return;
+    }
+
     await panel.close();
   } catch (error) {
     console.warn('[Arcline] Failed to close side panel', error);
@@ -249,6 +279,7 @@ export const commandHandlers: Record<string, CommandHandler> = createCommandHand
   reorderFavorites,
   reorderTab,
   navigateSpace,
+  activateSpace,
 });
 
 chrome.runtime.onInstalled.addListener(async () => {

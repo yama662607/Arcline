@@ -1,5 +1,5 @@
 import type { SwipeDirection } from '@/shared/gestures';
-import type { SpaceSnapshot, TabEntry } from '@/shared/types';
+import type { SpaceSnapshot, TabEntry, SpaceTransitionHandoff } from '@/shared/types';
 import { broadcastSpacesSnapshot, getSpacesSnapshot } from './browser';
 
 const UNGROUPED_SPACE_ID = -1;
@@ -7,6 +7,10 @@ const UNGROUPED_SPACE_ID = -1;
 type NavigationTarget = {
   space: SpaceSnapshot;
   tab: TabEntry;
+};
+
+type SpaceTransitionOptions = {
+  transition?: SpaceTransitionHandoff | null;
 };
 
 function containsTab(space: SpaceSnapshot, tabId: number): boolean {
@@ -163,7 +167,11 @@ async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
   }
 }
 
-export async function openFloatingUiOnTab(tabId: number, spaces: SpaceSnapshot[]): Promise<void> {
+export async function openFloatingUiOnTab(
+  tabId: number,
+  spaces: SpaceSnapshot[],
+  options?: SpaceTransitionOptions
+): Promise<void> {
   try {
     // まずスペースデータを送信してReact Queryのキャッシュを更新
     chrome.tabs.sendMessage(tabId, { command: 'spacesSnapshot', spaces }, () => {
@@ -172,8 +180,24 @@ export async function openFloatingUiOnTab(tabId: number, spaces: SpaceSnapshot[]
       }
     });
 
+    const transition = options?.transition;
+    if (transition) {
+      chrome.tabs.sendMessage(tabId, { command: 'spaceTransition', transition }, () => {
+        if (chrome.runtime.lastError) {
+          // Silent fail - content script may not be ready yet
+        }
+      });
+    }
+
     // 少し遅延してからFloating UIを開く（データが先に到着するように）
     setTimeout(() => {
+      if (transition) {
+        chrome.tabs.sendMessage(tabId, { command: 'spaceTransition', transition }, () => {
+          if (chrome.runtime.lastError) {
+            // Silent fail - content script may not be ready yet
+          }
+        });
+      }
       chrome.tabs.sendMessage(tabId, { command: 'openFloatingUiInstantly' }, () => {
         if (chrome.runtime.lastError) {
           // Silent fail - content script may not be ready yet
@@ -185,7 +209,10 @@ export async function openFloatingUiOnTab(tabId: number, spaces: SpaceSnapshot[]
   }
 }
 
-export async function navigateSpace(direction: SwipeDirection): Promise<boolean> {
+export async function navigateSpace(
+  direction: SwipeDirection,
+  options?: SpaceTransitionOptions
+): Promise<boolean> {
   console.log(`[Arcline] navigateSpace called: direction=${direction}`);
   const target = await resolveNavigationTarget(direction);
   if (!target) {
@@ -203,10 +230,44 @@ export async function navigateSpace(direction: SwipeDirection): Promise<boolean>
   const spaces = await getSpacesSnapshot();
 
   // 移動先タブでFloating UIを即座に開く（スペースデータ付き）
-  await openFloatingUiOnTab(target.tab.id, spaces);
+  await openFloatingUiOnTab(target.tab.id, spaces, options);
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(target.space.id);
+
+  return true;
+}
+
+export async function activateSpace(
+  spaceId: number,
+  options?: SpaceTransitionOptions
+): Promise<boolean> {
+  const spaces = await getSpacesSnapshot();
+  const targetSpace = spaces.find((space) => space.id === spaceId);
+  if (!targetSpace) {
+    return false;
+  }
+
+  const activeTab = await resolveActiveTab();
+  const activeTabId = typeof activeTab?.id === 'number' ? activeTab.id : undefined;
+  const targetTab = selectTargetTab(targetSpace, activeTabId);
+  if (!targetTab) {
+    console.warn('[Arcline] No navigable tabs found for target space', targetSpace.id);
+    return false;
+  }
+
+  const activated = await activateTargetTab(targetTab);
+  if (!activated) {
+    return false;
+  }
+
+  await focusWindowIfNeeded(targetTab.windowId);
+
+  const refreshed = await getSpacesSnapshot();
+  await openFloatingUiOnTab(targetTab.id, refreshed, options);
+
+  await broadcastSpacesSafely();
+  await notifyActiveSpaceChange(targetSpace.id);
 
   return true;
 }

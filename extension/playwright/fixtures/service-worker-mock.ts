@@ -246,6 +246,12 @@ export async function addServiceWorkerBridgeMock(
             return handleRemoveSpace(response, message, mockSpaces);
           case 'toggleTabPinned':
             return handleToggleTabPinned(response, message);
+          case 'reorderTab':
+            return handleReorderTab(response, message, mockSpaces);
+          case 'searchHistory':
+            return handleSearchHistory(response);
+          case 'searchBookmarks':
+            return handleSearchBookmarks(response);
           case 'moveTabToSpace':
           case 'closeTab':
           case 'activateTab':
@@ -423,6 +429,99 @@ export async function addServiceWorkerBridgeMock(
 
         togglePinnedAcrossSpaces(mockSpaces, params);
         response.data = true;
+        return response;
+      }
+
+      function handleReorderTab(
+        response: { id?: string; data?: unknown },
+        message: Record<string, unknown>,
+        spaces: MockSpace[]
+      ) {
+        const params = getReorderTabParams(message);
+        if (!params) {
+          response.data = null;
+          return response;
+        }
+
+        const list = getReorderTargetList(spaces, params.spaceId, params.listType);
+        if (!list) {
+          response.data = null;
+          return response;
+        }
+
+        moveTabInList(list, params.tabId, params.newIndex);
+        response.data = null;
+        return response;
+      }
+
+      function getReorderTabParams(message: Record<string, unknown>) {
+        const paramsObj = getParamsObject(message);
+        const tabId = readNumberParam(paramsObj, 'tabId');
+        const spaceId = readNumberParam(paramsObj, 'spaceId');
+        const newIndex = readNumberParam(paramsObj, 'newIndex');
+        const listType = readListType(paramsObj);
+
+        if (tabId === undefined || spaceId === undefined || newIndex === undefined || !listType) {
+          return null;
+        }
+
+        return { tabId, spaceId, newIndex, listType };
+      }
+
+      function getParamsObject(message: Record<string, unknown>) {
+        const params = message.params;
+        return params && typeof params === 'object'
+          ? (params as Record<string, unknown>)
+          : undefined;
+      }
+
+      function readNumberParam(
+        paramsObj: Record<string, unknown> | undefined,
+        key: string
+      ): number | undefined {
+        const value = paramsObj?.[key];
+        return typeof value === 'number' ? value : undefined;
+      }
+
+      function readListType(
+        paramsObj: Record<string, unknown> | undefined
+      ): 'pinned' | 'temporary' | undefined {
+        const value = paramsObj?.listType;
+        if (value === 'pinned' || value === 'temporary') {
+          return value;
+        }
+        return undefined;
+      }
+
+      function getReorderTargetList(
+        spaces: MockSpace[],
+        spaceId: number,
+        listType: 'pinned' | 'temporary'
+      ) {
+        const targetSpace = spaces.find((space) => space.id === spaceId);
+        return targetSpace?.[listType === 'pinned' ? 'pinnedTabs' : 'temporaryTabs'];
+      }
+
+      function moveTabInList(list: MockTab[], tabId: number, newIndex: number) {
+        const currentIndex = list.findIndex((tab) => tab.id === tabId);
+        if (currentIndex === -1) {
+          return;
+        }
+
+        const [tab] = list.splice(currentIndex, 1);
+        if (!tab) return;
+
+        const clampedIndex = Math.max(0, Math.min(newIndex, list.length));
+        list.splice(clampedIndex, 0, tab);
+      }
+
+      function handleSearchHistory(response: { id?: string; data?: unknown }) {
+        response.data = [];
+        return response;
+      }
+
+      function handleSearchBookmarks(response: { id?: string; data?: unknown }) {
+        response.data = [];
         return response;
       }
 

@@ -138,7 +138,7 @@ function AllSpacesPopup({
   );
 }
 
-export function BottomSpaceBar({ onManageSpaces }: BottomSpaceBarProps) {
+export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: BottomSpaceBarProps) {
   const spaces = useSpacesStore((state) => state.spaces);
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
   const favoriteSpaceIds = useSpacesStore((state) => state.favoriteSpaceIds);
@@ -146,6 +146,7 @@ export function BottomSpaceBar({ onManageSpaces }: BottomSpaceBarProps) {
 
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [swipeProgress, setSwipeProgress] = useState(0);
+  const isFloatingVariant = variant === 'floating';
 
   // Listen for swipe progress events
   useEffect(() => {
@@ -207,7 +208,23 @@ export function BottomSpaceBar({ onManageSpaces }: BottomSpaceBarProps) {
               <SpaceBadge
                 space={space}
                 isActive={isActive}
-                onClick={() => setActiveSpace(space.id)}
+                onClick={() => {
+                  if (space.id === activeSpaceId) return;
+                  const targetIndex = spaces.findIndex((s) => s.id === space.id);
+                  const direction =
+                    targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'right' : 'left';
+
+                  if (isFloatingVariant) {
+                    window.dispatchEvent(
+                      new CustomEvent('arcline-space-bar-switch', {
+                        detail: { spaceId: space.id, direction },
+                      })
+                    );
+                    return;
+                  }
+
+                  setActiveSpace(space.id);
+                }}
               />
               {/* Progress indicator on target space */}
               {isTarget && shouldShowProgress && (
@@ -242,7 +259,21 @@ export function BottomSpaceBar({ onManageSpaces }: BottomSpaceBarProps) {
             spaces={spaces}
             activeSpaceId={activeSpaceId}
             onSelectSpace={(spaceId) => {
-              setActiveSpace(spaceId);
+              if (spaceId !== activeSpaceId) {
+                const targetIndex = spaces.findIndex((s) => s.id === spaceId);
+                const direction =
+                  targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'right' : 'left';
+
+                if (isFloatingVariant) {
+                  window.dispatchEvent(
+                    new CustomEvent('arcline-space-bar-switch', {
+                      detail: { spaceId, direction },
+                    })
+                  );
+                } else {
+                  setActiveSpace(spaceId);
+                }
+              }
               setIsPopupOpen(false);
             }}
             onManageSpaces={handleManageSpaces}

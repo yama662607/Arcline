@@ -1,14 +1,51 @@
 import { expect } from '@playwright/test';
 import { test } from '../fixtures';
+import { addServiceWorkerBridgeMock } from '../fixtures/service-worker-mock';
 
 test.describe('Trackpad Gestures', () => {
+  test.beforeEach(async ({ page }) => {
+    await addServiceWorkerBridgeMock(page);
+  });
+
   // biome-ignore lint/correctness/noUnusedFunctionParameters: serviceWorker required by test fixture
   test('should trigger navigateSpace on swipe', async ({ page, serviceWorker }, _testInfo) => {
     // Navigate to a page where content script should load
     await page.goto('https://example.com');
 
     // Wait for content script initialization
-    await page.waitForTimeout(1000);
+    const floatingRoot = page.locator('#arcline-floating-root');
+    await expect(floatingRoot).toBeVisible({ timeout: 10_000 });
+
+    // Open floating UI to ensure transition target exists
+    await page.evaluate(() => {
+      window.postMessage({ type: 'ARCLINE_OPEN_FLOATING_UI' }, '*');
+    });
+
+    const hotzone = page.getByTestId('arcline-floating-hotzone');
+    await expect(hotzone).toBeVisible({ timeout: 10_000 });
+
+    const hotzoneBox = await hotzone.boundingBox();
+    if (!hotzoneBox) {
+      throw new Error('Could not get bounding box for hotzone');
+    }
+
+    await page.mouse.move(
+      hotzoneBox.x + hotzoneBox.width / 2,
+      hotzoneBox.y + hotzoneBox.height / 2
+    );
+
+    const floatingPanel = page.getByTestId('arcline-floating-panel');
+    await expect(floatingPanel).toBeVisible({ timeout: 10_000 });
+
+    const transitionTarget = floatingPanel.locator('[data-arcline-space-transition]');
+    await expect(transitionTarget).toBeVisible({ timeout: 10_000 });
+
+    const targetBox = await transitionTarget.boundingBox();
+    if (!targetBox) {
+      throw new Error('Could not get bounding box for transition target');
+    }
+
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
 
     // Perform Swipe Left (Delta X > 0) -> Should trigger 'right' direction
     await page.mouse.wheel(150, 0);

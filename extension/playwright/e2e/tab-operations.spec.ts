@@ -20,7 +20,9 @@ test.describe('Tab Operations in Popup', () => {
 
     await page.getByRole('button', { name: /Spaces/i }).click();
 
-    await expect(page.getByRole('heading', { name: /Pinned/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /Pinned Tab/i })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test('shows temporary tab section', async ({ page, extensionId }) => {
@@ -28,7 +30,7 @@ test.describe('Tab Operations in Popup', () => {
 
     await page.getByRole('button', { name: /Spaces/i }).click();
 
-    await expect(page.getByRole('heading', { name: /Temporary/i })).toBeVisible({
+    await expect(page.getByRole('button', { name: /Temporary Tab/i })).toBeVisible({
       timeout: 10_000,
     });
   });

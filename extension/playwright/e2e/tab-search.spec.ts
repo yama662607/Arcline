@@ -18,8 +18,8 @@ test.describe('Tab Search (Command Palette)', () => {
 
     await page.reload();
 
-    // Wait for main UI to load - check for Search Bar
-    await expect(page.getByPlaceholder('Search or Enter URL...')).toBeVisible();
+    // Wait for main UI to load - check for Search Bar input
+    await expect(page.getByRole('textbox').first()).toBeVisible();
   });
 
   test('should open command palette with keyboard shortcut (Cmd+K)', async ({ page }) => {
