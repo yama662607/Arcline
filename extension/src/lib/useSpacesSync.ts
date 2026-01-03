@@ -34,6 +34,8 @@ export function useSpacesSync() {
       const { spaceId } = message as ActiveSpaceChangedMessage;
       if (typeof spaceId === 'number') {
         setActiveSpace(spaceId);
+        // Force refresh active tab to ensure UI is in sync
+        queryClient.invalidateQueries({ queryKey: queryKeys.activeTab });
       }
     };
 

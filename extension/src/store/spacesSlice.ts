@@ -12,6 +12,7 @@ interface SpacesState {
   swipeProgress: number; // -1 to 1, 0 = no swipe
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
+  setActiveSpaceFromTabs: (spaces: SpaceSnapshot[]) => void;
   setFavoriteSpaces: (spaceIds: number[]) => void;
   toggleFavoriteSpace: (spaceId: number) => void;
   setSwipeProgress: (progress: number) => void;
@@ -28,12 +29,21 @@ export const useSpacesStore = create<SpacesState>()(
         swipeProgress: 0,
         setSpaces: (spaces) =>
           set((state) => {
-            const hasActive = spaces.some((space) => space.id === state.activeSpaceId);
-            const nextActive = hasActive
-              ? state.activeSpaceId
-              : spaces.length > 0 && spaces[0]
-                ? spaces[0].id
-                : null;
+            // Find space that actually has an active tab right now
+            const spaceWithActiveTab = spaces.find((s) =>
+              [...s.tabs, ...s.pinnedTabs, ...s.temporaryTabs].some((t) => t.active)
+            );
+
+            let nextActive = state.activeSpaceId;
+
+            if (spaceWithActiveTab) {
+              nextActive = spaceWithActiveTab.id;
+            } else {
+              const hasActive = spaces.some((space) => space.id === state.activeSpaceId);
+              if (!hasActive) {
+                nextActive = spaces.length > 0 && spaces[0] ? spaces[0].id : null;
+              }
+            }
 
             return {
               spaces,
@@ -46,6 +56,16 @@ export const useSpacesStore = create<SpacesState>()(
             activeSpaceId: spaceId,
             swipeProgress: 0, // Reset swipe progress on space change
           })),
+        setActiveSpaceFromTabs: (spaces) =>
+          set(() => {
+            const spaceWithActiveTab = spaces.find((s) =>
+              [...s.tabs, ...s.pinnedTabs, ...s.temporaryTabs].some((t) => t.active)
+            );
+            if (spaceWithActiveTab) {
+              return { activeSpaceId: spaceWithActiveTab.id };
+            }
+            return {};
+          }),
         setFavoriteSpaces: (spaceIds) => set({ favoriteSpaceIds: spaceIds }),
         toggleFavoriteSpace: (spaceId) =>
           set((state) => ({
