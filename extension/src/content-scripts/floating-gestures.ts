@@ -635,7 +635,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     if (hostElement) {
       attachedHost = hostElement;
       hostElement.addEventListener('wheel', gestureHandler, { passive: false, capture: true });
-      console.log('[Arcline] Added wheel listener to hostElement for earlier event interception');
+      console.debug('[Arcline] Added wheel listener to hostElement for earlier event interception');
     }
   };
 

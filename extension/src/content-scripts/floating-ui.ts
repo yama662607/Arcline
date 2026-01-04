@@ -760,12 +760,24 @@ function handleRuntimeMessage(message: unknown) {
 
     ensureHost();
     ensureBootstrapHotzone();
-    console.debug('[Arcline][Transition] Initiating Entry Transition with Zero-Frame mask');
     void startFloatingUi({
       instant: payload.instant,
       perfId: perfId,
       t0: t0,
-      initialTransition: true // This is a space transition entry
+      initialTransition: true // Fallback if early warning was missed
+    });
+    return;
+  }
+
+  if (payload.command === 'earlyPreparePageTransition') {
+    const { perfId, t0 } = payload;
+    ensureHost();
+    ensureBootstrapHotzone();
+    console.log('[Arcline][Transition] Received Early Warning signal');
+    void startFloatingUi({
+      initialTransition: true,
+      perfId,
+      t0
     });
     return;
   }

@@ -75,14 +75,14 @@ function injectStyles(shadowRoot: ShadowRoot) {
 }
 
 function showStaticPageMask(shadowRoot: ShadowRoot): () => void {
-  console.debug('[Arcline][Transition] Static mask injected (0ms sync)');
+  console.log('[Arcline][Transition] Static mask injected (0ms sync)');
   const mask = document.createElement('div');
   mask.className = 'arcline-static-page-mask';
   shadowRoot.append(mask);
 
   // Return a cleanup function
   return () => {
-    console.debug('[Arcline][Transition] Static mask cleanup triggered');
+    console.log('[Arcline][Transition] Static mask cleanup triggered');
     mask.style.opacity = '0';
     setTimeout(() => mask.remove(), 150);
   };
@@ -96,8 +96,8 @@ const PageTransitionMask = ({
   mode?: 'entry' | 'exit';
 }) => {
   useEffect(() => {
-    console.debug(`[Arcline][Transition] React ${mode.toUpperCase()} mask mounted`);
-    return () => console.debug(`[Arcline][Transition] React ${mode.toUpperCase()} mask unmounted`);
+    console.log(`[Arcline][Transition] React ${mode.toUpperCase()} mask mounted`);
+    return () => console.log(`[Arcline][Transition] React ${mode.toUpperCase()} mask unmounted`);
   }, [mode]);
 
   return (
