@@ -64,7 +64,7 @@ const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    transition={{ duration: 0.02, ease: 'linear' }}
+    transition={{ duration: 0 }} // Snap to 0 for maximum speed
     onAnimationComplete={(definition) => {
       if (definition === 'exit') {
         onFinished();
@@ -73,8 +73,10 @@ const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
     style={{
       position: 'fixed',
       inset: 0,
-      backgroundColor: 'rgba(2, 6, 23, 0.45)', // Slight darken
-      backdropFilter: 'blur(8px)', // Subtle blur
+      backgroundColor: 'rgba(2, 6, 23, 0.15)', // Very subtle tint
+      backdropFilter: 'blur(4px)', // Reduced blur
+      WebkitMaskImage: 'radial-gradient(circle, transparent 40%, black 100%)', // Clear center
+      maskImage: 'radial-gradient(circle, transparent 40%, black 100%)',
       zIndex: 0, // Lower than the UI panel
       pointerEvents: 'none',
     }}
@@ -175,7 +177,7 @@ const FloatingUiRoot = forwardRef<
       },
       showPageTransition() {
         setShowingTransition(true);
-        setTimeout(() => setShowingTransition(false), 400); // 400ms auto-cleanup
+        setTimeout(() => setShowingTransition(false), 100); // Faster auto-cleanup for 0ms transitions
       },
       destroy() {
         cancelClose();
