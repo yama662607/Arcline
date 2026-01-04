@@ -375,6 +375,9 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
     openCommandPalette() {
       rootRef.current?.openCommandPalette();
     },
+    showPageTransition() {
+      rootRef.current?.showPageTransition();
+    },
     destroy() {
       rootRef.current?.destroy();
       root.unmount();
