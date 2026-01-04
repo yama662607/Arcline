@@ -64,7 +64,7 @@ const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    transition={{ duration: 0.15, ease: 'easeOut' }}
+    transition={{ duration: 0.02, ease: 'linear' }}
     onAnimationComplete={(definition) => {
       if (definition === 'exit') {
         onFinished();
@@ -75,7 +75,7 @@ const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
       inset: 0,
       backgroundColor: 'rgba(2, 6, 23, 0.45)', // Slight darken
       backdropFilter: 'blur(8px)', // Subtle blur
-      zIndex: 2147483647,
+      zIndex: 0, // Lower than the UI panel
       pointerEvents: 'none',
     }}
   />
@@ -226,11 +226,12 @@ const FloatingUiRoot = forwardRef<
           <PageTransitionMask onFinished={() => setShowingTransition(false)} />
         )}
       </AnimatePresence>
-      <div className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch">
+      <div className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch" style={{ zIndex: 10 }}>
         <button
           data-testid="arcline-floating-hotzone"
           type="button"
           className="relative flex w-[8px] flex-col items-center justify-center appearance-none border-none bg-transparent opacity-0 outline-none transition-all focus:outline-none active:scale-95"
+          style={{ zIndex: 11 }}
           onPointerEnter={() => {
             cancelClose();
             setOpen(true);
