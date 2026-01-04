@@ -25,6 +25,7 @@ export interface FloatingUiInstance {
   openFromHover(): void;
   openInstantly(): void;
   openCommandPalette(): void;
+  showPageTransition(): void;
   destroy(): void;
 }
 
@@ -41,6 +42,7 @@ interface FloatingUiHandle {
   openFromHover(): void;
   openInstantly(): void;
   openCommandPalette(): void;
+  showPageTransition(): void;
   destroy(): void;
 }
 
@@ -57,6 +59,28 @@ function injectStyles(shadowRoot: ShadowRoot) {
   shadowRoot.append(style);
 }
 
+const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.15, ease: 'easeOut' }}
+    onAnimationComplete={(definition) => {
+      if (definition === 'exit') {
+        onFinished();
+      }
+    }}
+    style={{
+      position: 'fixed',
+      inset: 0,
+      backgroundColor: 'rgba(2, 6, 23, 0.45)', // Slight darken
+      backdropFilter: 'blur(8px)', // Subtle blur
+      zIndex: 2147483647,
+      pointerEvents: 'none',
+    }}
+  />
+);
+
 const FloatingUiRoot = forwardRef<
   FloatingUiHandle,
   { onBootstrapReady?: () => void; onClosed?: () => void; perfId?: string; t0?: number }
@@ -65,6 +89,7 @@ const FloatingUiRoot = forwardRef<
   const [pinned, setPinned] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [skipAnimation, setSkipAnimation] = useState(false);
+  const [showingTransition, setShowingTransition] = useState(false);
   const closeTimer = useRef<number | null>(null);
 
   const spaces = useSpacesStore((state) => state.spaces);
@@ -148,11 +173,16 @@ const FloatingUiRoot = forwardRef<
       openCommandPalette() {
         setShowPalette(true);
       },
+      showPageTransition() {
+        setShowingTransition(true);
+        setTimeout(() => setShowingTransition(false), 400); // 400ms auto-cleanup
+      },
       destroy() {
         cancelClose();
         setPinned(false);
         setOpen(false);
         setShowPalette(false);
+        setShowingTransition(false);
         onClosed?.();
       },
     }),
@@ -191,6 +221,11 @@ const FloatingUiRoot = forwardRef<
         }}
         onPointerLeave={handlePointerLeave}
       />
+      <AnimatePresence>
+        {showingTransition && (
+          <PageTransitionMask onFinished={() => setShowingTransition(false)} />
+        )}
+      </AnimatePresence>
       <div className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch">
         <button
           data-testid="arcline-floating-hotzone"

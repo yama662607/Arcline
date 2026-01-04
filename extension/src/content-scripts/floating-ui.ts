@@ -90,6 +90,9 @@ const gestureController = createFloatingGestureController({
   getHostElement: () => hostElement,
   ensureHost,
   onNavigateSpace: (direction, options) => sendNavigateSpace(direction, options),
+  onPageTransition: () => {
+    floatingInstance?.showPageTransition();
+  },
 });
 
 function sendNavigateSpace(
@@ -97,6 +100,9 @@ function sendNavigateSpace(
   options?: { mode: 'handoff' | 'flick'; transition?: SpaceTransitionHandoff; perfId?: string; t0?: number }
 ) {
   if (typeof crypto.randomUUID !== 'function') return;
+
+  // If this window is already in a transition-out phase, the mask should already be visible.
+  // We don't necessarily need to call showPageTransition here if it was already called by onPageTransition.
 
   const t1 = Date.now();
   if (options?.perfId) {
@@ -752,7 +758,10 @@ function handleRuntimeMessage(message: unknown) {
 
     ensureHost();
     ensureBootstrapHotzone();
-    void startFloatingUi({ instant: payload.instant, perfId: perfId, t0: t0 });
+    void startFloatingUi({ instant: payload.instant, perfId: perfId, t0: t0 }).then(() => {
+      // Trigger the entry transition mask on the target tab
+      floatingInstance?.showPageTransition();
+    });
     return;
   }
 

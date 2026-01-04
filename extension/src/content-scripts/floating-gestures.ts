@@ -21,6 +21,7 @@ type GestureControllerDeps = {
       t0?: number;
     }
   ) => void;
+  onPageTransition?: () => void;
 };
 
 type SwipeDebugContext = {
@@ -385,6 +386,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     phase = 'committing';
 
     // Trigger navigation immediately for responsiveness
+    deps.onPageTransition?.();
     deps.onNavigateSpace(spaceDirection, { mode: 'flick', perfId, t0 });
 
     const endOffset = uiDirection === 'left' ? -width : width;
@@ -421,6 +423,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     const t0 = Date.now();
     console.log(`[Arcline][Perf][${perfId}] T0: Handoff Committed at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
 
+    deps.onPageTransition?.();
     deps.onNavigateSpace(spaceDirection, { mode: 'handoff', transition, perfId, t0 });
     enterCooldown();
     window.setTimeout(() => {
@@ -667,6 +670,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     }
 
     phase = 'committing';
+    deps.onPageTransition?.();
     const endOffset = direction === 'left' ? -width : width;
     applyTransitionOffset(target, endOffset, {
       animate: true,
