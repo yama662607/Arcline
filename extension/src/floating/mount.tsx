@@ -116,8 +116,8 @@ const PageTransitionMask = ({
       zIndex: 0,
       pointerEvents: 'none',
     }}
-  />
-);
+    );
+};
 
 const FloatingUiRoot = forwardRef<
   FloatingUiHandle,
