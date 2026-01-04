@@ -35,7 +35,6 @@ type SwipeDebugContext = {
   processingTime: number;
 };
 
-const FEEDBACK_ID = 'arcline-swipe-feedback';
 const SCROLL_PROXY_ID = 'arcline-swipe-scroll-proxy';
 const SCROLL_PROXY_INNER_ID = 'arcline-swipe-scroll-proxy-inner';
 const INTENT_LOCK_THRESHOLD = 0;
@@ -146,98 +145,6 @@ function applyTransitionOffset(
   target.style.transform = `translateX(${offsetPx}px)`;
 }
 
-function showFeedback(
-  shadowRoot: ShadowRoot | null,
-  ensureHost: () => void,
-  direction: SwipeDirection
-) {
-  ensureHost();
-  if (!shadowRoot) return;
-  ensureFeedbackStyles(shadowRoot);
-
-  let el = shadowRoot.getElementById(FEEDBACK_ID) as HTMLDivElement | null;
-  if (!el) {
-    el = document.createElement('div');
-    el.id = FEEDBACK_ID;
-    el.className = 'arcline-feedback enter';
-    shadowRoot.append(el);
-  }
-
-  const leftIcon = `<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>`;
-  const rightIcon = `<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>`;
-  const leftLabel = 'Previous Space';
-  const rightLabel = 'Next Space';
-
-  el.innerHTML = `
-    ${direction === 'left' ? leftIcon : rightIcon}
-    <div class="arcline-feedback-label">${direction === 'left' ? leftLabel : rightLabel}</div>
-  `;
-
-  el.classList.remove('show');
-  el.classList.add('enter');
-  void el.offsetWidth;
-  el.classList.add('show');
-  el.classList.remove('enter');
-
-  setTimeout(() => {
-    el?.classList.remove('show');
-  }, 800);
-}
-
-function ensureFeedbackStyles(shadowRoot: ShadowRoot | null) {
-  if (!shadowRoot) return;
-  if (shadowRoot.querySelector('#arcline-feedback-styles')) return;
-
-  const style = document.createElement('style');
-  style.id = 'arcline-feedback-styles';
-  style.textContent = `
-    .arcline-feedback {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 2147483647;
-      opacity: 0;
-      transition: opacity 0.2s ease-out, transform 0.2s ease-out;
-      background: rgba(0, 0, 0, 0.85);
-      border-radius: 16px;
-      padding: 20px 32px;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .arcline-feedback.show {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1.0);
-    }
-    .arcline-feedback.enter {
-      transform: translate(-50%, -50%) scale(0.85);
-    }
-    .arcline-feedback svg {
-      width: 40px;
-      height: 40px;
-      stroke: currentColor;
-      stroke-width: 2.5;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      flex-shrink: 0;
-    }
-    .arcline-feedback-label {
-      font-size: 16px;
-      font-weight: 600;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      white-space: nowrap;
-    }
-  `;
-  shadowRoot.append(style);
-}
 
 type GestureIntent = 'horizontal' | 'vertical' | null;
 
@@ -554,8 +461,6 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       commitCancel(target, context);
       return;
     }
-
-    showFeedback(deps.getShadowRoot(), deps.ensureHost, spaceDirection);
 
     if (decision === 'flick') {
       commitFlick(target, width, context, uiDirection, spaceDirection);
