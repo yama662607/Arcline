@@ -1093,3 +1093,35 @@ if (typeof chrome !== 'undefined' && chrome.tabGroups) {
   chrome.tabGroups.onRemoved?.addListener?.(invalidateSnapshot);
   chrome.tabGroups.onMoved?.addListener?.(invalidateSnapshot);
 }
+/**
+ * ブックマークの数をカウントする（検証用）
+ */
+export async function countBookmarks(): Promise<{ spaces: number; items: number }> {
+  return countArcifyBookmarks();
+}
+
+/**
+ * まだアクティブなスペース（タブグループ）になっていないブックマークフォルダを取得
+ */
+export async function getInactiveSpaces(): Promise<string[]> {
+  const snapshots = await getSpacesSnapshot();
+  const activeSpaceNames = new Set(snapshots.map((s) => s.name));
+
+  const bookmarkSpaces = await restoreSpacesFromBookmarks();
+  return bookmarkSpaces
+    .map((s) => s.spaceName)
+    .filter((name) => !activeSpaceNames.has(name) && name !== 'Ungrouped');
+}
+
+/**
+ * ブックマークフォルダからスペースを復元する
+ */
+export async function restoreSpaceByFolderName(folderName: string): Promise<number> {
+  // 新しいスペースを作成（名前をフォルダ名に合わせる）
+  const groupId = await createSpace(folderName);
+  // 作成したスペースに対してブックマークを同期
+  // createSpace内部で既に getPinnedItemsForSpace が呼ばれるはずなので、
+  // Snapshotを再取得してブロードキャストするだけでよい
+  await broadcastSpacesSnapshot();
+  return groupId;
+}

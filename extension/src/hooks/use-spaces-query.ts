@@ -500,3 +500,39 @@ export function useOpenUrlInTab() {
     },
   });
 }
+
+export function useInactiveSpaces() {
+  const bridge = useServiceWorkerBridge();
+
+  return useQuery({
+    queryKey: ['inactiveSpaces'],
+    queryFn: () => bridge?.getInactiveSpaces(),
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useRestoreSpaceByFolderName() {
+  const bridge = useServiceWorkerBridge();
+  const queryClient = useQueryClient();
+
+  return useMutation<number, Error, string>({
+    mutationFn: async (folderName: string) => {
+      if (!bridge) throw new Error('Service Worker bridge not available');
+      return await bridge.restoreSpaceByFolderName(folderName);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spacesSnapshot });
+      queryClient.invalidateQueries({ queryKey: ['inactiveSpaces'] });
+    },
+  });
+}
+
+export function useBookmarkCount() {
+  const bridge = useServiceWorkerBridge();
+
+  return useQuery({
+    queryKey: ['bookmarkCount'],
+    queryFn: () => bridge?.countBookmarks(),
+    staleTime: 1000 * 60,
+  });
+}

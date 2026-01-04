@@ -16,8 +16,16 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useState } from 'react';
+import { Loader2, RefreshCw } from 'lucide-react';
 
-import { useCreateSpace, useRemoveSpace, useUpdateSpace } from '@/hooks/use-spaces-query';
+import {
+  useBookmarkCount,
+  useCreateSpace,
+  useInactiveSpaces,
+  useRemoveSpace,
+  useRestoreSpaceByFolderName,
+  useUpdateSpace,
+} from '@/hooks/use-spaces-query';
 import { getSpaceDisplayIcon, getSpaceTheme, SPACE_ICONS } from '@/lib/space-theme';
 import type { SpaceColor, SpaceSnapshot } from '@/shared/types';
 import { useSpacesStore } from '@/store/spacesSlice';
@@ -297,6 +305,10 @@ export function SpaceManagementModal({ isOpen, onClose }: SpaceManagementModalPr
   const removeSpaceMutation = useRemoveSpace();
   const updateSpaceMutation = useUpdateSpace();
 
+  const { data: inactiveSpaces, isLoading: inactiveSpacesLoading, refetch: refetchInactive } = useInactiveSpaces();
+  const restoreSpaceMutation = useRestoreSpaceByFolderName();
+  const { data: bookmarkCount, refetch: refetchCount } = useBookmarkCount();
+
   // Update ordered spaces when spaces change
   if (spaces !== orderedSpaces && !isOpen) {
     setOrderedSpaces(spaces);
@@ -515,6 +527,69 @@ export function SpaceManagementModal({ isOpen, onClose }: SpaceManagementModalPr
                     </svg>
                     Create New Space
                   </button>
+                )}
+              </div>
+
+              {/* Restore from Bookmarks section */}
+              <div className="mt-8 border-t border-white/10 pt-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-slate-300">Available to Restore</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      refetchInactive();
+                      refetchCount();
+                    }}
+                    className="text-slate-500 hover:text-white transition-colors"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {inactiveSpacesLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+                    </div>
+                  ) : inactiveSpaces && inactiveSpaces.length > 0 ? (
+                    inactiveSpaces.map((folderName) => (
+                      <div
+                        key={folderName}
+                        className="flex items-center justify-between rounded-lg border border-white/5 bg-black/10 p-3"
+                      >
+                        <span className="text-sm text-slate-300">{folderName}</span>
+                        <button
+                          type="button"
+                          onClick={() => restoreSpaceMutation.mutate(folderName)}
+                          disabled={restoreSpaceMutation.isPending}
+                          className="rounded bg-white/10 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-50"
+                        >
+                          {restoreSpaceMutation.isPending ? 'Restoring...' : 'Restore'}
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center text-xs text-slate-500 py-4">
+                      No inactive spaces found in bookmarks.
+                    </p>
+                  )}
+                </div>
+
+                {/* Bookmark Verification Count */}
+                {bookmarkCount && (
+                  <div className="mt-4 rounded bg-slate-800/50 p-3 border border-white/5">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">
+                      Import Verification
+                    </p>
+                    <div className="flex justify-between text-xs text-slate-400">
+                      <span>Total Imported Items:</span>
+                      <span className="font-mono text-white">{bookmarkCount.items}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-400">
+                      <span>Space Folders:</span>
+                      <span className="font-mono text-white">{bookmarkCount.spaces}</span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

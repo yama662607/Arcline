@@ -170,7 +170,7 @@ export async function syncSpaceToBookmarks(spaceName: string, tabs: TabEntry[]):
 }
 
 /**
- * ブックマークからスペースを復元する
+ * ブックマークからスペースを復元する（すべてのスペースフォルダを検出）
  */
 export async function restoreSpacesFromBookmarks(): Promise<SpaceBookmarkData[]> {
   try {
@@ -180,6 +180,7 @@ export async function restoreSpacesFromBookmarks(): Promise<SpaceBookmarkData[]>
     const spacesData: SpaceBookmarkData[] = [];
 
     for (const spaceFolder of spaceFolders) {
+      // フォルダも再帰的に取得できるようにgetPinnedItemsForSpaceを使用することを検討
       const bookmarks = await chrome.bookmarks.getChildren(spaceFolder.id);
 
       spacesData.push({
@@ -189,11 +190,46 @@ export async function restoreSpacesFromBookmarks(): Promise<SpaceBookmarkData[]>
       });
     }
 
-    console.error(`[Arcline] Restored ${spacesData.length} spaces from bookmarks`);
+    console.log(`[Arcline] Found ${spacesData.length} space folders in bookmarks`);
     return spacesData;
   } catch (error) {
     console.error('[Arcline] Failed to restore spaces from bookmarks:', error);
     throw error;
+  }
+}
+
+/**
+ * Arcline内のブックマークを合計カウントする（検証用）
+ */
+export async function countArcifyBookmarks(): Promise<{ spaces: number; items: number }> {
+  try {
+    const arclineFolder = await getOrCreateArcifyFolder();
+    const spaceFolders = await chrome.bookmarks.getChildren(arclineFolder.id);
+
+    let totalItems = 0;
+
+    async function countRecursive(nodeId: string) {
+      const children = await chrome.bookmarks.getChildren(nodeId);
+      for (const child of children) {
+        if (child.url) {
+          totalItems++;
+        } else {
+          await countRecursive(child.id);
+        }
+      }
+    }
+
+    for (const folder of spaceFolders) {
+      await countRecursive(folder.id);
+    }
+
+    return {
+      spaces: spaceFolders.length,
+      items: totalItems,
+    };
+  } catch (error) {
+    console.error('[Arcline] Failed to count bookmarks:', error);
+    return { spaces: 0, items: 0 };
   }
 }
 
