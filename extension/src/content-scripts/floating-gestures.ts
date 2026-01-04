@@ -44,7 +44,7 @@ const STOPPED_RELEASE_WINDOW_MS = 50;
 const RELEASE_IDLE_MS = 100;
 const SCROLLEND_IDLE_MS = 180;
 const VELOCITY_EMA_ALPHA = 0.4;
-const FLICK_ANIMATION_MS = 160;
+const FLICK_ANIMATION_MS = 100;
 const RESET_ANIMATION_MS = 140;
 const HANDOFF_ANIMATION_MS = 160;
 const COOLDOWN_MS = 220;
@@ -467,6 +467,10 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
   ) => {
     reportSwipeDebug(context, 'commit-flick', true, totalDeltaX);
     phase = 'committing';
+
+    // Trigger navigation immediately for responsiveness
+    deps.onNavigateSpace(spaceDirection, { mode: 'flick' });
+
     const endOffset = uiDirection === 'left' ? -width : width;
     applyTransitionOffset(target, endOffset, {
       animate: true,
@@ -478,7 +482,6 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       dispatchSwipeProgress(0);
       resetGesture();
       enterCooldown();
-      deps.onNavigateSpace(spaceDirection, { mode: 'flick' });
     }, FLICK_ANIMATION_MS);
   };
 
@@ -564,7 +567,8 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
 
     // Smooth velocity using EMA
     const instantVelocityX = scaledDeltaX / dt;
-    lastVelocityX = lastVelocityX * (1 - VELOCITY_EMA_ALPHA) + instantVelocityX * VELOCITY_EMA_ALPHA;
+    lastVelocityX =
+      lastVelocityX * (1 - VELOCITY_EMA_ALPHA) + instantVelocityX * VELOCITY_EMA_ALPHA;
 
     if (Math.abs(scaledDeltaX) >= NOISE_THRESHOLD) {
       lastMovementTime = now;
@@ -642,12 +646,20 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
   };
 
   const handleWheel = (e: WheelEvent) => {
-    const startTime = performance.now();
+    // Optimization: Early return for common cases to avoid heavy debug context generation
+    if (!gesturesEnabled) return;
+
     const shadowRoot = deps.getShadowRoot();
+    if (!shadowRoot) return;
+
+    const target = getTransitionTarget(shadowRoot);
+    if (!target) return; // 'no-target'
+
+    // Only build debug context (expensive due to composedPath) if we might actually process the swipe
+    const startTime = performance.now();
     const context = buildSwipeDebugContext(e, startTime, shadowRoot);
     context.currentDelta = totalDeltaX;
 
-    const target = getTransitionTarget(shadowRoot);
     const skipReason = getSkipReason(context, target);
     if (skipReason) {
       reportSwipeDebug(context, skipReason, false);

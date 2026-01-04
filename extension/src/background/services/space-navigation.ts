@@ -2,15 +2,12 @@ import type { SwipeDirection } from '@/shared/gestures';
 import type { SpaceSnapshot, TabEntry, SpaceTransitionHandoff } from '@/shared/types';
 import { broadcastSpacesSnapshot, getSpacesSnapshot } from './browser';
 
-const UNGROUPED_SPACE_ID = -1;
+import { openFloatingUiOnTab, type SpaceTransitionOptions } from './ui-messaging';
 
 type NavigationTarget = {
   space: SpaceSnapshot;
   tab: TabEntry;
-};
-
-type SpaceTransitionOptions = {
-  transition?: SpaceTransitionHandoff | null;
+  allSpaces: SpaceSnapshot[];
 };
 
 function containsTab(space: SpaceSnapshot, tabId: number): boolean {
@@ -126,7 +123,7 @@ async function resolveNavigationTarget(
     return null;
   }
 
-  return { space: targetSpace, tab: targetTab };
+  return { space: targetSpace, tab: targetTab, allSpaces: spaces };
 }
 
 async function activateTargetTab(tab: TabEntry): Promise<boolean> {
@@ -167,47 +164,6 @@ async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
   }
 }
 
-export async function openFloatingUiOnTab(
-  tabId: number,
-  spaces: SpaceSnapshot[],
-  options?: SpaceTransitionOptions
-): Promise<void> {
-  try {
-    // まずスペースデータを送信してReact Queryのキャッシュを更新
-    chrome.tabs.sendMessage(tabId, { command: 'spacesSnapshot', spaces }, () => {
-      if (chrome.runtime.lastError) {
-        // Silent fail
-      }
-    });
-
-    const transition = options?.transition;
-    if (transition) {
-      chrome.tabs.sendMessage(tabId, { command: 'spaceTransition', transition }, () => {
-        if (chrome.runtime.lastError) {
-          // Silent fail - content script may not be ready yet
-        }
-      });
-    }
-
-    // 少し遅延してからFloating UIを開く（データが先に到着するように）
-    setTimeout(() => {
-      if (transition) {
-        chrome.tabs.sendMessage(tabId, { command: 'spaceTransition', transition }, () => {
-          if (chrome.runtime.lastError) {
-            // Silent fail - content script may not be ready yet
-          }
-        });
-      }
-      chrome.tabs.sendMessage(tabId, { command: 'openFloatingUiInstantly' }, () => {
-        if (chrome.runtime.lastError) {
-          // Silent fail - content script may not be ready yet
-        }
-      });
-    }, 50);
-  } catch {
-    // Silent fail
-  }
-}
 
 export async function navigateSpace(
   direction: SwipeDirection,
@@ -219,18 +175,31 @@ export async function navigateSpace(
     return false;
   }
 
-  const activated = await activateTargetTab(target.tab);
-  if (!activated) {
-    return false;
+  // Reuse spaces from resolveNavigationTarget instead of fetching again
+  const spaces = target.allSpaces;
+
+  // Optimistically update active state in the snapshot
+  // This is faster than re-fetching and ensures the UI feels responsive
+  // We do this BEFORE activating the tab so the UI receives the "future" state immediately
+  for (const space of spaces) {
+    const lists: TabEntry[][] = [space.tabs, space.temporaryTabs, space.pinnedTabs];
+    for (const list of lists) {
+      for (const tab of list) {
+        tab.active = tab.id === target.tab.id;
+      }
+    }
   }
 
+  // Send UI update message FIRST (before tab switch) to mask latency
+  // The content script will update the cache and prepare the UI while the browser is switching tabs
+  const openUiPromise = openFloatingUiOnTab(target.tab.id, spaces, options);
+
+  // Activate the tab (this is the visual bottleneck)
+  await activateTargetTab(target.tab);
   await focusWindowIfNeeded(target.tab.windowId);
 
-  // スペースデータを取得して移動先タブに送信
-  const spaces = await getSpacesSnapshot();
-
-  // 移動先タブでFloating UIを即座に開く（スペースデータ付き）
-  await openFloatingUiOnTab(target.tab.id, spaces, options);
+  // Ensure message was sent (though likely it finished long before activation)
+  await openUiPromise;
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(target.space.id);

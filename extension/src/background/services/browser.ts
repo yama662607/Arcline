@@ -19,7 +19,7 @@ import {
   removePinnedItem,
   updatePinnedItem,
 } from './bookmarks';
-import { openFloatingUiOnTab } from './space-navigation';
+import { openFloatingUiOnTab } from './ui-messaging';
 import type { SpaceState } from './spaces';
 import { deriveSpaceStateFromSnapshots, loadSpaceState, saveSpaceState } from './spaces';
 
@@ -382,6 +382,10 @@ async function updateTabMembershipInState(
 
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
   try {
+    if (cachedSnapshot) {
+      return cachedSnapshot;
+    }
+
     const { tabGroups, allTabs } = await queryChromeState();
     const timestamp = Date.now();
     const { groupMap, ungrouped } = initializeSpaceSnapshots(tabGroups, timestamp);
@@ -410,6 +414,9 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
     const state = deriveSpaceStateFromSnapshots(snapshots);
     await saveSpaceState(state);
 
+    await saveSpaceState(state);
+
+    cachedSnapshot = snapshots;
     return snapshots;
   } catch (error) {
     console.warn('Failed to load spaces snapshot', error);
@@ -1016,3 +1023,47 @@ export {
   removePinnedItem,
   updatePinnedItem,
 };
+
+// Caching infrastructure
+let cachedSnapshot: SpaceSnapshot[] | null = null;
+let snapshotInvalidationTimer: ReturnType<typeof setTimeout> | null = null;
+
+function invalidateSnapshot() {
+  if (snapshotInvalidationTimer) {
+    clearTimeout(snapshotInvalidationTimer);
+  }
+
+  // Use a small debounce to batch rapid changes (e.g. "Close Other Tabs")
+  snapshotInvalidationTimer = setTimeout(() => {
+    cachedSnapshot = null;
+    void broadcastSpacesSnapshot();
+    snapshotInvalidationTimer = null;
+  }, 50);
+}
+
+// Setup listeners for cache invalidation
+if (typeof chrome !== 'undefined' && chrome.tabs) {
+  chrome.tabs.onCreated.addListener(invalidateSnapshot);
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+    // Only invalidate if relevant properties change
+    if (
+      changeInfo.status === 'loading' ||
+      changeInfo.title ||
+      changeInfo.favIconUrl ||
+      changeInfo.pinned
+    ) {
+      invalidateSnapshot();
+    }
+  });
+  chrome.tabs.onRemoved.addListener(invalidateSnapshot);
+  chrome.tabs.onMoved.addListener(invalidateSnapshot);
+  chrome.tabs.onAttached.addListener(invalidateSnapshot);
+  chrome.tabs.onDetached.addListener(invalidateSnapshot);
+}
+
+if (typeof chrome !== 'undefined' && chrome.tabGroups) {
+  chrome.tabGroups.onCreated.addListener(invalidateSnapshot);
+  chrome.tabGroups.onUpdated.addListener(invalidateSnapshot);
+  chrome.tabGroups.onRemoved.addListener(invalidateSnapshot);
+  chrome.tabGroups.onMoved.addListener(invalidateSnapshot);
+}

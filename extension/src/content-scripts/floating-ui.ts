@@ -631,13 +631,34 @@ function applyUiMode(mode: UiMode) {
   }
 }
 
+import { getServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
+
 function handleRuntimeMessage(message: unknown) {
   if (typeof message !== 'object' || message === null) return;
   const payload = message as {
     command?: string;
     mode?: UiMode;
     transition?: SpaceTransitionHandoff;
+    spaces?: SpaceSnapshot[];
+    instant?: boolean;
   };
+
+  if (payload.command === 'openFloatingUiWithData') {
+    if (payload.spaces) {
+      // Pre-populate cache directly to avoid query delay
+      getServiceWorkerBridge().updateSpacesCache(payload.spaces);
+    }
+    if (payload.transition) {
+      pendingTransition = payload.transition;
+      scheduleTransitionApply();
+    }
+
+    ensureHost();
+    ensureBootstrapHotzone();
+    void startFloatingUi({ instant: payload.instant });
+    return;
+  }
+
   if (payload.command === 'currentUiMode' && payload.mode) {
     applyUiMode(payload.mode);
     return;

@@ -8,7 +8,6 @@ interface SpaceContentViewProps {
   renderContent: (spaceId: number | null, options: { isActive: boolean }) => React.ReactNode;
 }
 
-type PaneOrder = [number | null, number | null];
 
 export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentViewProps) {
   const spaces = useSpacesStore((state) => state.spaces);
@@ -16,6 +15,15 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
   const lastSwipeDirectionRef = useRef(0);
   const lastSwipeAtRef = useRef(0);
   const [previewSpaceId, setPreviewSpaceId] = useState<number | null>(null);
+
+  const spacesRef = useRef(spaces);
+  const activeSpaceIdRef = useRef(activeSpaceId);
+
+  // Keep refs updated
+  useEffect(() => {
+    spacesRef.current = spaces;
+    activeSpaceIdRef.current = activeSpaceId;
+  }, [spaces, activeSpaceId]);
 
   useEffect(() => {
     const handleSwipeProgress = (event: Event) => {
@@ -31,13 +39,16 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
       lastSwipeDirectionRef.current = navDirection;
       lastSwipeAtRef.current = performance.now();
 
-      const currentIndex = spaces.findIndex((space) => space.id === activeSpaceId);
-      if (currentIndex === -1 || spaces.length < 2) {
+      const currentSpaces = spacesRef.current;
+      const currentActiveId = activeSpaceIdRef.current;
+
+      const currentIndex = currentSpaces.findIndex((space) => space.id === currentActiveId);
+      if (currentIndex === -1 || currentSpaces.length < 2) {
         setPreviewSpaceId(null);
         return;
       }
-      const nextIndex = (currentIndex + navDirection + spaces.length) % spaces.length;
-      const nextSpace = spaces[nextIndex];
+      const nextIndex = (currentIndex + navDirection + currentSpaces.length) % currentSpaces.length;
+      const nextSpace = currentSpaces[nextIndex];
       setPreviewSpaceId(nextSpace?.id ?? null);
     };
 
@@ -55,7 +66,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
       window.removeEventListener('arcline-swipe-progress', handleSwipeProgress);
       window.removeEventListener('arcline-space-bar-switch', handleSpaceBarSwitch);
     };
-  }, [spaces, activeSpaceId]);
+  }, []); // Empty dependency array -> run once
 
   const transitionDirection = useMemo(() => {
     if (previousSpaceId === null || activeSpaceId === null) return 0;
@@ -89,7 +100,10 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
     const previewOffset = isForward ? 100 : -100;
 
     return (
-      <div data-arcline-space-transition className="grid grid-cols-1 h-full w-full overflow-visible">
+      <div
+        data-arcline-space-transition
+        className="grid grid-cols-1 h-full w-full overflow-visible"
+      >
         {renderPanel(activeSpaceId, true, 0)}
         {renderPanel(previewSpaceId, false, previewOffset)}
       </div>
@@ -143,10 +157,11 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
     );
   };
 
-  const showTransition = previousSpaceId !== null &&
-                       activeSpaceId !== null &&
-                       previousSpaceId !== activeSpaceId &&
-                       transitionDirection !== 0;
+  const showTransition =
+    previousSpaceId !== null &&
+    activeSpaceId !== null &&
+    previousSpaceId !== activeSpaceId &&
+    transitionDirection !== 0;
 
   return (
     <div id="arcline-space-content-viewport" className="h-full w-full overflow-hidden">
