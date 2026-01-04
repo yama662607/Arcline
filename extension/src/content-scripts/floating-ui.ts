@@ -459,22 +459,13 @@ function updateEdgeDetectionStateForX(x: number) {
 }
 
 async function prewarmFloatingUi() {
-  if (mountPromise || floatingInstance) {
-    console.debug('[Arcline] Prewarm skipped: Module already loaded or loading.');
-    return;
-  }
-  console.debug('[Arcline] 🔥 Starting prewarmFloatingUi (Dynamic Import)...');
-  const tStart = Date.now();
+  if (mountPromise || floatingInstance) return;
 
   // Start loading the heavy mount module ahead of time
   mountPromise = import('../floating/mount').catch((error) => {
     console.warn('[Arcline] Failed to pre-warm floating UI', error);
     mountPromise = null;
     return null;
-  });
-
-  mountPromise.then(() => {
-    console.debug(`[Arcline] ✅ Prewarm finished in ${Date.now() - tStart}ms`);
   });
 }
 
@@ -789,7 +780,6 @@ function handleRuntimeMessage(message: unknown) {
   }
 
   if (payload.command === 'preloadFloatingUi') {
-    console.log('[Arcline] 📥 Received preloadFloatingUi command');
     void prewarmFloatingUi();
   }
 
