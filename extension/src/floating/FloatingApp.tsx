@@ -10,6 +10,7 @@ import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { HeaderMenu } from '@/ui/components/HeaderMenu';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpacesWorkspace } from '@/ui/components/SpacesWorkspace';
+import { usePortalContainer } from '@/ui/contexts/PortalContext';
 
 interface FloatingAppProps {
   pinned: boolean;
@@ -29,6 +30,13 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
 
   const [showSettings, setShowSettings] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const setIsModalOpen = useSpacesStore((state) => state.setIsModalOpen);
+  const portalContainer = usePortalContainer();
+
+  useMemo(() => {
+    // Sync modal state to store
+    setIsModalOpen(showSettings || showArchive);
+  }, [showSettings, showArchive, setIsModalOpen]);
 
   const spaceTheme = getSpaceTheme(activeSpace?.themeColor);
 
@@ -86,7 +94,7 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
       {/* Settings Modal */}
       {showSettings && (
         <Dialog.Root open={showSettings} onOpenChange={setShowSettings}>
-          <Dialog.Portal>
+          <Dialog.Portal container={portalContainer}>
             <Dialog.Overlay className="fixed inset-0 bg-black/50" />
             <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-xl">
               <SettingsPanel variant="floating" />
@@ -98,7 +106,7 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
       {/* Archive Modal */}
       {showArchive && (
         <Dialog.Root open={showArchive} onOpenChange={setShowArchive}>
-          <Dialog.Portal>
+          <Dialog.Portal container={portalContainer}>
             <Dialog.Overlay className="fixed inset-0 bg-black/50" />
             <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-xl">
               <ArchiveManager variant="floating" />

@@ -1,5 +1,6 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Archive, BookmarkPlus, MoreHorizontal, Settings } from 'lucide-react';
+import { usePortalContainer } from '@/ui/contexts/PortalContext';
 
 interface MoreMenuProps {
   onOpenSettings: () => void;
@@ -32,7 +33,7 @@ export function MoreMenu({
           <MoreHorizontal className={isFloating ? 'h-4 w-4' : 'h-5 w-5'} />
         </button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
+      <DropdownMenu.Portal container={usePortalContainer()}>
         <DropdownMenu.Content
           className="min-w-[200px] rounded-lg border border-white/10 bg-slate-900/95 p-1.5 text-sm text-slate-200 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
           sideOffset={5}

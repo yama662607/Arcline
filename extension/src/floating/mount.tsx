@@ -15,6 +15,7 @@ import { queryClient } from '@/lib/query-client';
 import { getSpaceTheme } from '@/lib/space-theme';
 import { useSpacesStore } from '@/store';
 import type { SpaceSnapshot } from '@/shared/types';
+import { PortalProvider } from '@/ui/contexts/PortalContext';
 import stylesText from '@/styles.css?inline';
 
 import FloatingApp from './FloatingApp';
@@ -106,15 +107,17 @@ const FloatingUiRoot = forwardRef<
     }
   }, []);
 
+  const isModalOpen = useSpacesStore((state) => state.isModalOpen);
+
   const scheduleClose = useCallback(() => {
-    if (pinned) return;
+    if (pinned || isModalOpen) return;
     clearCloseTimer();
     closeTimer.current = window.setTimeout(() => {
       setOpen(false);
       // Re-enable hostElement pointer events when UI closes
       onClosed?.();
     }, 220);
-  }, [clearCloseTimer, onClosed, pinned]);
+  }, [clearCloseTimer, onClosed, pinned, isModalOpen]);
 
   const cancelClose = useCallback(() => {
     clearCloseTimer();
@@ -346,14 +349,20 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
       `[Arcline][Perf][${perfId}] T8: React root.render() called at ${new Date(t8).toISOString().split('T')[1]}`
     );
 
+  const portalContainer = document.createElement('div');
+  portalContainer.setAttribute('data-arcline-portal-container', 'true');
+  shadowRoot.append(portalContainer);
+
   root.render(
-    <FloatingUiRoot
-      ref={rootRef}
-      onBootstrapReady={onBootstrapReady}
-      onClosed={onClosed}
-      perfId={perfId}
-      t0={t0}
-    />
+    <PortalProvider container={portalContainer}>
+      <FloatingUiRoot
+        ref={rootRef}
+        onBootstrapReady={onBootstrapReady}
+        onClosed={onClosed}
+        perfId={perfId}
+        t0={t0}
+      />
+    </PortalProvider>
   );
 
   return {

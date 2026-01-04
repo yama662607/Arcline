@@ -1,4 +1,5 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { usePortalContainer } from '@/ui/contexts/PortalContext';
 
 interface HeaderMenuProps {
   onOpenSettings: () => void;
@@ -26,7 +27,7 @@ export function HeaderMenu({ onOpenSettings, onOpenArchive }: HeaderMenuProps) {
         </svg>
       </DropdownMenu.Trigger>
 
-      <DropdownMenu.Portal>
+      <DropdownMenu.Portal container={usePortalContainer()}>
         <DropdownMenu.Content
           className="glass-menu min-w-[160px] rounded-lg border border-white/10 bg-black/30 p-1 shadow-lg backdrop-blur-md"
           sideOffset={5}

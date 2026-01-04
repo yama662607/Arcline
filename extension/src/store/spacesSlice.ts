@@ -10,12 +10,14 @@ interface SpacesState {
   previousSpaceId: number | null;
   favoriteSpaceIds: number[];
   swipeProgress: number; // -1 to 1, 0 = no swipe
+  isModalOpen: boolean;
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
   setActiveSpaceFromTabs: (spaces: SpaceSnapshot[]) => void;
   setFavoriteSpaces: (spaceIds: number[]) => void;
   toggleFavoriteSpace: (spaceId: number) => void;
   setSwipeProgress: (progress: number) => void;
+  setIsModalOpen: (open: boolean) => void;
 }
 
 export const useSpacesStore = create<SpacesState>()(
@@ -27,6 +29,7 @@ export const useSpacesStore = create<SpacesState>()(
         previousSpaceId: null,
         favoriteSpaceIds: [],
         swipeProgress: 0,
+        isModalOpen: false,
         setSpaces: (spaces) =>
           set((state) => {
             // Find space that actually has an active tab right now
@@ -74,6 +77,7 @@ export const useSpacesStore = create<SpacesState>()(
               : [...state.favoriteSpaceIds, spaceId],
           })),
         setSwipeProgress: (progress) => set({ swipeProgress: progress }),
+        setIsModalOpen: (open) => set({ isModalOpen: open }),
       }),
       {
         name: 'arcline-spaces',

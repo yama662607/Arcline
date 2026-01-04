@@ -10,19 +10,23 @@ import {
 } from '@dnd-kit/core';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 
+import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
 import {
   useAddToFavorites,
   useFavorites,
   useReorderTab,
+  useSettings,
   useToggleTabPinned,
 } from '@/hooks/use-spaces-query';
 import { getSpaceTheme } from '@/lib/space-theme';
+import type { ImportedBookmark, ImportResult } from '@/lib/bookmark-import';
 import type { SpaceSnapshot, TabEntry } from '@/shared/types';
 import { useSpacesStore } from '@/store';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { BookmarkImport } from '@/ui/components/BookmarkImport';
+import { BookmarkImportPreview } from '@/ui/components/BookmarkImportPreview';
 import { BottomSpaceBar } from '@/ui/components/BottomSpaceBar';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
 import { FavoritesBar } from '@/ui/components/FavoritesBar';
@@ -33,6 +37,7 @@ import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceContentView } from '@/ui/components/SpaceContentView';
 import { SpaceManagementModal } from '@/ui/components/SpaceManagementModal';
 import { TabRow } from '@/ui/components/TabRow';
+import { usePortalContainer } from '@/ui/contexts/PortalContext';
 
 interface SpacesWorkspaceProps {
   variant: 'sidepanel' | 'floating';
@@ -44,6 +49,82 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showBookmarkImport, setShowBookmarkImport] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+
+  const { data: settings } = useSettings();
+  const bridge = useServiceWorkerBridge();
+
+  const setIsModalOpen = useSpacesStore((state) => state.setIsModalOpen);
+
+  useEffect(() => {
+    // Sync modal state to store
+    setIsModalOpen(
+      showManageSpaces || showSettings || showArchive || showBookmarkImport || !!importResult
+    );
+  }, [
+    showManageSpaces,
+    showSettings,
+    showArchive,
+    showBookmarkImport,
+    importResult,
+    setIsModalOpen,
+  ]);
+
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: recursive import logic
+  const handleImportConfirm = async (selectedBookmarks: ImportedBookmark[]) => {
+    if (!bridge) return;
+
+    try {
+      let importedCount = 0;
+
+      const importBookmark = async (
+        bookmark: ImportedBookmark,
+        spaceName: string,
+        parentId?: string
+      ) => {
+        if (bookmark.isFolder) {
+          const folder = await bridge.createPinnedFolder(spaceName, bookmark.title, parentId);
+          if (bookmark.children) {
+            for (const child of bookmark.children) {
+              await importBookmark(child, spaceName, folder.id);
+            }
+          }
+        } else if (bookmark.url) {
+          await bridge.createPinnedTab(
+            spaceName,
+            bookmark.title,
+            bookmark.url,
+            undefined,
+            parentId
+          );
+          importedCount++;
+        }
+      };
+
+      const defaultSpaceName = settings?.defaultSpaceName || 'Home';
+
+      for (const bookmark of selectedBookmarks) {
+        if (bookmark.isFolder) {
+          const spaceName = bookmark.title || defaultSpaceName;
+          if (bookmark.children) {
+            for (const child of bookmark.children) {
+              await importBookmark(child, spaceName);
+            }
+          }
+        } else if (bookmark.url) {
+          await bridge.createPinnedTab(defaultSpaceName, bookmark.title, bookmark.url);
+          importedCount++;
+        }
+      }
+
+      setImportResult(null);
+      setImportSuccess(`Successfully imported ${importedCount} bookmarks into spaces!`);
+    } catch (error) {
+      console.error('Failed to import bookmarks:', error);
+      setImportSuccess(null);
+    }
+  };
 
   const { mutate: reorderTab } = useReorderTab();
   const { mutate: toggleTabPinned } = useToggleTabPinned();
@@ -57,6 +138,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
     })
   );
 
+  const portalContainer = usePortalContainer();
   const spaces = useSpacesStore((state) => state.spaces);
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
   const activeSpace = useMemo(
@@ -307,7 +389,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
 
       {/* Settings Modal */}
       <Dialog.Root open={showSettings} onOpenChange={setShowSettings}>
-        <Dialog.Portal>
+        <Dialog.Portal container={portalContainer}>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200" />
           <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 rounded-lg border border-white/10 shadow-xl animate-in fade-in zoom-in-95 duration-200">
             <div className="sticky top-0 flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-white/10 z-10">
@@ -331,7 +413,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
 
       {/* Archive Modal */}
       <Dialog.Root open={showArchive} onOpenChange={setShowArchive}>
-        <Dialog.Portal>
+        <Dialog.Portal container={portalContainer}>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200" />
           <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 rounded-lg border border-white/10 shadow-xl animate-in fade-in zoom-in-95 duration-200">
             <div className="sticky top-0 flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-white/10 z-10">
@@ -355,7 +437,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
 
       {/* Bookmark Import Modal */}
       <Dialog.Root open={showBookmarkImport} onOpenChange={setShowBookmarkImport}>
-        <Dialog.Portal>
+        <Dialog.Portal container={portalContainer}>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200" />
           <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 rounded-lg border border-white/10 shadow-xl animate-in fade-in zoom-in-95 duration-200">
             <div className="sticky top-0 flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-white/10 z-10">
@@ -373,13 +455,26 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
               </Dialog.Close>
             </div>
             <div className="px-6 py-4">
-              <BookmarkImport
-                onImport={() => {
-                  // Import logic is handled by SettingsPanel
-                  // This is a simplified version for the modal
-                }}
-                onCancel={() => setShowBookmarkImport(false)}
-              />
+              {importSuccess && (
+                <div className="mb-4 rounded-lg bg-green-500/10 border border-green-500/20 p-3 text-sm text-green-400">
+                  {importSuccess}
+                </div>
+              )}
+              {importResult ? (
+                <BookmarkImportPreview
+                  result={importResult}
+                  onConfirm={handleImportConfirm}
+                  onCancel={() => setImportResult(null)}
+                />
+              ) : (
+                <BookmarkImport
+                  onImport={(result) => {
+                    setImportResult(result);
+                    setImportSuccess(null);
+                  }}
+                  onCancel={() => setShowBookmarkImport(false)}
+                />
+              )}
             </div>
           </Dialog.Content>
         </Dialog.Portal>
