@@ -53,10 +53,38 @@ function injectStyles(shadowRoot: ShadowRoot) {
   const style = document.createElement('style');
   style.setAttribute('data-arcline-floating-style', 'true');
   style.textContent = stylesText;
+
+  // Add styles for the static pre-render mask
+  style.textContent += `
+    .arcline-static-page-mask {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(2, 6, 23, 0.15);
+      backdrop-filter: blur(4px);
+      -webkit-mask-image: radial-gradient(circle, transparent 40%, black 100%);
+      mask-image: radial-gradient(circle, transparent 40%, black 100%);
+      z-index: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease-out;
+    }
+  `;
+
   if (import.meta.env.DEV) {
     console.log('[Arcline-Debug] Styles Content Preview:', stylesText.slice(0, 200));
   }
   shadowRoot.append(style);
+}
+
+function showStaticPageMask(shadowRoot: ShadowRoot): () => void {
+  const mask = document.createElement('div');
+  mask.className = 'arcline-static-page-mask';
+  shadowRoot.append(mask);
+
+  // Return a cleanup function
+  return () => {
+    mask.style.opacity = '0';
+    setTimeout(() => mask.remove(), 150);
+  };
 }
 
 const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
@@ -193,6 +221,17 @@ const FloatingUiRoot = forwardRef<
 
   useEffect(() => {
     onBootstrapReady?.();
+
+    // If we were started via mountFloatingUi, we might have a static mask to remove
+    const staticMask = document.activeElement?.shadowRoot?.querySelector('.arcline-static-page-mask');
+    if (staticMask) {
+      // Small delay to ensure React has actually rendered its own mask
+      setTimeout(() => {
+        (staticMask as HTMLElement).style.opacity = '0';
+        setTimeout(() => staticMask.remove(), 150);
+      }, 50);
+    }
+
     if (perfId) {
       const t9 = Date.now();
       console.log(`[Arcline][Perf][${perfId}] T9: FloatingUiRoot Ready (useEffect) at ${new Date(t9).toISOString().split('T')[1]} (Total Latency T0-T9: ${t9 - (t0 || t9)}ms)`);
@@ -349,6 +388,8 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
   if (perfId) console.log(`[Arcline][Perf][${perfId}] T7: mountFloatingUi started at ${new Date(t7).toISOString().split('T')[1]}`);
 
   injectStyles(shadowRoot);
+  // Synchronously show the static mask BEFORE React rendering starts
+  showStaticPageMask(shadowRoot);
 
   const container = document.createElement('div');
   shadowRoot.append(container);
