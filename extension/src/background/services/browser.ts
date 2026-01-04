@@ -24,7 +24,8 @@ import type { SpaceState } from './spaces';
 import { deriveSpaceStateFromSnapshots, loadSpaceState, saveSpaceState } from './spaces';
 
 const TAB_GROUP_ID_NONE = -1;
-const isTabGroupsSupported = () => typeof chrome !== 'undefined' && typeof chrome.tabGroups !== 'undefined';
+const isTabGroupsSupported = () =>
+  typeof chrome !== 'undefined' && typeof chrome.tabGroups !== 'undefined';
 
 function mapTab(tab: chrome.tabs.Tab): TabEntry | null {
   if (typeof tab.id !== 'number') return null;
@@ -459,7 +460,7 @@ export async function toggleTabPinned(tabId: number, nextPinned?: boolean): Prom
 export async function moveTabToSpace(tabId: number, spaceId: number): Promise<number | null> {
   let result: number | null = null;
 
-  if (!TAB_GROUPS_SUPPORTED) {
+  if (!isTabGroupsSupported()) {
     await chrome.tabs.ungroup(tabId);
   } else if (spaceId === TAB_GROUP_ID_NONE) {
     await chrome.tabs.ungroup(tabId);
@@ -480,7 +481,7 @@ export async function moveTabToSpace(tabId: number, spaceId: number): Promise<nu
 }
 
 export async function createSpace(name: string, color?: TabGroupColor): Promise<number> {
-  if (!TAB_GROUPS_SUPPORTED) {
+  if (!isTabGroupsSupported()) {
     throw new Error('Tab groups are not supported in this browser');
   }
 
@@ -526,7 +527,7 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
 }
 
 export async function removeSpace(spaceId: number): Promise<void> {
-  if (!TAB_GROUPS_SUPPORTED) return;
+  if (!isTabGroupsSupported()) return;
 
   await removeSpaceFromState(spaceId);
 
@@ -679,7 +680,12 @@ export async function activateTab(
     try {
       console.log('[Arcline] 🔄 Opening Floating UI on target tab...', tabId);
       const spaces = await getSpacesSnapshot();
-      await openFloatingUiOnTab(tabId, spaces, options);
+      const activeSpace = spaces.find((s) =>
+        [...s.tabs, ...s.pinnedTabs, ...s.temporaryTabs].some((t) => t.id === tabId)
+      );
+      // Default to first space or -1/undefined (handled by UI) if not found, though ideally should exist
+      const activeSpaceId = activeSpace?.id ?? spaces[0]?.id ?? -1;
+      await openFloatingUiOnTab(tabId, spaces, activeSpaceId, options);
     } catch (error) {
       console.warn('[Arcline] Failed to open floating UI on target tab:', error);
     }

@@ -14,6 +14,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { queryClient } from '@/lib/query-client';
 import { getSpaceTheme } from '@/lib/space-theme';
 import { useSpacesStore } from '@/store';
+import type { SpaceSnapshot } from '@/shared/types';
 import stylesText from '@/styles.css?inline';
 
 import FloatingApp from './FloatingApp';
@@ -23,7 +24,7 @@ const CommandPalette = React.lazy(() =>
 
 export interface FloatingUiInstance {
   openFromHover(): void;
-  openInstantly(): void;
+  openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }): void;
   openCommandPalette(): void;
   showPageTransition(): void;
   destroy(): void;
@@ -40,7 +41,7 @@ interface MountOptions {
 
 interface FloatingUiHandle {
   openFromHover(): void;
-  openInstantly(): void;
+  openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }): void;
   openCommandPalette(): void;
   showPageTransition(): void;
   destroy(): void;
@@ -55,7 +56,6 @@ function injectStyles(shadowRoot: ShadowRoot) {
   style.textContent = stylesText;
   shadowRoot.append(style);
 }
-
 
 const FloatingUiRoot = forwardRef<
   FloatingUiHandle,
@@ -138,8 +138,17 @@ const FloatingUiRoot = forwardRef<
         setSkipAnimation(false);
         setOpen(true);
       },
-      openInstantly() {
+      openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }) {
         cancelClose();
+        // Update store immediately before opening to ensure no flash of old content
+        if (data) {
+          if (data.spaces) {
+            useSpacesStore.getState().setSpaces(data.spaces);
+          }
+          if (typeof data.activeSpaceId === 'number') {
+            useSpacesStore.getState().setActiveSpace(data.activeSpaceId);
+          }
+        }
         setSkipAnimation(true);
         setOpen(true);
         // Reset animation flag after a short delay
@@ -166,11 +175,15 @@ const FloatingUiRoot = forwardRef<
     onBootstrapReady?.();
     if (perfId) {
       const t9 = Date.now();
-      console.log(`[Arcline][Perf][${perfId}] T9: FloatingUiRoot Ready (useEffect) at ${new Date(t9).toISOString().split('T')[1]} (Total Latency T0-T9: ${t9 - (t0 || t9)}ms)`);
+      console.log(
+        `[Arcline][Perf][${perfId}] T9: FloatingUiRoot Ready (useEffect) at ${new Date(t9).toISOString().split('T')[1]} (Total Latency T0-T9: ${t9 - (t0 || t9)}ms)`
+      );
 
       requestAnimationFrame(() => {
         const t10 = Date.now();
-        console.log(`[Arcline][Perf][${perfId}] T10: First Frame Rendered at ${new Date(t10).toISOString().split('T')[1]} (Total Latency T0-T10: ${t10 - (t0 || t10)}ms)`);
+        console.log(
+          `[Arcline][Perf][${perfId}] T10: First Frame Rendered at ${new Date(t10).toISOString().split('T')[1]} (Total Latency T0-T10: ${t10 - (t0 || t10)}ms)`
+        );
       });
     }
   }, [onBootstrapReady, perfId, t0]);
@@ -194,7 +207,10 @@ const FloatingUiRoot = forwardRef<
         }}
         onPointerLeave={handlePointerLeave}
       />
-      <div className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch" style={{ zIndex: 10 }}>
+      <div
+        className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch"
+        style={{ zIndex: 10 }}
+      >
         <button
           data-testid="arcline-floating-hotzone"
           type="button"
@@ -312,7 +328,10 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
   const { host, shadowRoot, perfId, t0, onBootstrapReady, onClosed } = options;
   void host;
   const t7 = Date.now();
-  if (perfId) console.log(`[Arcline][Perf][${perfId}] T7: mountFloatingUi started at ${new Date(t7).toISOString().split('T')[1]}`);
+  if (perfId)
+    console.log(
+      `[Arcline][Perf][${perfId}] T7: mountFloatingUi started at ${new Date(t7).toISOString().split('T')[1]}`
+    );
 
   injectStyles(shadowRoot);
 
@@ -322,7 +341,10 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
   const root: Root = createRoot(container);
 
   const t8 = Date.now();
-  if (perfId) console.log(`[Arcline][Perf][${perfId}] T8: React root.render() called at ${new Date(t8).toISOString().split('T')[1]}`);
+  if (perfId)
+    console.log(
+      `[Arcline][Perf][${perfId}] T8: React root.render() called at ${new Date(t8).toISOString().split('T')[1]}`
+    );
 
   root.render(
     <FloatingUiRoot
@@ -338,8 +360,8 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
     openFromHover() {
       rootRef.current?.openFromHover();
     },
-    openInstantly() {
-      rootRef.current?.openInstantly();
+    openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }) {
+      rootRef.current?.openInstantly(data);
     },
     openCommandPalette() {
       rootRef.current?.openCommandPalette();

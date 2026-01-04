@@ -7,6 +7,7 @@ export type SpaceTransitionOptions = {
 export async function openFloatingUiOnTab(
   tabId: number,
   spaces: SpaceSnapshot[],
+  activeSpaceId: number,
   options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
 ): Promise<void> {
   try {
@@ -18,6 +19,7 @@ export async function openFloatingUiOnTab(
       {
         command: 'openFloatingUiWithData',
         spaces,
+        activeSpaceId,
         transition,
         instant: true,
         perfId: options?.perfId,

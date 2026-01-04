@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as uiMessaging from './ui-messaging';
 
-import { chromeMock } from '@/test/chrome-mock';
-
 // Mock dependencies
 vi.mock('./ui-messaging', () => ({
   openFloatingUiOnTab: vi.fn().mockResolvedValue(undefined),
@@ -45,20 +43,25 @@ describe('activateTab', () => {
     clearCachedSnapshot();
 
     // Default mocks
-    vi.mocked(chrome.tabs.get).mockResolvedValue({
+    // biome-ignore lint/suspicious/noExplicitAny: mocking overloaded chrome methods needs any
+    (vi.mocked(chrome.tabs.get) as any).mockResolvedValue({
       id: 123,
       active: false,
       windowId: 1,
       groupId: -1,
     } as chrome.tabs.Tab);
-    vi.mocked(chrome.tabs.update).mockResolvedValue({
+    // biome-ignore lint/suspicious/noExplicitAny: mocking overloaded chrome methods needs any
+    (vi.mocked(chrome.tabs.update) as any).mockResolvedValue({
       id: 123,
       active: true,
     } as chrome.tabs.Tab);
-    vi.mocked(chrome.tabs.query).mockResolvedValue([]);
-    vi.mocked(chrome.tabGroups.query).mockResolvedValue([]);
+    // biome-ignore lint/suspicious/noExplicitAny: mocking overloaded chrome methods needs any
+    (vi.mocked(chrome.tabs.query) as any).mockResolvedValue([]);
+    // biome-ignore lint/suspicious/noExplicitAny: mocking overloaded chrome methods needs any
+    (vi.mocked(chrome.tabGroups.query) as any).mockResolvedValue([]);
     // Mock storage for getSpacesSnapshot > loadSpaceState fallback protection
-    vi.mocked(chrome.storage.local.get).mockResolvedValue({});
+    // biome-ignore lint/suspicious/noExplicitAny: mocking overloaded chrome methods needs any
+    (vi.mocked(chrome.storage.local.get) as any).mockResolvedValue({});
   });
 
   it('should activate the tab and then trigger openFloatingUiOnTab', async () => {
@@ -71,6 +74,7 @@ describe('activateTab', () => {
     expect(uiMessaging.openFloatingUiOnTab).toHaveBeenCalledWith(
       tabId,
       expect.any(Array),
+      -1,
       undefined
     );
   });
@@ -78,7 +82,8 @@ describe('activateTab', () => {
   it('should NOT trigger openFloatingUiOnTab if tab activation fails', async () => {
     const tabId = 456;
     const error = new Error('Activation failed');
-    vi.mocked(chrome.tabs.update).mockRejectedValue(error);
+    // biome-ignore lint/suspicious/noExplicitAny: mocking overloaded chrome methods needs any
+    (vi.mocked(chrome.tabs.update) as any).mockRejectedValue(error);
 
     await expect(activateTab(tabId)).rejects.toThrow('Activation failed');
 
@@ -109,7 +114,8 @@ describe('activateTab', () => {
     const mockTabs = [
       { id: 1, title: 'Tab 1', url: 'http://a.com', groupId: -1 } as chrome.tabs.Tab,
     ];
-    vi.mocked(chrome.tabs.query).mockResolvedValue(mockTabs);
+    // biome-ignore lint/suspicious/noExplicitAny: mocking overloaded chrome methods needs any
+    (vi.mocked(chrome.tabs.query) as any).mockResolvedValue(mockTabs);
 
     await activateTab(tabId);
 
@@ -123,6 +129,7 @@ describe('activateTab', () => {
           ]),
         }),
       ]),
+      -1,
       undefined
     );
   });

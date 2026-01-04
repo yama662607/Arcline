@@ -411,7 +411,6 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     }, FLICK_ANIMATION_MS);
   };
 
-
   const commitHandoff = (
     target: HTMLElement,
     context: SwipeDebugContext,

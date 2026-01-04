@@ -1,5 +1,5 @@
 import type { SwipeDirection } from '@/shared/gestures';
-import type { SpaceSnapshot, TabEntry, SpaceTransitionHandoff } from '@/shared/types';
+import type { SpaceSnapshot, TabEntry } from '@/shared/types';
 import { broadcastSpacesSnapshot, getSpacesSnapshot } from './browser';
 
 import { openFloatingUiOnTab, type SpaceTransitionOptions } from './ui-messaging';
@@ -183,20 +183,20 @@ async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
     const uniqueNeighbors = [...new Set(neighbors)];
 
     // Send preload command to active tab of each neighbor space
-    uniqueNeighbors.forEach((space) => {
-      const activeTabId = space.tabs.find((t) => t.active)?.id || space.tabs[0]?.id;
-      if (activeTabId) {
-        chrome.tabs.sendMessage(activeTabId, { command: 'preloadFloatingUi' }).catch(() => {
-          // Ignore errors (e.g. tab closed or no content script)
-        });
-      }
-    });
-
+    uniqueNeighbors
+      .filter((space): space is SpaceSnapshot => !!space)
+      .forEach((space) => {
+        const activeTabId = space.tabs.find((t) => t.active)?.id || space.tabs[0]?.id;
+        if (activeTabId) {
+          chrome.tabs.sendMessage(activeTabId, { command: 'preloadFloatingUi' }).catch(() => {
+            // Ignore errors (e.g. tab closed or no content script)
+          });
+        }
+      });
   } catch (error) {
     console.warn('[Arcline] Failed to notify active space change:', error);
   }
 }
-
 
 export async function navigateSpace(
   direction: SwipeDirection,
@@ -205,7 +205,9 @@ export async function navigateSpace(
   const t2 = Date.now();
   const { perfId, t0 } = options || {};
   if (perfId) {
-    console.log(`[Arcline][Perf][${perfId}] T2: Message received in BG at ${new Date(t2).toISOString().split('T')[1]} (Delta T0-T2: ${t2 - (t0 || t2)}ms)`);
+    console.log(
+      `[Arcline][Perf][${perfId}] T2: Message received in BG at ${new Date(t2).toISOString().split('T')[1]} (Delta T0-T2: ${t2 - (t0 || t2)}ms)`
+    );
   }
 
   console.log(`[Arcline] navigateSpace called: direction=${direction}`);
@@ -236,7 +238,11 @@ export async function navigateSpace(
     }
   });
 
-  const openUiPromise = openFloatingUiOnTab(target.tab.id, spaces, { ...options, perfId, t0 });
+  const openUiPromise = openFloatingUiOnTab(target.tab.id, spaces, target.space.id, {
+    ...options,
+    perfId,
+    t0,
+  });
 
   await Promise.all([activationPromise, openUiPromise]);
 
@@ -253,7 +259,9 @@ export async function activateSpace(
   const t2 = Date.now();
   const { perfId, t0 } = options || {};
   if (perfId) {
-    console.log(`[Arcline][Perf][${perfId}] T2: activateSpace received in BG at ${new Date(t2).toISOString().split('T')[1]} (Delta T0-T2: ${t2 - (t0 || t2)}ms)`);
+    console.log(
+      `[Arcline][Perf][${perfId}] T2: activateSpace received in BG at ${new Date(t2).toISOString().split('T')[1]} (Delta T0-T2: ${t2 - (t0 || t2)}ms)`
+    );
   }
 
   const spaces = await getSpacesSnapshot();
@@ -278,7 +286,7 @@ export async function activateSpace(
   await focusWindowIfNeeded(targetTab.windowId);
 
   const refreshed = await getSpacesSnapshot();
-  await openFloatingUiOnTab(targetTab.id, refreshed, options);
+  await openFloatingUiOnTab(targetTab.id, refreshed, targetSpace.id, options);
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(targetSpace.id);

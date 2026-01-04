@@ -3,7 +3,7 @@
 import '@/dev/reactPreamble';
 
 import type { SwipeDirection } from '@/lib/gestures';
-import type { SpaceTransitionHandoff } from '@/shared/types';
+import type { SpaceSnapshot, SpaceTransitionHandoff } from '@/shared/types';
 import {
   EdgeDetectionState,
   getEdgeDetectionConfig,
@@ -98,7 +98,12 @@ const gestureController = createFloatingGestureController({
 
 function sendNavigateSpace(
   direction: SwipeDirection,
-  options?: { mode: 'handoff' | 'flick'; transition?: SpaceTransitionHandoff; perfId?: string; t0?: number }
+  options?: {
+    mode: 'handoff' | 'flick';
+    transition?: SpaceTransitionHandoff;
+    perfId?: string;
+    t0?: number;
+  }
 ) {
   if (typeof crypto.randomUUID !== 'function') return;
 
@@ -107,7 +112,9 @@ function sendNavigateSpace(
 
   const t1 = Date.now();
   if (options?.perfId) {
-    console.log(`[Arcline][Perf][${options.perfId}] T1: Sending navigateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (options.t0 || t1)}ms)`);
+    console.log(
+      `[Arcline][Perf][${options.perfId}] T1: Sending navigateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (options.t0 || t1)}ms)`
+    );
   }
 
   chrome.runtime.sendMessage(
@@ -117,7 +124,7 @@ function sendNavigateSpace(
         direction,
         transition: options?.transition,
         perfId: options?.perfId,
-        t0: options?.t0
+        t0: options?.t0,
       },
       id: crypto.randomUUID(),
     },
@@ -136,7 +143,9 @@ function sendActivateSpace(spaceId: number, options?: { perfId?: string; t0?: nu
   const t0 = options?.t0 || Date.now();
   const t1 = Date.now();
 
-  console.log(`[Arcline][Perf][${perfId}] T1: Sending activateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (t0 || t1)}ms)`);
+  console.log(
+    `[Arcline][Perf][${perfId}] T1: Sending activateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (t0 || t1)}ms)`
+  );
 
   chrome.runtime.sendMessage(
     {
@@ -486,6 +495,7 @@ async function startFloatingUi(options?: {
   commandPalette?: boolean;
   perfId?: string;
   t0?: number;
+  data?: { spaces: SpaceSnapshot[]; activeSpaceId: number };
 }) {
   if (!hostElement || !shadowRoot) return;
   if (!mountPromise) {
@@ -500,7 +510,7 @@ async function startFloatingUi(options?: {
   if (!module) return;
   if (floatingInstance) {
     if (options?.instant) {
-      floatingInstance.openInstantly();
+      floatingInstance.openInstantly(options.data);
     }
     return;
   }
@@ -526,7 +536,7 @@ async function startFloatingUi(options?: {
     });
 
   if (options?.instant) {
-    floatingInstance?.openInstantly();
+    floatingInstance?.openInstantly(options.data);
   } else if (options?.commandPalette) {
     floatingInstance?.openCommandPalette();
   } else {
@@ -731,6 +741,58 @@ function applyUiMode(mode: UiMode) {
 
 import { getServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
 
+function handleOpenFloatingUiWithData(payload: {
+  perfId?: string;
+  t0?: number;
+  spaces?: SpaceSnapshot[];
+  transition?: SpaceTransitionHandoff;
+  instant?: boolean;
+  activeSpaceId?: number;
+}) {
+  const t6 = Date.now();
+  const { perfId, t0 } = payload;
+  if (perfId) {
+    console.log(
+      `[Arcline][Perf][${perfId}] T6: UI Message received on target tab at ${new Date(t6).toISOString().split('T')[1]} (Total Latency T0-T6: ${t6 - (t0 || t6)}ms)`
+    );
+  }
+
+  if (payload.spaces) {
+    // Pre-populate both caches directly to avoid query delay and stale UI flash
+    getServiceWorkerBridge().updateSpacesCache(payload.spaces);
+    // Also update Zustand store which mount.tsx uses for rendering (synchronous)
+    useSpacesStore.getState().setSpaces(payload.spaces);
+  }
+
+  if (payload.activeSpaceId !== undefined) {
+    useSpacesStore.getState().setActiveSpace(payload.activeSpaceId);
+  }
+
+  if (payload.transition) {
+    pendingTransition = payload.transition;
+    scheduleTransitionApply();
+  }
+
+  ensureHost();
+  ensureBootstrapHotzone();
+
+  // Wait for React to process the Zustand state update before opening UI
+  // This ensures the new space data is rendered, not stale data
+  queueMicrotask(() => {
+    requestAnimationFrame(() => {
+      void startFloatingUi({
+        instant: payload.instant,
+        perfId: perfId,
+        t0: t0,
+        data: {
+          spaces: payload.spaces || [],
+          activeSpaceId: payload.activeSpaceId || -1,
+        },
+      });
+    });
+  });
+}
+
 function handleRuntimeMessage(message: unknown) {
   if (typeof message !== 'object' || message === null) return;
   const payload = message as {
@@ -739,40 +801,20 @@ function handleRuntimeMessage(message: unknown) {
     transition?: SpaceTransitionHandoff;
     spaces?: SpaceSnapshot[];
     instant?: boolean;
+    activeSpaceId?: number;
   };
 
   if (payload.command === 'openFloatingUiWithData') {
-    const t6 = Date.now();
-    const { perfId, t0 } = message as { perfId?: string; t0?: number };
-    if (perfId) {
-      console.log(`[Arcline][Perf][${perfId}] T6: UI Message received on target tab at ${new Date(t6).toISOString().split('T')[1]} (Total Latency T0-T6: ${t6 - (t0 || t6)}ms)`);
-    }
-
-    if (payload.spaces) {
-      // Pre-populate both caches directly to avoid query delay and stale UI flash
-      getServiceWorkerBridge().updateSpacesCache(payload.spaces);
-      // Also update Zustand store which mount.tsx uses for rendering (synchronous)
-      useSpacesStore.getState().setSpaces(payload.spaces);
-    }
-    if (payload.transition) {
-      pendingTransition = payload.transition;
-      scheduleTransitionApply();
-    }
-
-    ensureHost();
-    ensureBootstrapHotzone();
-
-    // Wait for React to process the Zustand state update before opening UI
-    // This ensures the new space data is rendered, not stale data
-    queueMicrotask(() => {
-      requestAnimationFrame(() => {
-        void startFloatingUi({
-          instant: payload.instant,
-          perfId: perfId,
-          t0: t0,
-        });
-      });
-    });
+    handleOpenFloatingUiWithData(
+      message as {
+        perfId?: string;
+        t0?: number;
+        spaces?: SpaceSnapshot[];
+        transition?: SpaceTransitionHandoff;
+        instant?: boolean;
+        activeSpaceId?: number;
+      }
+    );
     return;
   }
 
@@ -854,7 +896,9 @@ function handleSpaceBarSwitch(event: Event) {
 
   const perfId = `spacebar-${Math.random().toString(36).slice(2, 6)}`;
   const t0 = Date.now();
-  console.log(`[Arcline][Perf][${perfId}] T0: Spacebar switch triggered at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+  console.log(
+    `[Arcline][Perf][${perfId}] T0: Spacebar switch triggered at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
+  );
 
   const started = gestureController.triggerFlickTransition(detail.direction, () => {
     sendActivateSpace(detail.spaceId, { perfId, t0 });
