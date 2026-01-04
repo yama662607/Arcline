@@ -8,7 +8,6 @@ interface SpaceContentViewProps {
   renderContent: (spaceId: number | null, options: { isActive: boolean }) => React.ReactNode;
 }
 
-
 export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentViewProps) {
   const spaces = useSpacesStore((state) => state.spaces);
   const previousSpaceId = useSpacesStore((state) => state.previousSpaceId);

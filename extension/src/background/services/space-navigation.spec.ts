@@ -97,18 +97,10 @@ describe('space-navigation', () => {
       // Verify window focus
       expect(mockChrome.windows.update).toHaveBeenCalledWith(1, { focused: true });
 
-      // Verify Floating UI opening
+      // Verify Floating UI opening with combined message
       expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
         103,
-        expect.objectContaining({ command: 'spacesSnapshot' }),
-        expect.any(Function)
-      );
-
-      // Verify delayed call
-      vi.advanceTimersByTime(50);
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
-        103,
-        expect.objectContaining({ command: 'openFloatingUiInstantly' }),
+        expect.objectContaining({ command: 'openFloatingUiWithData', instant: true }),
         expect.any(Function)
       );
     });
@@ -161,30 +153,6 @@ describe('space-navigation', () => {
 
       const result = await spaceNavigation.navigateSpace('right');
       expect(result).toBe(false); // Should fail to navigate
-    });
-  });
-
-  describe('openFloatingUiOnTab', () => {
-    it('should send messages to open UI', async () => {
-      const tabId = 999;
-      const spaces = [createMockSpace(1, 'S1')];
-
-      await spaceNavigation.openFloatingUiOnTab(tabId, spaces);
-
-      // Immediate call: snapshot
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
-        tabId,
-        { command: 'spacesSnapshot', spaces },
-        expect.any(Function)
-      );
-
-      // Delayed call: open
-      vi.advanceTimersByTime(50);
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
-        tabId,
-        { command: 'openFloatingUiInstantly' },
-        expect.any(Function)
-      );
     });
   });
 });

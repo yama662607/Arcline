@@ -4,6 +4,9 @@ import { broadcastSpacesSnapshot, getSpacesSnapshot } from './browser';
 
 import { openFloatingUiOnTab, type SpaceTransitionOptions } from './ui-messaging';
 
+// Constant for ungrouped tabs space
+const UNGROUPED_SPACE_ID = -1;
+
 type NavigationTarget = {
   space: SpaceSnapshot;
   tab: TabEntry;
@@ -226,18 +229,7 @@ export async function navigateSpace(
     }
   }
 
-  // Send UI update message FIRST (before tab switch) to mask latency
-  // The content script will update the cache and prepare the UI while the browser is switching tabs
-  // 1. Send Early Warning signal to the target tab to prepare the mask while STILL INACTIVE
-  const earlySignalPromise = chrome.tabs.sendMessage(target.tab.id, {
-    command: 'earlyPreparePageTransition',
-    perfId,
-    t0
-  }).catch(() => {
-    // Ignore if content script is not ready yet
-  });
-
-  // 2. Parallelize tab activation, window focus, and final UI data delivery
+  // Parallelize tab activation, window focus, and UI data delivery
   const activationPromise = activateTargetTab(target.tab).then(async (activated) => {
     if (activated) {
       await focusWindowIfNeeded(target.tab.windowId);
@@ -246,7 +238,7 @@ export async function navigateSpace(
 
   const openUiPromise = openFloatingUiOnTab(target.tab.id, spaces, { ...options, perfId, t0 });
 
-  await Promise.all([earlySignalPromise, activationPromise, openUiPromise]);
+  await Promise.all([activationPromise, openUiPromise]);
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(target.space.id);

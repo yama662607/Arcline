@@ -40,7 +40,7 @@ export class ServiceWorkerBridge {
     }
   >();
 
-  constructor(private queryClient: QueryClient) { }
+  constructor(private queryClient: QueryClient) {}
 
   // Send message to Service Worker and wait for response
   private async sendMessage(message: Omit<BridgeMessage, 'id'>): Promise<unknown> {
@@ -266,11 +266,12 @@ export class ServiceWorkerBridge {
   }
 
   async activateTab(tabId: number): Promise<void> {
-    const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
     const perfId = `click-tab-${Math.random().toString(36).slice(2, 6)}`;
     const t0 = Date.now();
 
-    console.log(`[Arcline][Perf][${perfId}] T0: Tab clicked in UI at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+    console.log(
+      `[Arcline][Perf][${perfId}] T0: Tab clicked in UI at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
+    );
 
     return this.sendMessage({
       type: 'mutation',
@@ -445,7 +446,9 @@ export class ServiceWorkerBridge {
   async navigateSpace(direction: 'left' | 'right'): Promise<boolean> {
     const perfId = `bridge-nav-${Math.random().toString(36).slice(2, 6)}`;
     const t0 = Date.now();
-    console.log(`[Arcline][Perf][${perfId}] T0: Bridge navigateSpace called at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+    console.log(
+      `[Arcline][Perf][${perfId}] T0: Bridge navigateSpace called at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
+    );
 
     return this.sendMessage({
       type: 'mutation',

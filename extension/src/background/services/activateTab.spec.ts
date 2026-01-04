@@ -1,57 +1,64 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { activateTab } from './browser';
-import * as spaceNavigation from './space-navigation';
+import * as uiMessaging from './ui-messaging';
 
-// Mock chrome API
-const mockChrome = {
-  tabs: {
-    get: vi.fn(),
-    update: vi.fn(),
-    query: vi.fn(),
-  },
-  tabGroups: {
-    query: vi.fn(),
-  },
-  storage: {
-    sync: {
-      get: vi.fn(),
-    },
-    local: {
-      get: vi.fn(), // for loadSpaceState fallback
-      set: vi.fn(),
-    },
-  },
-  runtime: {
-    sendMessage: vi.fn(),
-  },
-};
-
-globalThis.chrome = mockChrome as unknown as typeof chrome;
+import { chromeMock } from '@/test/chrome-mock';
 
 // Mock dependencies
-vi.mock('./space-navigation', () => ({
-  openFloatingUiOnTab: vi.fn(),
+vi.mock('./ui-messaging', () => ({
+  openFloatingUiOnTab: vi.fn().mockResolvedValue(undefined),
 }));
+
+vi.mock('./browser', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./browser')>();
+  return {
+    ...actual,
+    getSpacesSnapshot: vi.fn().mockResolvedValue([
+      {
+        id: -1,
+        name: 'Ungrouped',
+        color: 'grey',
+        windowId: 1,
+        tabs: [],
+        pinnedTabs: [],
+        pinnedItems: [],
+        temporaryTabs: [
+          {
+            id: 1,
+            title: 'Tab 1',
+            url: 'http://a.com',
+            pinned: false,
+            active: false,
+            windowId: 1,
+            groupId: -1,
+          },
+        ],
+      },
+    ]),
+  };
+});
+
+import { clearCachedSnapshot, activateTab } from './browser';
 
 describe('activateTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearCachedSnapshot();
 
     // Default mocks
-    mockChrome.tabs.get.mockResolvedValue({
+    vi.mocked(chrome.tabs.get).mockResolvedValue({
       id: 123,
       active: false,
       windowId: 1,
       groupId: -1,
-    });
-    mockChrome.tabs.update.mockResolvedValue({
+    } as chrome.tabs.Tab);
+    vi.mocked(chrome.tabs.update).mockResolvedValue({
       id: 123,
       active: true,
-    });
-    mockChrome.tabs.query.mockResolvedValue([]);
-    mockChrome.tabGroups.query.mockResolvedValue([]);
+    } as chrome.tabs.Tab);
+    vi.mocked(chrome.tabs.query).mockResolvedValue([]);
+    vi.mocked(chrome.tabGroups.query).mockResolvedValue([]);
     // Mock storage for getSpacesSnapshot > loadSpaceState fallback protection
-    mockChrome.storage.local.get.mockResolvedValue({});
+    vi.mocked(chrome.storage.local.get).mockResolvedValue({});
   });
 
   it('should activate the tab and then trigger openFloatingUiOnTab', async () => {
@@ -59,33 +66,37 @@ describe('activateTab', () => {
     await activateTab(tabId);
 
     // Verify tab activation
-    expect(mockChrome.tabs.update).toHaveBeenCalledWith(tabId, { active: true });
+    expect(chrome.tabs.update).toHaveBeenCalledWith(tabId, { active: true });
     // Verify openFloatingUiOnTab is called
-    expect(spaceNavigation.openFloatingUiOnTab).toHaveBeenCalledWith(tabId, expect.any(Array));
+    expect(uiMessaging.openFloatingUiOnTab).toHaveBeenCalledWith(
+      tabId,
+      expect.any(Array),
+      undefined
+    );
   });
 
   it('should NOT trigger openFloatingUiOnTab if tab activation fails', async () => {
     const tabId = 456;
     const error = new Error('Activation failed');
-    mockChrome.tabs.update.mockRejectedValue(error);
+    vi.mocked(chrome.tabs.update).mockRejectedValue(error);
 
     await expect(activateTab(tabId)).rejects.toThrow('Activation failed');
 
-    expect(mockChrome.tabs.update).toHaveBeenCalledWith(tabId, { active: true });
-    expect(spaceNavigation.openFloatingUiOnTab).not.toHaveBeenCalled();
+    expect(chrome.tabs.update).toHaveBeenCalledWith(tabId, { active: true });
+    expect(uiMessaging.openFloatingUiOnTab).not.toHaveBeenCalled();
   });
 
   it('should NOT fail overall if openFloatingUiOnTab fails (Graceful Degradation)', async () => {
     const tabId = 789;
     const consoleSpy = vi.spyOn(console, 'warn');
     // Setup openFloatingUiOnTab to fail
-    vi.mocked(spaceNavigation.openFloatingUiOnTab).mockRejectedValue(new Error('UI Open Failed'));
+    vi.mocked(uiMessaging.openFloatingUiOnTab).mockRejectedValue(new Error('UI Open Failed'));
 
     // Should NOT throw
     await activateTab(tabId);
 
-    expect(mockChrome.tabs.update).toHaveBeenCalledWith(tabId, { active: true });
-    expect(spaceNavigation.openFloatingUiOnTab).toHaveBeenCalled();
+    expect(chrome.tabs.update).toHaveBeenCalledWith(tabId, { active: true });
+    expect(uiMessaging.openFloatingUiOnTab).toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to open floating UI'),
       expect.any(Error)
@@ -95,12 +106,14 @@ describe('activateTab', () => {
   it('should pass correct spaces snapshot data to floating UI', async () => {
     const tabId = 101;
     // Mock data for snapshot
-    const mockTabs = [{ id: 1, title: 'Tab 1', url: 'http://a.com', groupId: -1 }];
-    mockChrome.tabs.query.mockResolvedValue(mockTabs);
+    const mockTabs = [
+      { id: 1, title: 'Tab 1', url: 'http://a.com', groupId: -1 } as chrome.tabs.Tab,
+    ];
+    vi.mocked(chrome.tabs.query).mockResolvedValue(mockTabs);
 
     await activateTab(tabId);
 
-    expect(spaceNavigation.openFloatingUiOnTab).toHaveBeenCalledWith(
+    expect(uiMessaging.openFloatingUiOnTab).toHaveBeenCalledWith(
       tabId,
       expect.arrayContaining([
         expect.objectContaining({
@@ -109,7 +122,8 @@ describe('activateTab', () => {
             expect.objectContaining({ id: 1, title: 'Tab 1' }),
           ]),
         }),
-      ])
+      ]),
+      undefined
     );
   });
 });

@@ -34,7 +34,6 @@ interface MountOptions {
   shadowRoot: ShadowRoot;
   perfId?: string;
   t0?: number;
-  initialTransition?: boolean;
   onBootstrapReady?: () => void;
   onClosed?: () => void;
 }
@@ -54,82 +53,18 @@ function injectStyles(shadowRoot: ShadowRoot) {
   const style = document.createElement('style');
   style.setAttribute('data-arcline-floating-style', 'true');
   style.textContent = stylesText;
-
-  // Add styles for the static pre-render mask
-  style.textContent += `
-    .arcline-static-page-mask {
-      position: fixed;
-      inset: 0;
-      background-color: rgba(2, 6, 23, 0.15);
-      backdrop-filter: blur(4px);
-      -webkit-mask-image: radial-gradient(circle, transparent 40%, black 100%);
-      mask-image: radial-gradient(circle, transparent 40%, black 100%);
-      z-index: 0;
-      pointer-events: none;
-      transition: opacity 0.15s ease-out;
-    }
-  `;
-
-  // No longer logging styles content preview by default
   shadowRoot.append(style);
 }
 
-function showStaticPageMask(shadowRoot: ShadowRoot): () => void {
-  console.log('[Arcline][Transition] Static mask injected (0ms sync)');
-  const mask = document.createElement('div');
-  mask.className = 'arcline-static-page-mask';
-  shadowRoot.append(mask);
-
-  // Return a cleanup function
-  return () => {
-    console.log('[Arcline][Transition] Static mask cleanup triggered');
-    mask.style.opacity = '0';
-    setTimeout(() => mask.remove(), 150);
-  };
-}
-
-const PageTransitionMask = ({
-  onFinished,
-  mode = 'exit'
-}: {
-  onFinished: () => void;
-  mode?: 'entry' | 'exit';
-}) => {
-  useEffect(() => {
-    console.log(`[Arcline][Transition] React ${mode.toUpperCase()} mask mounted`);
-    return () => console.log(`[Arcline][Transition] React ${mode.toUpperCase()} mask unmounted`);
-  }, [mode]);
-
-  return (
-    <motion.div
-    initial={{ opacity: mode === 'entry' ? 1 : 0 }}
-    animate={{ opacity: mode === 'entry' ? 0 : 1 }}
-    transition={{ duration: 0.05, ease: 'linear' }}
-    onAnimationComplete={() => onFinished()}
-    style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'rgba(2, 6, 23, 0.15)',
-      backdropFilter: 'blur(4px)',
-      WebkitMaskImage: 'radial-gradient(circle, transparent 40%, black 100%)',
-      maskImage: 'radial-gradient(circle, transparent 40%, black 100%)',
-      zIndex: 0,
-      pointerEvents: 'none',
-    }}
-    />
-  );
-};
 
 const FloatingUiRoot = forwardRef<
   FloatingUiHandle,
-  { onBootstrapReady?: () => void; onClosed?: () => void; perfId?: string; t0?: number; initialTransition?: boolean }
->(({ onBootstrapReady, onClosed, perfId, t0, initialTransition = false }, ref) => {
+  { onBootstrapReady?: () => void; onClosed?: () => void; perfId?: string; t0?: number }
+>(({ onBootstrapReady, onClosed, perfId, t0 }, ref) => {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [skipAnimation, setSkipAnimation] = useState(false);
-  const [showingTransition, setShowingTransition] = useState(false);
-  const [isEntryTransition, setIsEntryTransition] = useState(initialTransition);
   const closeTimer = useRef<number | null>(null);
 
   const spaces = useSpacesStore((state) => state.spaces);
@@ -195,11 +130,6 @@ const FloatingUiRoot = forwardRef<
     [scheduleClose]
   );
 
-  const finishTransition = useCallback(() => {
-    setShowingTransition(false);
-    setIsEntryTransition(false);
-  }, []);
-
   useImperativeHandle(
     ref,
     () => ({
@@ -219,18 +149,13 @@ const FloatingUiRoot = forwardRef<
         setShowPalette(true);
       },
       showPageTransition() {
-        // Exit transition: Fade in then out
-        setIsEntryTransition(false);
-        setShowingTransition(true);
-        setTimeout(() => setShowingTransition(false), 200); // Trigger exit animation
+        // No-op: blur transitions removed
       },
       destroy() {
         cancelClose();
         setPinned(false);
         setOpen(false);
         setShowPalette(false);
-        setShowingTransition(false);
-        setIsEntryTransition(false);
         onClosed?.();
       },
     }),
@@ -269,14 +194,6 @@ const FloatingUiRoot = forwardRef<
         }}
         onPointerLeave={handlePointerLeave}
       />
-      <AnimatePresence>
-        {(showingTransition || isEntryTransition) && (
-          <PageTransitionMask
-            mode={isEntryTransition ? 'entry' : 'exit'}
-            onFinished={finishTransition}
-          />
-        )}
-      </AnimatePresence>
       <div className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch" style={{ zIndex: 10 }}>
         <button
           data-testid="arcline-floating-hotzone"
@@ -392,18 +309,12 @@ const FloatingUiRoot = forwardRef<
 FloatingUiRoot.displayName = 'FloatingUiRoot';
 
 export async function mountFloatingUi(options: MountOptions): Promise<FloatingUiInstance> {
-  const { host, shadowRoot, perfId, t0, initialTransition, onBootstrapReady, onClosed } = options;
+  const { host, shadowRoot, perfId, t0, onBootstrapReady, onClosed } = options;
   void host;
   const t7 = Date.now();
   if (perfId) console.log(`[Arcline][Perf][${perfId}] T7: mountFloatingUi started at ${new Date(t7).toISOString().split('T')[1]}`);
 
   injectStyles(shadowRoot);
-
-  // Synchronously show the static mask BEFORE React rendering starts IF requested
-  let cleanupStaticMask: (() => void) | null = null;
-  if (initialTransition) {
-    cleanupStaticMask = showStaticPageMask(shadowRoot);
-  }
 
   const container = document.createElement('div');
   shadowRoot.append(container);
@@ -416,14 +327,7 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
   root.render(
     <FloatingUiRoot
       ref={rootRef}
-      initialTransition={initialTransition}
-      onBootstrapReady={() => {
-        onBootstrapReady?.();
-        // Give React a tiny moment to render its own mask before fading out the static one
-        if (cleanupStaticMask) {
-          setTimeout(cleanupStaticMask, 50);
-        }
-      }}
+      onBootstrapReady={onBootstrapReady}
       onClosed={onClosed}
       perfId={perfId}
       t0={t0}

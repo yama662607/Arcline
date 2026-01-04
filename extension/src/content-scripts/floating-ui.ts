@@ -483,7 +483,6 @@ function maybeLogEdgeDebug(source: string, payload: Record<string, unknown>) {
 async function startFloatingUi(options?: {
   instant?: boolean;
   commandPalette?: boolean;
-  initialTransition?: boolean;
   perfId?: string;
   t0?: number;
 }) {
@@ -511,7 +510,6 @@ async function startFloatingUi(options?: {
       shadowRoot,
       perfId: options?.perfId,
       t0: options?.t0,
-      initialTransition: options?.initialTransition,
       onBootstrapReady: () => {
         bootstrapHotzone?.remove();
         bootstrapHotzone = null;
@@ -764,20 +762,6 @@ function handleRuntimeMessage(message: unknown) {
       instant: payload.instant,
       perfId: perfId,
       t0: t0,
-      initialTransition: true // Fallback if early warning was missed
-    });
-    return;
-  }
-
-  if (payload.command === 'earlyPreparePageTransition') {
-    const { perfId, t0 } = payload;
-    ensureHost();
-    ensureBootstrapHotzone();
-    console.log('[Arcline][Transition] Received Early Warning signal');
-    void startFloatingUi({
-      initialTransition: true,
-      perfId,
-      t0
     });
     return;
   }

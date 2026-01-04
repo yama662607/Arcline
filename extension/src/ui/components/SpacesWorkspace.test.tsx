@@ -14,6 +14,7 @@ type MockSpacesState = {
   swipeProgress: number;
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
+  setActiveSpaceFromTabs: (spaces: SpaceSnapshot[]) => void;
   setFavoriteSpaces: (spaceIds: number[]) => void;
   toggleFavoriteSpace: (spaceId: number) => void;
   setSwipeProgress: (progress: number) => void;
@@ -127,6 +128,7 @@ describe('SpacesWorkspace', () => {
           swipeProgress: 0,
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setActiveSpace: vi.fn<(spaceId: number) => void>(),
+          setActiveSpaceFromTabs: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
           toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
           setSwipeProgress: vi.fn<(progress: number) => void>(),
@@ -179,6 +181,7 @@ describe('SpacesWorkspace', () => {
           swipeProgress: 0,
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setActiveSpace: vi.fn<(spaceId: number) => void>(),
+          setActiveSpaceFromTabs: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
           toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
           setSwipeProgress: vi.fn<(progress: number) => void>(),

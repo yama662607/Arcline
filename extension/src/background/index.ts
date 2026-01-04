@@ -147,24 +147,24 @@ async function closeSidePanel(): Promise<void> {
     const windowId =
       typeof chrome.windows?.getCurrent === 'function'
         ? await new Promise<number | undefined>((resolve) => {
-          let resolved = false;
-          const maybePromise = chrome.windows.getCurrent((window) => {
-            resolved = true;
-            resolve(typeof window?.id === 'number' ? window.id : undefined);
-          }) as unknown;
+            let resolved = false;
+            const maybePromise = chrome.windows.getCurrent((window) => {
+              resolved = true;
+              resolve(typeof window?.id === 'number' ? window.id : undefined);
+            }) as unknown;
 
-          if (
-            !resolved &&
-            maybePromise &&
-            typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
-          ) {
-            (maybePromise as Promise<chrome.windows.Window>)
-              .then((window) => {
-                resolve(typeof window?.id === 'number' ? window.id : undefined);
-              })
-              .catch(() => resolve(undefined));
-          }
-        })
+            if (
+              !resolved &&
+              maybePromise &&
+              typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
+            ) {
+              (maybePromise as Promise<chrome.windows.Window>)
+                .then((window) => {
+                  resolve(typeof window?.id === 'number' ? window.id : undefined);
+                })
+                .catch(() => resolve(undefined));
+            }
+          })
         : undefined;
 
     if (typeof windowId === 'number') {
@@ -308,7 +308,9 @@ initializeGestureDetection();
 subscribeToSwipe(async ({ direction }) => {
   const perfId = `bg-swipe-${Math.random().toString(36).slice(2, 6)}`;
   const t0 = Date.now();
-  console.log(`[Arcline][Perf][${perfId}] T0: BG Swipe Detected at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+  console.log(
+    `[Arcline][Perf][${perfId}] T0: BG Swipe Detected at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
+  );
 
   try {
     const navigated = await navigateSpace(direction, { perfId, t0 });

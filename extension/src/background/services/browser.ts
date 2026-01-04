@@ -24,7 +24,7 @@ import type { SpaceState } from './spaces';
 import { deriveSpaceStateFromSnapshots, loadSpaceState, saveSpaceState } from './spaces';
 
 const TAB_GROUP_ID_NONE = -1;
-const TAB_GROUPS_SUPPORTED = typeof chrome.tabGroups !== 'undefined';
+const isTabGroupsSupported = () => typeof chrome !== 'undefined' && typeof chrome.tabGroups !== 'undefined';
 
 function mapTab(tab: chrome.tabs.Tab): TabEntry | null {
   if (typeof tab.id !== 'number') return null;
@@ -69,7 +69,7 @@ async function queryChromeState(): Promise<{
   tabGroups: chrome.tabGroups.TabGroup[];
   allTabs: chrome.tabs.Tab[];
 }> {
-  const tabGroups = TAB_GROUPS_SUPPORTED ? await chrome.tabGroups.query({}) : [];
+  const tabGroups = isTabGroupsSupported() ? await chrome.tabGroups.query({}) : [];
   const allTabs = await chrome.tabs.query({});
   return { tabGroups, allTabs };
 }
@@ -641,7 +641,9 @@ export async function activateTab(
 
   const { perfId, t0 } = options || {};
   if (perfId) {
-    console.log(`[Arcline][Perf][${perfId}] T2: activateTab received in BG at ${new Date(Date.now()).toISOString().split('T')[1]} (Delta T0-T2: ${Date.now() - (t0 || Date.now())}ms)`);
+    console.log(
+      `[Arcline][Perf][${perfId}] T2: activateTab received in BG at ${new Date(Date.now()).toISOString().split('T')[1]} (Delta T0-T2: ${Date.now() - (t0 || Date.now())}ms)`
+    );
   }
 
   try {
@@ -660,7 +662,9 @@ export async function activateTab(
     await chrome.tabs.update(tabId, { active: true });
 
     if (perfId) {
-      console.log(`[Arcline][Perf][${perfId}] T5: Tab activation (update) completed at ${new Date(Date.now()).toISOString().split('T')[1]}`);
+      console.log(
+        `[Arcline][Perf][${perfId}] T5: Tab activation (update) completed at ${new Date(Date.now()).toISOString().split('T')[1]}`
+      );
     }
 
     // 結果確認
@@ -1038,6 +1042,10 @@ export {
 
 // Caching infrastructure
 let cachedSnapshot: SpaceSnapshot[] | null = null;
+
+export function clearCachedSnapshot() {
+  cachedSnapshot = null;
+}
 let snapshotInvalidationTimer: ReturnType<typeof setTimeout> | null = null;
 
 function invalidateSnapshot() {
@@ -1074,8 +1082,8 @@ if (typeof chrome !== 'undefined' && chrome.tabs) {
 }
 
 if (typeof chrome !== 'undefined' && chrome.tabGroups) {
-  chrome.tabGroups.onCreated.addListener(invalidateSnapshot);
-  chrome.tabGroups.onUpdated.addListener(invalidateSnapshot);
-  chrome.tabGroups.onRemoved.addListener(invalidateSnapshot);
-  chrome.tabGroups.onMoved.addListener(invalidateSnapshot);
+  chrome.tabGroups.onCreated?.addListener?.(invalidateSnapshot);
+  chrome.tabGroups.onUpdated?.addListener?.(invalidateSnapshot);
+  chrome.tabGroups.onRemoved?.addListener?.(invalidateSnapshot);
+  chrome.tabGroups.onMoved?.addListener?.(invalidateSnapshot);
 }

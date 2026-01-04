@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TabGroupColor } from '@/shared/chrome-types';
 import type { PinnedTab } from '@/shared/types';
-import { getSpacesSnapshot } from './browser';
 
 // Mock Chrome APIs
 const mockChrome = {
@@ -24,8 +23,7 @@ const mockChrome = {
   },
 };
 
-// @ts-expect-error - Mocking global chrome
-global.chrome = mockChrome;
+vi.stubGlobal('chrome', mockChrome);
 
 // Mock bookmarks service
 vi.mock('./bookmarks', () => ({
@@ -43,11 +41,13 @@ vi.mock('./bookmarks', () => ({
 }));
 
 import { getPinnedItemsForSpace } from './bookmarks';
+import { clearCachedSnapshot, getSpacesSnapshot } from './browser';
 
 describe('getSpacesSnapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getPinnedItemsForSpace).mockResolvedValue([]);
+    clearCachedSnapshot();
   });
 
   it('should return empty array when no tab groups exist', async () => {

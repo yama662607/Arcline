@@ -146,7 +146,6 @@ function applyTransitionOffset(
   target.style.transform = `translateX(${offsetPx}px)`;
 }
 
-
 type GestureIntent = 'horizontal' | 'vertical' | null;
 
 type GesturePhase = 'idle' | 'tracking' | 'locked' | 'committing' | 'cooldown';
@@ -380,7 +379,9 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
   ) => {
     const perfId = `flick-${Math.random().toString(36).slice(2, 6)}`;
     const t0 = Date.now();
-    console.log(`[Arcline][Perf][${perfId}] T0: Flick Committed at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+    console.log(
+      `[Arcline][Perf][${perfId}] T0: Flick Committed at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
+    );
 
     reportSwipeDebug(context, 'commit-flick', true, totalDeltaX);
     phase = 'committing';
@@ -421,7 +422,9 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
 
     const perfId = `handoff-${Math.random().toString(36).slice(2, 6)}`;
     const t0 = Date.now();
-    console.log(`[Arcline][Perf][${perfId}] T0: Handoff Committed at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+    console.log(
+      `[Arcline][Perf][${perfId}] T0: Handoff Committed at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
+    );
 
     deps.onPageTransition?.();
     deps.onNavigateSpace(spaceDirection, { mode: 'handoff', transition, perfId, t0 });
