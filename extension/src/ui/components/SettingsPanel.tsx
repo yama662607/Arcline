@@ -59,13 +59,26 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
     try {
       let importedCount = 0;
 
-      const importBookmark = async (bookmark: ImportedBookmark, spaceName: string) => {
-        if (bookmark.isFolder && bookmark.children) {
-          for (const child of bookmark.children) {
-            await importBookmark(child, spaceName);
+      const importBookmark = async (
+        bookmark: ImportedBookmark,
+        spaceName: string,
+        parentId?: string
+      ) => {
+        if (bookmark.isFolder) {
+          const folder = await bridge.createPinnedFolder(spaceName, bookmark.title, parentId);
+          if (bookmark.children) {
+            for (const child of bookmark.children) {
+              await importBookmark(child, spaceName, folder.id);
+            }
           }
         } else if (bookmark.url) {
-          await bridge.createPinnedTab(spaceName, bookmark.title, bookmark.url);
+          await bridge.createPinnedTab(
+            spaceName,
+            bookmark.title,
+            bookmark.url,
+            undefined,
+            parentId
+          );
           importedCount++;
         }
       };
@@ -73,18 +86,21 @@ export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
       const defaultSpaceName = settings?.defaultSpaceName || 'Home';
 
       for (const bookmark of selectedBookmarks) {
-        if (bookmark.isFolder && bookmark.children) {
+        if (bookmark.isFolder) {
           const spaceName = bookmark.title || defaultSpaceName;
-          for (const child of bookmark.children) {
-            await importBookmark(child, spaceName);
+          if (bookmark.children) {
+            for (const child of bookmark.children) {
+              await importBookmark(child, spaceName);
+            }
           }
         } else if (bookmark.url) {
-          await importBookmark(bookmark, defaultSpaceName);
+          await bridge.createPinnedTab(defaultSpaceName, bookmark.title, bookmark.url);
+          importedCount++;
         }
       }
 
       setImportResult(null);
-      setImportSuccess(`Successfully imported ${importedCount} bookmarks!`);
+      setImportSuccess(`Successfully imported ${importedCount} bookmarks into spaces!`);
     } catch (error) {
       console.error('Failed to import bookmarks:', error);
       setImportSuccess(null);
