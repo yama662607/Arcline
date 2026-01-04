@@ -362,7 +362,65 @@ function setHostPointerEvents(enabled: boolean) {
   hostElement.style.pointerEvents = enabled ? 'auto' : 'none';
 }
 
+/**
+ * Shows a subtle notification to the user that the page needs to be refreshed
+ * because the extension has been updated/reloaded.
+ */
+function showRefreshRequiredNotification() {
+  if (document.getElementById('arcline-refresh-notification')) return;
+
+  const div = document.createElement('div');
+  div.id = 'arcline-refresh-notification';
+  Object.assign(div.style, {
+    position: 'fixed',
+    bottom: '24px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: '#1a1a1b',
+    color: '#ffffff',
+    padding: '12px 32px',
+    borderRadius: '16px',
+    fontSize: '14px',
+    fontWeight: '600',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+    zIndex: '2147483647',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    border: '1px solid rgba(255,255,255,0.1)',
+    cursor: 'pointer',
+    backdropFilter: 'blur(12px)',
+    animation: 'arcline-fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+  });
+
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes arcline-fade-in-up {
+      from { opacity: 0; transform: translate(-50%, 10px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+  `;
+  document.head.append(style);
+
+  div.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    <span>Extension Updated: Please Refresh Page</span>
+  `;
+
+  div.onclick = () => window.location.reload();
+  document.body.append(div);
+}
+
 function openFloatingUiFromEdge() {
+  if (!hasChromeRuntime()) {
+    showRefreshRequiredNotification();
+    return;
+  }
   if (floatingInstance) {
     floatingInstance.openFromHover();
     setHostPointerEvents(false);
@@ -683,6 +741,10 @@ function handleRuntimeMessage(message: unknown) {
   }
 
   if (payload.command === 'openCommandPalette') {
+    if (!hasChromeRuntime()) {
+      showRefreshRequiredNotification();
+      return;
+    }
     ensureHost();
     ensureBootstrapHotzone();
     void startFloatingUi({ commandPalette: true });

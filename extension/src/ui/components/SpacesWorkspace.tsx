@@ -246,7 +246,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                         {/* Divider with Clear button */}
                         <div className="relative flex items-center gap-2 py-2">
                           <div className="flex-1 h-px bg-white/10" />
-                          {temporaryTabs.length > 0 && isActive && (
+                          {temporaryTabs.length > 0 && (
                             <button
                               type="button"
                               onClick={() => {
@@ -254,7 +254,8 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                                 const tabIds = temporaryTabs.map((t) => t.id);
                                 chrome.tabs.remove(tabIds);
                               }}
-                              className="px-2 py-1 text-xs text-white/50 hover:text-white/80 transition-colors"
+                              disabled={!isActive} // Disable interaction if not active to prevent accidental clicks
+                              className="px-2 py-1 text-xs text-white/50 hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-default"
                             >
                               Clear
                             </button>

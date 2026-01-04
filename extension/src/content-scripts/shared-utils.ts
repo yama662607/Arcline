@@ -13,11 +13,16 @@ const DEFAULT_UI_MODE: UiMode = 'floating';
  * Check if Chrome runtime is available
  */
 export function hasChromeRuntime(): boolean {
-  return (
-    typeof chrome !== 'undefined' &&
-    !!chrome.runtime &&
-    typeof chrome.runtime.sendMessage === 'function'
-  );
+  try {
+    return (
+      typeof chrome !== 'undefined' &&
+      !!chrome.runtime &&
+      !!chrome.runtime.id && // Accessing runtime.id throws if context is invalidated
+      typeof chrome.runtime.sendMessage === 'function'
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
