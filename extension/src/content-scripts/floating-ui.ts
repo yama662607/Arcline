@@ -760,6 +760,7 @@ function handleRuntimeMessage(message: unknown) {
 
     ensureHost();
     ensureBootstrapHotzone();
+    console.debug('[Arcline][Transition] Initiating Entry Transition with Zero-Frame mask');
     void startFloatingUi({
       instant: payload.instant,
       perfId: perfId,

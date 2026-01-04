@@ -70,19 +70,19 @@ function injectStyles(shadowRoot: ShadowRoot) {
     }
   `;
 
-  if (import.meta.env.DEV) {
-    console.log('[Arcline-Debug] Styles Content Preview:', stylesText.slice(0, 200));
-  }
+  // No longer logging styles content preview by default
   shadowRoot.append(style);
 }
 
 function showStaticPageMask(shadowRoot: ShadowRoot): () => void {
+  console.debug('[Arcline][Transition] Static mask injected (0ms sync)');
   const mask = document.createElement('div');
   mask.className = 'arcline-static-page-mask';
   shadowRoot.append(mask);
 
   // Return a cleanup function
   return () => {
+    console.debug('[Arcline][Transition] Static mask cleanup triggered');
     mask.style.opacity = '0';
     setTimeout(() => mask.remove(), 150);
   };
@@ -94,8 +94,14 @@ const PageTransitionMask = ({
 }: {
   onFinished: () => void;
   mode?: 'entry' | 'exit';
-}) => (
-  <motion.div
+}) => {
+  useEffect(() => {
+    console.debug(`[Arcline][Transition] React ${mode.toUpperCase()} mask mounted`);
+    return () => console.debug(`[Arcline][Transition] React ${mode.toUpperCase()} mask unmounted`);
+  }, [mode]);
+
+  return (
+    <motion.div
     initial={{ opacity: mode === 'entry' ? 1 : 0 }}
     animate={{ opacity: mode === 'entry' ? 0 : 1 }}
     transition={{ duration: 0.05, ease: 'linear' }}
