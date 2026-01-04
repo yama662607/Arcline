@@ -14,7 +14,12 @@ type GestureControllerDeps = {
   ensureHost: () => void;
   onNavigateSpace: (
     direction: SwipeDirection,
-    options: { mode: 'handoff' | 'flick'; transition?: SpaceTransitionHandoff }
+    options: {
+      mode: 'handoff' | 'flick';
+      transition?: SpaceTransitionHandoff;
+      perfId?: string;
+      t0?: number;
+    }
   ) => void;
 };
 
@@ -465,11 +470,15 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     uiDirection: SwipeDirection,
     spaceDirection: SwipeDirection
   ) => {
+    const perfId = `flick-${Math.random().toString(36).slice(2, 6)}`;
+    const t0 = Date.now();
+    console.log(`[Arcline][Perf][${perfId}] T0: Flick Committed at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+
     reportSwipeDebug(context, 'commit-flick', true, totalDeltaX);
     phase = 'committing';
 
     // Trigger navigation immediately for responsiveness
-    deps.onNavigateSpace(spaceDirection, { mode: 'flick' });
+    deps.onNavigateSpace(spaceDirection, { mode: 'flick', perfId, t0 });
 
     const endOffset = uiDirection === 'left' ? -width : width;
     applyTransitionOffset(target, endOffset, {
@@ -501,7 +510,11 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       timestamp: Date.now(),
     };
 
-    deps.onNavigateSpace(spaceDirection, { mode: 'handoff', transition });
+    const perfId = `handoff-${Math.random().toString(36).slice(2, 6)}`;
+    const t0 = Date.now();
+    console.log(`[Arcline][Perf][${perfId}] T0: Handoff Committed at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+
+    deps.onNavigateSpace(spaceDirection, { mode: 'handoff', transition, perfId, t0 });
     enterCooldown();
     window.setTimeout(() => {
       applyTransitionOffset(target, 0, { animate: false });

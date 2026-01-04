@@ -7,7 +7,7 @@ export type SpaceTransitionOptions = {
 export async function openFloatingUiOnTab(
     tabId: number,
     spaces: SpaceSnapshot[],
-    options?: SpaceTransitionOptions
+    options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
 ): Promise<void> {
     try {
         const transition = options?.transition;
@@ -20,6 +20,8 @@ export async function openFloatingUiOnTab(
                 spaces,
                 transition,
                 instant: true,
+                perfId: options?.perfId,
+                t0: options?.t0,
             },
             () => {
                 if (chrome.runtime.lastError) {

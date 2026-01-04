@@ -94,14 +94,24 @@ const gestureController = createFloatingGestureController({
 
 function sendNavigateSpace(
   direction: SwipeDirection,
-  options?: { mode: 'handoff' | 'flick'; transition?: SpaceTransitionHandoff }
+  options?: { mode: 'handoff' | 'flick'; transition?: SpaceTransitionHandoff; perfId?: string; t0?: number }
 ) {
   if (typeof crypto.randomUUID !== 'function') return;
+
+  const t1 = Date.now();
+  if (options?.perfId) {
+    console.log(`[Arcline][Perf][${options.perfId}] T1: Sending navigateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (options.t0 || t1)}ms)`);
+  }
 
   chrome.runtime.sendMessage(
     {
       method: 'navigateSpace',
-      params: { direction, transition: options?.transition },
+      params: {
+        direction,
+        transition: options?.transition,
+        perfId: options?.perfId,
+        t0: options?.t0
+      },
       id: crypto.randomUUID(),
     },
     () => {
@@ -112,13 +122,19 @@ function sendNavigateSpace(
   );
 }
 
-function sendActivateSpace(spaceId: number) {
+function sendActivateSpace(spaceId: number, options?: { perfId?: string; t0?: number }) {
   if (typeof crypto.randomUUID !== 'function') return;
+
+  const perfId = options?.perfId || `activate-${Math.random().toString(36).slice(2, 6)}`;
+  const t0 = options?.t0 || Date.now();
+  const t1 = Date.now();
+
+  console.log(`[Arcline][Perf][${perfId}] T1: Sending activateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (t0 || t1)}ms)`);
 
   chrome.runtime.sendMessage(
     {
       method: 'activateSpace',
-      params: { spaceId },
+      params: { spaceId, perfId, t0 },
       id: crypto.randomUUID(),
     },
     () => {
@@ -434,8 +450,32 @@ function updateEdgeDetectionStateForX(x: number) {
     edgeDetectionState = EdgeDetectionState.BORDER;
     return;
   }
-  edgeDetectionState =
-    x <= config.viewportEdgeThresholdPx ? EdgeDetectionState.PROXIMITY : EdgeDetectionState.IDLE;
+  const isProximity = x <= config.viewportEdgeThresholdPx;
+  edgeDetectionState = isProximity ? EdgeDetectionState.PROXIMITY : EdgeDetectionState.IDLE;
+
+  if (isProximity) {
+    void prewarmFloatingUi();
+  }
+}
+
+async function prewarmFloatingUi() {
+  if (mountPromise || floatingInstance) {
+    console.debug('[Arcline] Prewarm skipped: Module already loaded or loading.');
+    return;
+  }
+  console.debug('[Arcline] 🔥 Starting prewarmFloatingUi (Dynamic Import)...');
+  const tStart = Date.now();
+
+  // Start loading the heavy mount module ahead of time
+  mountPromise = import('../floating/mount').catch((error) => {
+    console.warn('[Arcline] Failed to pre-warm floating UI', error);
+    mountPromise = null;
+    return null;
+  });
+
+  mountPromise.then(() => {
+    console.debug(`[Arcline] ✅ Prewarm finished in ${Date.now() - tStart}ms`);
+  });
 }
 
 function maybeLogEdgeDebug(source: string, payload: Record<string, unknown>) {
@@ -443,7 +483,12 @@ function maybeLogEdgeDebug(source: string, payload: Record<string, unknown>) {
   console.debug('[Arcline][EdgeDetection]', source, payload);
 }
 
-async function startFloatingUi(options?: { instant?: boolean; commandPalette?: boolean }) {
+async function startFloatingUi(options?: {
+  instant?: boolean;
+  commandPalette?: boolean;
+  perfId?: string;
+  t0?: number;
+}) {
   if (!hostElement || !shadowRoot) return;
   if (!mountPromise) {
     mountPromise = import('../floating/mount').catch((error) => {
@@ -458,12 +503,7 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
   if (floatingInstance) {
     if (options?.instant) {
       floatingInstance.openInstantly();
-    } else if (options?.commandPalette) {
-      floatingInstance.openCommandPalette();
-    } else {
-      floatingInstance.openFromHover();
     }
-    scheduleTransitionApply();
     return;
   }
 
@@ -471,6 +511,8 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
     .mountFloatingUi({
       host: hostElement,
       shadowRoot,
+      perfId: options?.perfId,
+      t0: options?.t0,
       onBootstrapReady: () => {
         bootstrapHotzone?.remove();
         bootstrapHotzone = null;
@@ -702,6 +744,12 @@ function handleRuntimeMessage(message: unknown) {
   };
 
   if (payload.command === 'openFloatingUiWithData') {
+    const t6 = Date.now();
+    const { perfId, t0 } = message as { perfId?: string; t0?: number };
+    if (perfId) {
+      console.log(`[Arcline][Perf][${perfId}] T6: UI Message received on target tab at ${new Date(t6).toISOString().split('T')[1]} (Total Latency T0-T6: ${t6 - (t0 || t6)}ms)`);
+    }
+
     if (payload.spaces) {
       // Pre-populate cache directly to avoid query delay
       getServiceWorkerBridge().updateSpacesCache(payload.spaces);
@@ -713,7 +761,7 @@ function handleRuntimeMessage(message: unknown) {
 
     ensureHost();
     ensureBootstrapHotzone();
-    void startFloatingUi({ instant: payload.instant });
+    void startFloatingUi({ instant: payload.instant, perfId: perfId, t0: t0 });
     return;
   }
 
@@ -738,6 +786,11 @@ function handleRuntimeMessage(message: unknown) {
     ensureHost();
     ensureBootstrapHotzone();
     void startFloatingUi({ instant: true });
+  }
+
+  if (payload.command === 'preloadFloatingUi') {
+    console.log('[Arcline] 📥 Received preloadFloatingUi command');
+    void prewarmFloatingUi();
   }
 
   if (payload.command === 'openCommandPalette') {
@@ -789,12 +842,16 @@ function handleSpaceBarSwitch(event: Event) {
   const detail = (event as CustomEvent<{ spaceId: number; direction: SwipeDirection }>).detail;
   if (!detail || typeof detail.spaceId !== 'number' || !detail.direction) return;
 
+  const perfId = `spacebar-${Math.random().toString(36).slice(2, 6)}`;
+  const t0 = Date.now();
+  console.log(`[Arcline][Perf][${perfId}] T0: Spacebar switch triggered at ${new Date(t0).toISOString().split('T')[1]} (${t0})`);
+
   const started = gestureController.triggerFlickTransition(detail.direction, () => {
-    sendActivateSpace(detail.spaceId);
+    sendActivateSpace(detail.spaceId, { perfId, t0 });
   });
 
   if (!started) {
-    sendActivateSpace(detail.spaceId);
+    sendActivateSpace(detail.spaceId, { perfId, t0 });
   }
 }
 

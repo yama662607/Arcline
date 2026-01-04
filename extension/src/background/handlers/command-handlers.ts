@@ -228,7 +228,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
       });
     },
     activateTab: (message, sendResponse) => {
-      const { tabId } = message as { tabId?: number };
+      const { tabId, perfId, t0 } = message as { tabId?: number; perfId?: string; t0?: number };
       const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
 
       console.log('[Arcline] 🎯 activateTab handler called:', {
@@ -248,7 +248,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
       return respondAsync(async () => {
         try {
           console.log('[Arcline] 🔄 Calling activateTab function...');
-          await deps.activateTab(tabId);
+          await deps.activateTab(tabId, { perfId, t0 });
           console.log('[Arcline] ✅ activateTab completed successfully');
           sendResponse({ ok: true });
         } catch (error) {
@@ -684,9 +684,11 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
       });
     },
     navigateSpace: (message, sendResponse) => {
-      const { direction, transition } = message as {
+      const { direction, transition, perfId, t0 } = message as {
         direction: SwipeDirection;
         transition?: SpaceTransitionHandoff | null;
+        perfId?: string;
+        t0?: number;
       };
       if (!direction || (direction !== 'left' && direction !== 'right')) {
         sendResponse({ ok: false, error: 'Valid direction required' });
@@ -694,7 +696,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
       }
       return respondAsync(async () => {
         try {
-          const success = await deps.navigateSpace(direction, { transition });
+          const success = await deps.navigateSpace(direction, { transition, perfId, t0 });
           sendResponse({ ok: true, data: success });
         } catch (error) {
           sendResponse({ ok: false, error: String(error) });
@@ -702,9 +704,11 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
       });
     },
     activateSpace: (message, sendResponse) => {
-      const { spaceId, transition } = message as {
+      const { spaceId, transition, perfId, t0 } = message as {
         spaceId?: number;
         transition?: SpaceTransitionHandoff | null;
+        perfId?: string;
+        t0?: number;
       };
       if (typeof spaceId !== 'number') {
         sendResponse({ ok: false, error: 'spaceId is required' });
@@ -713,7 +717,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
 
       return respondAsync(async () => {
         try {
-          const success = await deps.activateSpace(spaceId, { transition });
+          const success = await deps.activateSpace(spaceId, { transition, perfId, t0 });
           sendResponse({ ok: true, data: success });
         } catch (error) {
           sendResponse({ ok: false, error: String(error) });

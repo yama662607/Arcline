@@ -158,7 +158,40 @@ async function broadcastSpacesSafely(): Promise<void> {
 
 async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
   try {
-    await chrome.runtime.sendMessage({ command: 'activeSpaceChanged', spaceId });
+    try {
+      await chrome.runtime.sendMessage({ command: 'activeSpaceChanged', spaceId });
+    } catch {
+      // Ignore: Receivers (side panel/popup) might not be open
+    }
+
+    // Speculative Preloading: Prewarm neighbor spaces (left/right)
+    const spaces = await getSpacesSnapshot();
+    if (spaces.length <= 1) return;
+
+    const currentIndex = spaces.findIndex((s) => s.id === spaceId);
+    if (currentIndex === -1) return;
+
+    // Calculate neighbor indices (cyclic)
+    const prevIndex = (currentIndex - 1 + spaces.length) % spaces.length;
+    const nextIndex = (currentIndex + 1) % spaces.length;
+
+    const neighbors = [spaces[prevIndex], spaces[nextIndex]];
+    // Deduplicate if length is 2 (prev == next)
+    const uniqueNeighbors = [...new Set(neighbors)];
+
+    console.log(`[Arcline] Preloading neighbors for Space ${spaceId}:`, uniqueNeighbors.map(n => n.id));
+
+    // Send preload command to active tab of each neighbor space
+    uniqueNeighbors.forEach((space) => {
+      const activeTabId = space.tabs.find((t) => t.active)?.id || space.tabs[0]?.id;
+      if (activeTabId) {
+        console.log(`[Arcline] 🚀 Sending preloadFloatingUi to Tab ${activeTabId} (Space ${space.id})`);
+        chrome.tabs.sendMessage(activeTabId, { command: 'preloadFloatingUi' }).catch(() => {
+          // Ignore errors (e.g. tab closed or no content script)
+        });
+      }
+    });
+
   } catch (error) {
     console.warn('[Arcline] Failed to notify active space change:', error);
   }
@@ -167,8 +200,14 @@ async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
 
 export async function navigateSpace(
   direction: SwipeDirection,
-  options?: SpaceTransitionOptions
+  options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
 ): Promise<boolean> {
+  const t2 = Date.now();
+  const { perfId, t0 } = options || {};
+  if (perfId) {
+    console.log(`[Arcline][Perf][${perfId}] T2: Message received in BG at ${new Date(t2).toISOString().split('T')[1]} (Delta T0-T2: ${t2 - (t0 || t2)}ms)`);
+  }
+
   console.log(`[Arcline] navigateSpace called: direction=${direction}`);
   const target = await resolveNavigationTarget(direction);
   if (!target) {
@@ -192,14 +231,26 @@ export async function navigateSpace(
 
   // Send UI update message FIRST (before tab switch) to mask latency
   // The content script will update the cache and prepare the UI while the browser is switching tabs
-  const openUiPromise = openFloatingUiOnTab(target.tab.id, spaces, options);
+  // Parallelize tab activation and UI opening
+  if (perfId) {
+    const t3 = Date.now();
+    console.log(`[Arcline][Perf][${perfId}] T3: Starting tab activation at ${new Date(t3).toISOString().split('T')[1]} (${t3})`);
+  }
+  const activationPromise = activateTargetTab(target.tab).then(async (activated) => {
+    const t5 = Date.now();
+    if (perfId) console.log(`[Arcline][Perf][${perfId}] T5: Tab activation completed at ${new Date(t5).toISOString().split('T')[1]} (${t5})`);
+    if (activated) {
+      await focusWindowIfNeeded(target.tab.windowId);
+    }
+  });
 
-  // Activate the tab (this is the visual bottleneck)
-  await activateTargetTab(target.tab);
-  await focusWindowIfNeeded(target.tab.windowId);
+  if (perfId) {
+    const t4 = Date.now();
+    console.log(`[Arcline][Perf][${perfId}] T4: Sending UI message to target tab at ${new Date(t4).toISOString().split('T')[1]} (${t4})`);
+  }
+  const openUiPromise = openFloatingUiOnTab(target.tab.id, spaces, { ...options, perfId, t0 });
 
-  // Ensure message was sent (though likely it finished long before activation)
-  await openUiPromise;
+  await Promise.all([activationPromise, openUiPromise]);
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(target.space.id);
@@ -209,8 +260,14 @@ export async function navigateSpace(
 
 export async function activateSpace(
   spaceId: number,
-  options?: SpaceTransitionOptions
+  options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
 ): Promise<boolean> {
+  const t2 = Date.now();
+  const { perfId, t0 } = options || {};
+  if (perfId) {
+    console.log(`[Arcline][Perf][${perfId}] T2: activateSpace received in BG at ${new Date(t2).toISOString().split('T')[1]} (Delta T0-T2: ${t2 - (t0 || t2)}ms)`);
+  }
+
   const spaces = await getSpacesSnapshot();
   const targetSpace = spaces.find((space) => space.id === spaceId);
   if (!targetSpace) {

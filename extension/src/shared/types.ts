@@ -144,6 +144,10 @@ export interface ActiveSpaceChangedMessage extends ExtensionMessage {
   spaceId: number;
 }
 
+export interface PreloadFloatingUiMessage extends ExtensionMessage {
+  command: 'preloadFloatingUi';
+}
+
 export type SpaceTransitionMode = 'handoff' | 'flick';
 
 export interface SpaceTransitionHandoff {

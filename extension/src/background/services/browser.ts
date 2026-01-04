@@ -624,7 +624,10 @@ export async function reloadTab(tabId?: number): Promise<void> {
   }
 }
 
-export async function activateTab(tabId: number): Promise<void> {
+export async function activateTab(
+  tabId: number,
+  options?: { perfId?: string; t0?: number }
+): Promise<void> {
   // Atlasブラウザデバッグ用ログ
   const isAtlas = /\bAtlas\b/i.test(navigator.userAgent);
   const browserInfo = {
@@ -635,6 +638,11 @@ export async function activateTab(tabId: number): Promise<void> {
   };
 
   console.log('[Arcline] 🚀 activateTab called with:', browserInfo);
+
+  const { perfId, t0 } = options || {};
+  if (perfId) {
+    console.log(`[Arcline][Perf][${perfId}] T2: activateTab received in BG at ${new Date(Date.now()).toISOString().split('T')[1]} (Delta T0-T2: ${Date.now() - (t0 || Date.now())}ms)`);
+  }
 
   try {
     // タブの存在確認
@@ -651,6 +659,10 @@ export async function activateTab(tabId: number): Promise<void> {
     console.log('[Arcline] ⚡ Executing chrome.tabs.update...');
     await chrome.tabs.update(tabId, { active: true });
 
+    if (perfId) {
+      console.log(`[Arcline][Perf][${perfId}] T5: Tab activation (update) completed at ${new Date(Date.now()).toISOString().split('T')[1]}`);
+    }
+
     // 結果確認
     const updatedTab = await chrome.tabs.get(tabId);
     console.log('[Arcline] ✅ Tab activated successfully:', {
@@ -663,7 +675,7 @@ export async function activateTab(tabId: number): Promise<void> {
     try {
       console.log('[Arcline] 🔄 Opening Floating UI on target tab...', tabId);
       const spaces = await getSpacesSnapshot();
-      await openFloatingUiOnTab(tabId, spaces);
+      await openFloatingUiOnTab(tabId, spaces, options);
     } catch (error) {
       console.warn('[Arcline] Failed to open floating UI on target tab:', error);
     }

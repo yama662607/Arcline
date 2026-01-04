@@ -16,7 +16,7 @@ import { getSpaceTheme } from '@/lib/space-theme';
 import { useSpacesStore } from '@/store';
 import stylesText from '@/styles.css?inline';
 
-const FloatingApp = React.lazy(() => import('./FloatingApp'));
+import FloatingApp from './FloatingApp';
 const CommandPalette = React.lazy(() =>
   import('./CommandPalette').then((module) => ({ default: module.CommandPalette }))
 );
@@ -31,6 +31,8 @@ export interface FloatingUiInstance {
 interface MountOptions {
   host: HTMLElement;
   shadowRoot: ShadowRoot;
+  perfId?: string;
+  t0?: number;
   onBootstrapReady?: () => void;
   onClosed?: () => void;
 }
@@ -57,8 +59,8 @@ function injectStyles(shadowRoot: ShadowRoot) {
 
 const FloatingUiRoot = forwardRef<
   FloatingUiHandle,
-  { onBootstrapReady?: () => void; onClosed?: () => void }
->(({ onBootstrapReady, onClosed }, ref) => {
+  { onBootstrapReady?: () => void; onClosed?: () => void; perfId?: string; t0?: number }
+>(({ onBootstrapReady, onClosed, perfId, t0 }, ref) => {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
@@ -159,7 +161,16 @@ const FloatingUiRoot = forwardRef<
 
   useEffect(() => {
     onBootstrapReady?.();
-  }, [onBootstrapReady]);
+    if (perfId) {
+      const t9 = Date.now();
+      console.log(`[Arcline][Perf][${perfId}] T9: FloatingUiRoot Ready (useEffect) at ${new Date(t9).toISOString().split('T')[1]} (Total Latency T0-T9: ${t9 - (t0 || t9)}ms)`);
+
+      requestAnimationFrame(() => {
+        const t10 = Date.now();
+        console.log(`[Arcline][Perf][${perfId}] T10: First Frame Rendered at ${new Date(t10).toISOString().split('T')[1]} (Total Latency T0-T10: ${t10 - (t0 || t10)}ms)`);
+      });
+    }
+  }, [onBootstrapReady, perfId, t0]);
 
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
@@ -293,21 +304,30 @@ const FloatingUiRoot = forwardRef<
 });
 FloatingUiRoot.displayName = 'FloatingUiRoot';
 
-export async function mountFloatingUi({
-  host,
-  shadowRoot,
-  onBootstrapReady,
-  onClosed,
-}: MountOptions): Promise<FloatingUiInstance> {
+export async function mountFloatingUi(options: MountOptions): Promise<FloatingUiInstance> {
+  const { host, shadowRoot, perfId, t0, onBootstrapReady, onClosed } = options;
   void host;
+  const t7 = Date.now();
+  if (perfId) console.log(`[Arcline][Perf][${perfId}] T7: mountFloatingUi started at ${new Date(t7).toISOString().split('T')[1]}`);
+
   injectStyles(shadowRoot);
 
   const container = document.createElement('div');
   shadowRoot.append(container);
   const rootRef = React.createRef<FloatingUiHandle>();
   const root: Root = createRoot(container);
+
+  const t8 = Date.now();
+  if (perfId) console.log(`[Arcline][Perf][${perfId}] T8: React root.render() called at ${new Date(t8).toISOString().split('T')[1]}`);
+
   root.render(
-    <FloatingUiRoot ref={rootRef} onBootstrapReady={onBootstrapReady} onClosed={onClosed} />
+    <FloatingUiRoot
+      ref={rootRef}
+      onBootstrapReady={onBootstrapReady}
+      onClosed={onClosed}
+      perfId={perfId}
+      t0={t0}
+    />
   );
 
   return {
