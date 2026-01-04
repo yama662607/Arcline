@@ -64,7 +64,7 @@ const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    transition={{ duration: 0 }} // Snap to 0 for maximum speed
+    transition={{ duration: 0.05, ease: 'linear' }} // 50ms: snappy but guaranteed to render
     onAnimationComplete={(definition) => {
       if (definition === 'exit') {
         onFinished();
