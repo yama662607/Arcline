@@ -483,6 +483,7 @@ function maybeLogEdgeDebug(source: string, payload: Record<string, unknown>) {
 async function startFloatingUi(options?: {
   instant?: boolean;
   commandPalette?: boolean;
+  initialTransition?: boolean;
   perfId?: string;
   t0?: number;
 }) {
@@ -510,6 +511,7 @@ async function startFloatingUi(options?: {
       shadowRoot,
       perfId: options?.perfId,
       t0: options?.t0,
+      initialTransition: options?.initialTransition,
       onBootstrapReady: () => {
         bootstrapHotzone?.remove();
         bootstrapHotzone = null;
@@ -758,9 +760,11 @@ function handleRuntimeMessage(message: unknown) {
 
     ensureHost();
     ensureBootstrapHotzone();
-    void startFloatingUi({ instant: payload.instant, perfId: perfId, t0: t0 }).then(() => {
-      // Trigger the entry transition mask on the target tab
-      floatingInstance?.showPageTransition();
+    void startFloatingUi({
+      instant: payload.instant,
+      perfId: perfId,
+      t0: t0,
+      initialTransition: true // This is a space transition entry
     });
     return;
   }

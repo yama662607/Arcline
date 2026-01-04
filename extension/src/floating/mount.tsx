@@ -34,6 +34,7 @@ interface MountOptions {
   shadowRoot: ShadowRoot;
   perfId?: string;
   t0?: number;
+  initialTransition?: boolean;
   onBootstrapReady?: () => void;
   onClosed?: () => void;
 }
@@ -87,25 +88,26 @@ function showStaticPageMask(shadowRoot: ShadowRoot): () => void {
   };
 }
 
-const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
+const PageTransitionMask = ({
+  onFinished,
+  mode = 'exit'
+}: {
+  onFinished: () => void;
+  mode?: 'entry' | 'exit';
+}) => (
   <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    transition={{ duration: 0.05, ease: 'linear' }} // 50ms: snappy but guaranteed to render
-    onAnimationComplete={(definition) => {
-      if (definition === 'exit') {
-        onFinished();
-      }
-    }}
+    initial={{ opacity: mode === 'entry' ? 1 : 0 }}
+    animate={{ opacity: mode === 'entry' ? 0 : 1 }}
+    transition={{ duration: 0.05, ease: 'linear' }}
+    onAnimationComplete={() => onFinished()}
     style={{
       position: 'fixed',
       inset: 0,
-      backgroundColor: 'rgba(2, 6, 23, 0.15)', // Very subtle tint
-      backdropFilter: 'blur(4px)', // Reduced blur
-      WebkitMaskImage: 'radial-gradient(circle, transparent 40%, black 100%)', // Clear center
+      backgroundColor: 'rgba(2, 6, 23, 0.15)',
+      backdropFilter: 'blur(4px)',
+      WebkitMaskImage: 'radial-gradient(circle, transparent 40%, black 100%)',
       maskImage: 'radial-gradient(circle, transparent 40%, black 100%)',
-      zIndex: 0, // Lower than the UI panel
+      zIndex: 0,
       pointerEvents: 'none',
     }}
   />
@@ -113,13 +115,14 @@ const PageTransitionMask = ({ onFinished }: { onFinished: () => void }) => (
 
 const FloatingUiRoot = forwardRef<
   FloatingUiHandle,
-  { onBootstrapReady?: () => void; onClosed?: () => void; perfId?: string; t0?: number }
->(({ onBootstrapReady, onClosed, perfId, t0 }, ref) => {
+  { onBootstrapReady?: () => void; onClosed?: () => void; perfId?: string; t0?: number; initialTransition?: boolean }
+>(({ onBootstrapReady, onClosed, perfId, t0, initialTransition = false }, ref) => {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [skipAnimation, setSkipAnimation] = useState(false);
   const [showingTransition, setShowingTransition] = useState(false);
+  const [isEntryTransition, setIsEntryTransition] = useState(initialTransition);
   const closeTimer = useRef<number | null>(null);
 
   const spaces = useSpacesStore((state) => state.spaces);
@@ -185,6 +188,11 @@ const FloatingUiRoot = forwardRef<
     [scheduleClose]
   );
 
+  const finishTransition = useCallback(() => {
+    setShowingTransition(false);
+    setIsEntryTransition(false);
+  }, []);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -204,8 +212,10 @@ const FloatingUiRoot = forwardRef<
         setShowPalette(true);
       },
       showPageTransition() {
+        // Exit transition: Fade in then out
+        setIsEntryTransition(false);
         setShowingTransition(true);
-        setTimeout(() => setShowingTransition(false), 100); // Faster auto-cleanup for 0ms transitions
+        setTimeout(() => setShowingTransition(false), 200); // Trigger exit animation
       },
       destroy() {
         cancelClose();
@@ -213,6 +223,7 @@ const FloatingUiRoot = forwardRef<
         setOpen(false);
         setShowPalette(false);
         setShowingTransition(false);
+        setIsEntryTransition(false);
         onClosed?.();
       },
     }),
@@ -221,17 +232,6 @@ const FloatingUiRoot = forwardRef<
 
   useEffect(() => {
     onBootstrapReady?.();
-
-    // If we were started via mountFloatingUi, we might have a static mask to remove
-    const staticMask = document.activeElement?.shadowRoot?.querySelector('.arcline-static-page-mask');
-    if (staticMask) {
-      // Small delay to ensure React has actually rendered its own mask
-      setTimeout(() => {
-        (staticMask as HTMLElement).style.opacity = '0';
-        setTimeout(() => staticMask.remove(), 150);
-      }, 50);
-    }
-
     if (perfId) {
       const t9 = Date.now();
       console.log(`[Arcline][Perf][${perfId}] T9: FloatingUiRoot Ready (useEffect) at ${new Date(t9).toISOString().split('T')[1]} (Total Latency T0-T9: ${t9 - (t0 || t9)}ms)`);
@@ -263,8 +263,11 @@ const FloatingUiRoot = forwardRef<
         onPointerLeave={handlePointerLeave}
       />
       <AnimatePresence>
-        {showingTransition && (
-          <PageTransitionMask onFinished={() => setShowingTransition(false)} />
+        {(showingTransition || isEntryTransition) && (
+          <PageTransitionMask
+            mode={isEntryTransition ? 'entry' : 'exit'}
+            onFinished={finishTransition}
+          />
         )}
       </AnimatePresence>
       <div className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch" style={{ zIndex: 10 }}>
@@ -382,14 +385,18 @@ const FloatingUiRoot = forwardRef<
 FloatingUiRoot.displayName = 'FloatingUiRoot';
 
 export async function mountFloatingUi(options: MountOptions): Promise<FloatingUiInstance> {
-  const { host, shadowRoot, perfId, t0, onBootstrapReady, onClosed } = options;
+  const { host, shadowRoot, perfId, t0, initialTransition, onBootstrapReady, onClosed } = options;
   void host;
   const t7 = Date.now();
   if (perfId) console.log(`[Arcline][Perf][${perfId}] T7: mountFloatingUi started at ${new Date(t7).toISOString().split('T')[1]}`);
 
   injectStyles(shadowRoot);
-  // Synchronously show the static mask BEFORE React rendering starts
-  showStaticPageMask(shadowRoot);
+
+  // Synchronously show the static mask BEFORE React rendering starts IF requested
+  let cleanupStaticMask: (() => void) | null = null;
+  if (initialTransition) {
+    cleanupStaticMask = showStaticPageMask(shadowRoot);
+  }
 
   const container = document.createElement('div');
   shadowRoot.append(container);
@@ -402,7 +409,14 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
   root.render(
     <FloatingUiRoot
       ref={rootRef}
-      onBootstrapReady={onBootstrapReady}
+      initialTransition={initialTransition}
+      onBootstrapReady={() => {
+        onBootstrapReady?.();
+        // Give React a tiny moment to render its own mask before fading out the static one
+        if (cleanupStaticMask) {
+          setTimeout(cleanupStaticMask, 50);
+        }
+      }}
       onClosed={onClosed}
       perfId={perfId}
       t0={t0}
