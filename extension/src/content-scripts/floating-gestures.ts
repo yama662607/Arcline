@@ -54,6 +54,10 @@ const RESET_ANIMATION_MS = 140;
 const HANDOFF_ANIMATION_MS = 160;
 const COOLDOWN_MS = 220;
 
+// Early flick detection: commit immediately when high velocity is detected
+const EARLY_FLICK_VELOCITY_THRESHOLD = 1.5; // widths per second
+const EARLY_FLICK_MIN_PROGRESS = 0.15; // minimum 15% progress before committing
+
 const SUPPORTS_SCROLLEND =
   typeof document !== 'undefined' &&
   typeof document.documentElement !== 'undefined' &&
@@ -386,9 +390,8 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     reportSwipeDebug(context, 'commit-flick', true, totalDeltaX);
     phase = 'committing';
 
-    // Trigger navigation immediately for responsiveness
+    // Show page transition mask while animating
     deps.onPageTransition?.();
-    deps.onNavigateSpace(spaceDirection, { mode: 'flick', perfId, t0 });
 
     const endOffset = uiDirection === 'left' ? -width : width;
     applyTransitionOffset(target, endOffset, {
@@ -396,13 +399,18 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       durationMs: FLICK_ANIMATION_MS,
     });
 
+    // Wait for animation to complete, then trigger navigation
     window.setTimeout(() => {
+      // Navigate AFTER animation completes for smooth visual experience
+      deps.onNavigateSpace(spaceDirection, { mode: 'flick', perfId, t0 });
+
       applyTransitionOffset(target, 0, { animate: false });
       dispatchSwipeProgress(0);
       resetGesture();
       enterCooldown();
     }, FLICK_ANIMATION_MS);
   };
+
 
   const commitHandoff = (
     target: HTMLElement,
@@ -510,6 +518,21 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
 
     applyTransitionOffset(target, offset, { animate: false });
     dispatchSwipeProgress(progress);
+
+    // Early flick detection: commit immediately when high velocity is detected
+    // This bypasses the scrollend delay caused by momentum scrolling
+    const velocityWidthsPerSec = width > 0 ? (Math.abs(lastVelocityX) * 1000) / width : 0;
+    if (
+      velocityWidthsPerSec >= EARLY_FLICK_VELOCITY_THRESHOLD &&
+      Math.abs(progress) >= EARLY_FLICK_MIN_PROGRESS &&
+      phase === 'locked'
+    ) {
+      clearPendingCommit();
+      const spaceDirection: SwipeDirection = direction === 'left' ? 'right' : 'left';
+      commitFlick(target, width, context, direction, spaceDirection);
+      reportSwipeDebug(context, 'early-flick-commit', true, totalDeltaX);
+      return;
+    }
 
     if (SUPPORTS_SCROLLEND) {
       updateScrollProxy(shadowRoot, offset);

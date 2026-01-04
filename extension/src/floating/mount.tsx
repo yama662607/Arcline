@@ -234,10 +234,10 @@ const FloatingUiRoot = forwardRef<
           tabIndex={0}
           title={pinned ? 'Click to unpin sidebar' : 'Hover or click to open sidebar'}
         />
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {(open || pinned) && (
             <motion.aside
-              key="arcline-floating-panel"
+              key={`arcline-floating-panel-${activeSpaceId ?? 'none'}`}
               data-testid="arcline-floating-panel"
               className="pointer-events-auto flex h-full flex-1"
               style={{ marginLeft: '-5px', marginTop: '3px', marginBottom: '3px' }}

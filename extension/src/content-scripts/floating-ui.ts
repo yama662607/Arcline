@@ -20,6 +20,7 @@ import {
   resetSwipeDebugStats,
 } from './floating-swipe-debug';
 import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from './shared-utils';
+import { useSpacesStore } from '@/store';
 
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
@@ -748,8 +749,10 @@ function handleRuntimeMessage(message: unknown) {
     }
 
     if (payload.spaces) {
-      // Pre-populate cache directly to avoid query delay
+      // Pre-populate both caches directly to avoid query delay and stale UI flash
       getServiceWorkerBridge().updateSpacesCache(payload.spaces);
+      // Also update Zustand store which mount.tsx uses for rendering (synchronous)
+      useSpacesStore.getState().setSpaces(payload.spaces);
     }
     if (payload.transition) {
       pendingTransition = payload.transition;
@@ -758,10 +761,17 @@ function handleRuntimeMessage(message: unknown) {
 
     ensureHost();
     ensureBootstrapHotzone();
-    void startFloatingUi({
-      instant: payload.instant,
-      perfId: perfId,
-      t0: t0,
+
+    // Wait for React to process the Zustand state update before opening UI
+    // This ensures the new space data is rendered, not stale data
+    queueMicrotask(() => {
+      requestAnimationFrame(() => {
+        void startFloatingUi({
+          instant: payload.instant,
+          perfId: perfId,
+          t0: t0,
+        });
+      });
     });
     return;
   }
