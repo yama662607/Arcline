@@ -45,6 +45,7 @@ import {
 } from './services/favorites';
 import { initializeGestureDetection, subscribeToSwipe } from './services/gestures';
 import { activateSpace, navigateSpace } from './services/space-navigation';
+import { initializeSync } from '@/services/sync';
 
 const LEGACY_UI_MODE_KEY = 'arclineoMode';
 const UI_MODE_KEY = 'arcline.uiMode.current';
@@ -292,6 +293,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   await initializeUiMode();
   await initializeAutoArchive();
   await registerGlobalContextMenus();
+  await initializeSync();
 });
 
 chrome.tabs.onZoomChange.addListener(async (info) => {
@@ -307,6 +309,7 @@ chrome.runtime.onStartup?.addListener(async () => {
   await initializeUiMode();
   await initializeAutoArchive();
   await registerGlobalContextMenus();
+  await initializeSync();
 });
 
 initializeGestureDetection();
