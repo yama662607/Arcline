@@ -36,7 +36,16 @@ export interface PinnedFolder {
   parentId?: string;
 }
 
-export type SpaceColor = 'grey' | 'blue' | 'red' | 'yellow' | 'green' | 'pink' | 'purple' | 'cyan';
+export type SpaceColor =
+  | 'grey'
+  | 'blue'
+  | 'red'
+  | 'yellow'
+  | 'green'
+  | 'pink'
+  | 'purple'
+  | 'cyan'
+  | 'orange';
 
 export interface SpaceSnapshot {
   id: number;

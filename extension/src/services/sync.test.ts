@@ -6,6 +6,7 @@ import { ArclineDatabase } from '@/db/schema';
 const mockBookmarks = {
   search: vi.fn(),
   getChildren: vi.fn(),
+  getSubTree: vi.fn(),
   onCreated: { addListener: vi.fn() },
   onChanged: { addListener: vi.fn() },
   onRemoved: { addListener: vi.fn() },
@@ -37,6 +38,7 @@ describe('Sync Service', () => {
   describe('initializeSync', () => {
     it('should register bookmark event listeners', async () => {
       mockBookmarks.search.mockResolvedValue([]);
+      mockBookmarks.getSubTree.mockResolvedValue([]);
 
       await initializeSync();
 
@@ -48,6 +50,7 @@ describe('Sync Service', () => {
 
     it('should skip sync when Arcline folder not found', async () => {
       mockBookmarks.search.mockResolvedValue([]);
+      mockBookmarks.getSubTree.mockResolvedValue([]);
 
       await initializeSync();
 
@@ -57,29 +60,36 @@ describe('Sync Service', () => {
     });
 
     it('should sync spaces and items when Arcline folder exists', async () => {
-      // Mock Arcline root folder
+      // Mock Arcline root folder search (still needed to find ID)
       mockBookmarks.search.mockResolvedValue([
         { id: 'arcline-root', title: 'Arcline', url: undefined },
       ]);
 
-      // Mock space folders
-      mockBookmarks.getChildren.mockImplementation((id: string) => {
-        if (id === 'arcline-root') {
-          return Promise.resolve([
-            { id: 'space-1', title: 'Work', url: undefined, index: 0 },
-            { id: 'space-2', title: 'Personal', url: undefined, index: 1 },
-          ]);
-        }
-        if (id === 'space-1') {
-          return Promise.resolve([
-            { id: 'bm-1', title: 'GitHub', url: 'https://github.com', index: 0 },
-          ]);
-        }
-        if (id === 'space-2') {
-          return Promise.resolve([]);
-        }
-        return Promise.resolve([]);
-      });
+      // Mock getSubTree returning full structure
+      mockBookmarks.getSubTree.mockResolvedValue([
+        {
+          id: 'arcline-root',
+          title: 'Arcline',
+          children: [
+            {
+              id: 'space-1',
+              title: 'Work',
+              url: undefined,
+              index: 0,
+              children: [
+                { id: 'bm-1', title: 'GitHub', url: 'https://github.com', index: 0, children: [] },
+              ],
+            },
+            {
+              id: 'space-2',
+              title: 'Personal',
+              url: undefined,
+              index: 1,
+              children: [],
+            },
+          ],
+        },
+      ]);
 
       await initializeSync();
 
@@ -101,23 +111,36 @@ describe('Sync Service', () => {
         { id: 'arcline-root', title: 'Arcline', url: undefined },
       ]);
 
-      mockBookmarks.getChildren.mockImplementation((id: string) => {
-        if (id === 'arcline-root') {
-          return Promise.resolve([{ id: 'space-1', title: 'Work', url: undefined, index: 0 }]);
-        }
-        if (id === 'space-1') {
-          return Promise.resolve([
-            { id: 'folder-1', title: 'Design', url: undefined, index: 0 },
-            { id: 'bm-1', title: 'GitHub', url: 'https://github.com', index: 1 },
-          ]);
-        }
-        if (id === 'folder-1') {
-          return Promise.resolve([
-            { id: 'bm-2', title: 'Figma', url: 'https://figma.com', index: 0 },
-          ]);
-        }
-        return Promise.resolve([]);
-      });
+      mockBookmarks.getSubTree.mockResolvedValue([
+        {
+          id: 'arcline-root',
+          title: 'Arcline',
+          children: [
+            {
+              id: 'space-1',
+              title: 'Work',
+              index: 0,
+              children: [
+                {
+                  id: 'folder-1',
+                  title: 'Design',
+                  index: 0,
+                  children: [
+                    {
+                      id: 'bm-2',
+                      title: 'Figma',
+                      url: 'https://figma.com',
+                      index: 0,
+                      children: [],
+                    },
+                  ],
+                },
+                { id: 'bm-1', title: 'GitHub', url: 'https://github.com', index: 1, children: [] },
+              ],
+            },
+          ],
+        },
+      ]);
 
       await initializeSync();
 
@@ -148,14 +171,16 @@ describe('Sync Service', () => {
       mockBookmarks.search.mockResolvedValue([
         { id: 'arcline-root', title: 'Arcline', url: undefined },
       ]);
-      mockBookmarks.getChildren.mockImplementation((id: string) => {
-        if (id === 'arcline-root') {
-          return Promise.resolve([
-            { id: 'new-space', title: 'New Space', url: undefined, index: 0 },
-          ]);
-        }
-        return Promise.resolve([]);
-      });
+
+      mockBookmarks.getSubTree.mockResolvedValue([
+        {
+          id: 'arcline-root',
+          title: 'Arcline',
+          children: [
+            { id: 'new-space', title: 'New Space', url: undefined, index: 0, children: [] },
+          ],
+        },
+      ]);
 
       await forceResync();
 

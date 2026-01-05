@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { Check, MoreVertical, Settings } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { getSpaceDisplayIcon, getSpaceTheme } from '@/lib/space-theme';
@@ -93,20 +94,7 @@ function AllSpacesPopup({
                 {icon}
               </div>
               <span className="truncate">{space.name}</span>
-              {isActive && (
-                <svg
-                  className="ml-auto h-4 w-4 flex-shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
+              {isActive && <Check className="ml-auto h-4 w-4 flex-shrink-0" />}
             </button>
           );
         })}
@@ -117,20 +105,7 @@ function AllSpacesPopup({
           onClick={onManageSpaces}
           className="flex w-full items-center justify-center gap-1.5 rounded px-2 py-1.5 text-sm text-slate-200 transition-colors hover:bg-white/10 hover:text-white"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-            />
-          </svg>
+          <Settings className="h-4 w-4" />
           Manage Spaces
         </button>
       </div>
@@ -247,9 +222,7 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
         className="flex h-8 w-8 items-center justify-center rounded-lg text-white/50 hover:text-white/80 hover:bg-white/10 transition-all"
         aria-label="Show all spaces"
       >
-        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-        </svg>
+        <MoreVertical className="h-4 w-4" />
       </button>
 
       {/* Popup with all spaces */}

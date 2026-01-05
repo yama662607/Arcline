@@ -156,7 +156,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
     if (!space) return [];
     const dedupe = new Map<number, TabEntry>();
     for (const tab of [...space.tabs, ...space.temporaryTabs]) {
-      if (!tab.pinned) {
+      if (!tab.pinned && !tab.url?.includes('empty-space.html')) {
         dedupe.set(tab.id, tab);
       }
     }
@@ -214,7 +214,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
     return null;
   };
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: drag-and-drop logic requires multiple conditions
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: handleDragEnd is naturally complex due to multiple DND scenarios
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveDragId(null);

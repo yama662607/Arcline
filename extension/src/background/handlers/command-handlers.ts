@@ -727,5 +727,37 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
         }
       });
     },
+    countBookmarks: (_message, sendResponse) =>
+      respondAsync(async () => {
+        try {
+          const counts = await deps.countBookmarks();
+          sendResponse(counts);
+        } catch (error) {
+          sendResponse({ ok: false, error: String(error) });
+        }
+      }),
+    getInactiveSpaces: (_message, sendResponse) =>
+      respondAsync(async () => {
+        try {
+          const spaces = await deps.getInactiveSpaces();
+          sendResponse(spaces);
+        } catch (error) {
+          sendResponse({ ok: false, error: String(error) });
+        }
+      }),
+    restoreSpaceByFolderName: (message, sendResponse) => {
+      const { folderName } = message as { folderName: string };
+      if (!folderName)
+        return respondAsync(async () => sendResponse({ ok: false, error: 'Missing params' }));
+      return respondAsync(async () => {
+        try {
+          const spaceId = await deps.restoreSpaceByFolderName(folderName);
+          await deps.broadcastSpacesSnapshot();
+          sendResponse({ ok: true, data: spaceId });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+      });
+    },
   };
 }

@@ -7,8 +7,7 @@ test.describe('Trackpad Gestures', () => {
     await addServiceWorkerBridgeMock(page);
   });
 
-  // biome-ignore lint/correctness/noUnusedFunctionParameters: serviceWorker required by test fixture
-  test('should trigger navigateSpace on swipe', async ({ page, serviceWorker }, _testInfo) => {
+  test('should trigger navigateSpace on swipe', async ({ page }, testInfo) => {
     // Navigate to a page where content script should load
     await page.goto('https://example.com');
 

@@ -482,6 +482,7 @@ export async function moveTabToSpace(tabId: number, spaceId: number): Promise<nu
   return result;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: space creation flow has multiple branches
 export async function createSpace(name: string, color?: TabGroupColor): Promise<number> {
   if (!isTabGroupsSupported()) {
     throw new Error('Tab groups are not supported in this browser');
@@ -608,6 +609,10 @@ export async function closeTab(tabId: number): Promise<void> {
       if (nextTabId) {
         await chrome.tabs.update(nextTabId, { active: true });
       }
+    }
+    // Check if this is the last tab in a group
+    if (typeof tab.groupId === 'number' && tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+      await ensureSpaceStaysAlive(tab.groupId, tabId);
     }
   } catch (_error) {
     // Ignore error (e.g. tab already closed)
@@ -1072,7 +1077,10 @@ function invalidateSnapshot() {
 // Setup listeners for cache invalidation
 if (typeof chrome !== 'undefined' && chrome.tabs) {
   chrome.tabs.onCreated.addListener(invalidateSnapshot);
-  chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+      cleanupEmptySpaceTab(tab.groupId);
+    }
     // Only invalidate if relevant properties change
     if (
       changeInfo.status === 'loading' ||
@@ -1126,4 +1134,30 @@ export async function restoreSpaceByFolderName(folderName: string): Promise<numb
   // Snapshotを再取得してブロードキャストするだけでよい
   await broadcastSpacesSnapshot();
   return groupId;
+}
+
+async function ensureSpaceStaysAlive(groupId: number, currentTabId: number): Promise<void> {
+  const groupTabs = await chrome.tabs.query({ groupId });
+  const lastTab = groupTabs[0];
+  if (groupTabs.length === 1 && lastTab?.id === currentTabId) {
+    // Create placeholder to keep space alive
+    const spaces = await getSpacesSnapshot();
+    const space = spaces.find((s) => s.id === groupId);
+    const color = space?.color || 'grey';
+    const url = chrome.runtime.getURL(`empty-space.html?color=${encodeURIComponent(color)}`);
+    const newTab = await chrome.tabs.create({ url, active: true });
+    if (newTab.id) {
+      await chrome.tabs.group({ tabIds: [newTab.id], groupId });
+    }
+  }
+}
+
+async function cleanupEmptySpaceTab(groupId: number): Promise<void> {
+  const tabs = await chrome.tabs.query({ groupId });
+  if (tabs.length <= 1) return;
+
+  const emptyTab = tabs.find((t) => t.url?.includes('empty-space.html'));
+  if (emptyTab?.id) {
+    await chrome.tabs.remove(emptyTab.id);
+  }
 }

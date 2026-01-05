@@ -1,6 +1,6 @@
 import type { SwipeDirection } from '@/shared/gestures';
 import type { SpaceSnapshot, TabEntry } from '@/shared/types';
-import { broadcastSpacesSnapshot, getSpacesSnapshot } from './browser';
+import { broadcastSpacesSnapshot, getSpacesSnapshot, restoreSpaceByFolderName } from './browser';
 
 import { openFloatingUiOnTab, type SpaceTransitionOptions } from './ui-messaging';
 
@@ -9,7 +9,7 @@ const UNGROUPED_SPACE_ID = -1;
 
 type NavigationTarget = {
   space: SpaceSnapshot;
-  tab: TabEntry;
+  tab: TabEntry | null;
   allSpaces: SpaceSnapshot[];
 };
 
@@ -121,11 +121,9 @@ async function resolveNavigationTarget(
 
   const activeTabId = typeof activeTab?.id === 'number' ? activeTab.id : undefined;
   const targetTab = selectTargetTab(targetSpace, activeTabId);
-  if (!targetTab) {
-    console.warn('[Arcline] No navigable tabs found for target space', targetSpace.id);
-    return null;
-  }
 
+  // Even if no target tab is found, we return the space so the caller can decide
+  // to create an empty space placeholder.
   return { space: targetSpace, tab: targetTab, allSpaces: spaces };
 }
 
@@ -226,25 +224,66 @@ export async function navigateSpace(
     const lists: TabEntry[][] = [space.tabs, space.temporaryTabs, space.pinnedTabs];
     for (const list of lists) {
       for (const tab of list) {
-        tab.active = tab.id === target.tab.id;
+        tab.active = target.tab ? tab.id === target.tab.id : false;
       }
     }
   }
 
   // Parallelize tab activation, window focus, and UI data delivery
-  const activationPromise = activateTargetTab(target.tab).then(async (activated) => {
-    if (activated) {
-      await focusWindowIfNeeded(target.tab.windowId);
+  // Parallelize tab activation, window focus, and UI data delivery
+  const targetTabId = target.tab?.id;
+
+  if (targetTabId) {
+    const activationPromise = activateTargetTab(target.tab!).then(async (activated) => {
+      if (activated) {
+        await focusWindowIfNeeded(target.tab!.windowId);
+      }
+    });
+
+    const openUiPromise = openFloatingUiOnTab(targetTabId, spaces, target.space.id, {
+      ...options,
+      perfId,
+      t0,
+    });
+
+    await Promise.all([activationPromise, openUiPromise]);
+  } else {
+    // Empty space or Virtual Space
+    if (target.space.id < 0) {
+      // Virtual space (inactive folder) -> Restore it
+      const newGroupId = await restoreSpaceByFolderName(target.space.name);
+      // restoreSpaceByFolderName activates the space and broadcasts snapshot.
+      // We just need to ensure UI is opened.
+      // Get the active tab of the new group
+      const tabs = await chrome.tabs.query({ groupId: newGroupId });
+      const activeTab = tabs.find((t) => t.active) || tabs[0];
+      if (activeTab?.id) {
+        const refreshedSpaces = await getSpacesSnapshot();
+        await openFloatingUiOnTab(activeTab.id, refreshedSpaces, newGroupId, {
+          ...options,
+          perfId,
+          t0,
+        });
+        await notifyActiveSpaceChange(newGroupId);
+      }
+      return true;
     }
-  });
 
-  const openUiPromise = openFloatingUiOnTab(target.tab.id, spaces, target.space.id, {
-    ...options,
-    perfId,
-    t0,
-  });
+    // Existing space but empty (e.g. manually cleared tabs)
+    const url = chrome.runtime.getURL(
+      `empty-space.html?color=${encodeURIComponent(target.space.color)}`
+    );
+    const newTab = await chrome.tabs.create({ url, active: true });
 
-  await Promise.all([activationPromise, openUiPromise]);
+    if (newTab.id) {
+      if (target.space.id !== -1) {
+        await chrome.tabs.group({ tabIds: [newTab.id], groupId: target.space.id });
+      }
+      // Update snapshot (optimistic or re-fetch)
+      await getSpacesSnapshot(); // Refresh state
+      await openFloatingUiOnTab(newTab.id, spaces, target.space.id, { ...options, perfId, t0 });
+    }
+  }
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(target.space.id);
@@ -273,20 +312,48 @@ export async function activateSpace(
   const activeTab = await resolveActiveTab();
   const activeTabId = typeof activeTab?.id === 'number' ? activeTab.id : undefined;
   const targetTab = selectTargetTab(targetSpace, activeTabId);
-  if (!targetTab) {
-    console.warn('[Arcline] No navigable tabs found for target space', targetSpace.id);
-    return false;
+
+  if (targetTab) {
+    const activated = await activateTargetTab(targetTab);
+    if (!activated) {
+      return false;
+    }
+    await focusWindowIfNeeded(targetTab.windowId);
+
+    // Refresh snapshot to ensure UI has latest data
+    const refreshed = await getSpacesSnapshot();
+    await openFloatingUiOnTab(targetTab.id, refreshed, targetSpace.id, options);
+  } else {
+    // Empty space or Virtual Space
+    if (targetSpace.id < 0) {
+      // Virtual Space
+      const newGroupId = await restoreSpaceByFolderName(targetSpace.name);
+      // restoreSpaceByFolderName activates the space.
+      const tabs = await chrome.tabs.query({ groupId: newGroupId });
+      const activeTab = tabs.find((t) => t.active) || tabs[0];
+      if (activeTab?.id) {
+        const refreshed = await getSpacesSnapshot();
+        await openFloatingUiOnTab(activeTab.id, refreshed, newGroupId, options);
+        await notifyActiveSpaceChange(newGroupId);
+      }
+      return true;
+    }
+
+    // Empty space: Create empty placeholder
+    console.log('[Arcline] Navigating to empty space, creating placeholder');
+    const url = chrome.runtime.getURL(
+      `empty-space.html?color=${encodeURIComponent(targetSpace.color)}`
+    );
+    const newTab = await chrome.tabs.create({ url, active: true });
+
+    if (newTab.id) {
+      if (targetSpace.id !== -1) {
+        await chrome.tabs.group({ tabIds: [newTab.id], groupId: targetSpace.id });
+      }
+      const refreshed = await getSpacesSnapshot();
+      await openFloatingUiOnTab(newTab.id, refreshed, targetSpace.id, options);
+    }
   }
-
-  const activated = await activateTargetTab(targetTab);
-  if (!activated) {
-    return false;
-  }
-
-  await focusWindowIfNeeded(targetTab.windowId);
-
-  const refreshed = await getSpacesSnapshot();
-  await openFloatingUiOnTab(targetTab.id, refreshed, targetSpace.id, options);
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(targetSpace.id);

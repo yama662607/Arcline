@@ -70,6 +70,13 @@ export const SPACE_COLORS: Record<SpaceColor, ThemeColors> = {
     gradientSubtle: 'linear-gradient(180deg, rgba(34, 211, 238, 0.15) 0%, transparent 100%)',
     accent: '#06B6D4',
   },
+  orange: {
+    primary: '#F97316',
+    primaryDark: '#C2410C',
+    gradient: 'linear-gradient(135deg, #9A3412 0%, #EA580C 50%, #FB923C 100%)',
+    gradientSubtle: 'linear-gradient(180deg, rgba(249, 115, 22, 0.15) 0%, transparent 100%)',
+    accent: '#F97316',
+  },
 };
 
 export const DEFAULT_SPACE_COLOR: SpaceColor = 'blue';

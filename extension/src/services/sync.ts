@@ -25,8 +25,19 @@ export async function initializeSync(): Promise<void> {
     await searchService.buildIndex();
     setupBookmarkListeners();
     console.log('[Arcline] Bookmark sync initialization complete.');
-  } catch (error) {
-    console.error('[Arcline] Failed to initialize sync:', error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('[Arcline] Failed to initialize sync:', err);
+    if (err.message?.includes('Sync transaction failed')) {
+      // Already wrapped
+      throw err;
+    }
+    const details = (err as any).failures
+      ? JSON.stringify((err as any).failures)
+      : typeof err === 'object'
+        ? JSON.stringify(err)
+        : String(err);
+    throw new Error(`Failed to initialize sync: ${err.message || String(err)} Details: ${details}`);
   }
 }
 
@@ -47,22 +58,38 @@ async function syncBookmarksToDb(): Promise<void> {
   // Store the root folder ID for event handling
   arclineRootFolderId = arclineFolder.id;
 
-  // Get all children (spaces)
-  const children = await chrome.bookmarks.getChildren(arclineFolder.id);
+  // Get the full tree (spaces and items)
+  const [rootNode] = await chrome.bookmarks.getSubTree(arclineFolder.id);
+  if (!rootNode) {
+    console.error('[Arcline] Failed to retrieve bookmark root node');
+    return;
+  }
+  const children = rootNode.children ?? [];
 
   // Clear existing data (full sync)
   await db.transaction('rw', [db.spaces, db.items], async () => {
-    await db.spaces.clear();
-    await db.items.clear();
+    try {
+      await db.spaces.clear();
+      await db.items.clear();
 
-    for (const child of children) {
-      if (!child.url) {
-        // This is a space folder
-        const spaceId = await syncSpaceFolder(child);
-        if (spaceId) {
-          await syncSpaceItems(child.id, spaceId);
+      for (const child of children) {
+        if (!child.url) {
+          // This is a space folder
+          const spaceId = await syncSpaceFolder(child);
+          if (spaceId && child.children) {
+            await syncSpaceItemsFromNode(child.children, spaceId);
+          }
         }
       }
+    } catch (e: unknown) {
+      const err = e as Error & { failures?: any };
+      // Enhance error with bulk failure details if available
+      if (err.failures) {
+        const details = JSON.stringify(err.failures);
+        console.error('[Arcline] Sync transaction failures:', details);
+        throw new Error(`Sync transaction failed: ${err.message} Details: ${details}`);
+      }
+      throw err;
     }
   });
 
@@ -92,13 +119,16 @@ async function syncSpaceFolder(
 }
 
 /**
- * Sync items (bookmarks/folders) within a space to IndexedDB.
+ * Sync items (bookmarks/folders) within a space to IndexedDB from pre-fetched nodes.
  */
-async function syncSpaceItems(folderId: string, spaceId: number, parentId?: number): Promise<void> {
-  const children = await chrome.bookmarks.getChildren(folderId);
+async function syncSpaceItemsFromNode(
+  nodes: chrome.bookmarks.BookmarkTreeNode[],
+  spaceId: number,
+  parentId?: number
+): Promise<void> {
   let sortOrder = 0;
 
-  for (const child of children) {
+  for (const child of nodes) {
     const now = new Date();
     const item: ItemRecord = {
       spaceId,
@@ -115,8 +145,8 @@ async function syncSpaceItems(folderId: string, spaceId: number, parentId?: numb
     const itemId = await db.items.add(item);
 
     // Recursively sync folder contents
-    if (!child.url && itemId) {
-      await syncSpaceItems(child.id, spaceId, itemId as number);
+    if (!child.url && itemId && child.children) {
+      await syncSpaceItemsFromNode(child.children, spaceId, itemId as number);
     }
   }
 }
@@ -170,6 +200,7 @@ function setupBookmarkListeners(): void {
  * 1. New space folder (direct child of Arcline root)
  * 2. New item (bookmark/folder within a space)
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: handleBookmarkCreated has multiple sync scenarios
 async function handleBookmarkCreated(bookmark: chrome.bookmarks.BookmarkTreeNode): Promise<void> {
   const parentId = bookmark.parentId ?? '';
 
@@ -200,7 +231,7 @@ async function handleBookmarkCreated(bookmark: chrome.bookmarks.BookmarkTreeNode
   // Case 2: Check if parent is directly in items table
   const parentItem = await db.items.where('bookmarkId').equals(parentId).first();
 
-  if (parentItem && parentItem.id) {
+  if (parentItem?.id) {
     // Add item with parent reference
     const now = new Date();
     const newItem: ItemRecord = {
@@ -263,7 +294,7 @@ async function handleBookmarkChanged(
 ): Promise<void> {
   // Case 1: Check if it's a space folder
   const space = await db.spaces.where('uuid').equals(id).first();
-  if (space && space.id) {
+  if (space?.id) {
     const now = new Date();
     await db.spaces.update(space.id, {
       name: changeInfo.title ?? space.name,
@@ -304,7 +335,7 @@ async function handleBookmarkChanged(
 async function handleBookmarkRemoved(id: string): Promise<void> {
   // Case 1: Check if it's a space folder
   const space = await db.spaces.where('uuid').equals(id).first();
-  if (space && space.id) {
+  if (space?.id) {
     // Remove all items in this space
     const items = await db.items.where('spaceId').equals(space.id).toArray();
     for (const item of items) {
@@ -373,7 +404,7 @@ async function handleBookmarkMoved(
   } else {
     // Check if parent is a space
     const space = await db.spaces.where('uuid').equals(moveInfo.parentId).first();
-    if (space && space.id) {
+    if (space?.id) {
       // Moving to space root, no parentId but update spaceId
       newParentId = undefined;
       newSpaceId = space.id;

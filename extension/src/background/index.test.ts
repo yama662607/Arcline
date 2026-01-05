@@ -37,6 +37,10 @@ vi.mock('./services/browser', () => {
   };
 });
 
+vi.mock('../services/sync', () => ({
+  initializeSync: vi.fn(),
+}));
+
 import type { UiMode } from '@/lib/ui-mode';
 import type { SpaceSnapshot } from '@/shared/types';
 import { chromeMock } from '@/test/chrome-mock';

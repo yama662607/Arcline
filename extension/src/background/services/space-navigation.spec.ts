@@ -15,7 +15,9 @@ const mockChrome = {
   tabs: {
     query: vi.fn(),
     update: vi.fn(),
-    sendMessage: vi.fn(),
+    sendMessage: vi.fn().mockResolvedValue(undefined),
+    create: vi.fn().mockResolvedValue({ id: 999, active: true, windowId: 1 } as chrome.tabs.Tab),
+    group: vi.fn().mockResolvedValue(1),
   },
   windows: {
     update: vi.fn(),
@@ -23,9 +25,16 @@ const mockChrome = {
   runtime: {
     sendMessage: vi.fn(),
     lastError: null,
+    getURL: vi.fn((path) => `chrome-extension://mock-id/${path}`),
   },
 };
 globalThis.chrome = mockChrome as unknown as typeof chrome;
+
+// Add create method to tabs mock
+mockChrome.tabs.create = vi
+  .fn()
+  .mockResolvedValue({ id: 999, active: true, windowId: 1 } as chrome.tabs.Tab);
+mockChrome.tabs.group = vi.fn().mockResolvedValue(1);
 
 describe('space-navigation', () => {
   beforeEach(() => {
@@ -141,7 +150,7 @@ describe('space-navigation', () => {
       expect(mockChrome.tabs.update).toHaveBeenCalledWith(102, { active: true });
     });
 
-    it('should fail if target space has no navigable tabs', async () => {
+    it('should create empty space placeholder if target space has no navigable tabs', async () => {
       const space1 = createMockSpace(1, 'Space 1');
       const space2 = createMockSpace(2, 'Space 2');
       space1.tabs = [createMockTab(101, 1)];
@@ -151,8 +160,22 @@ describe('space-navigation', () => {
 
       mockChrome.tabs.query.mockResolvedValue([{ id: 101, groupId: 1, active: true, windowId: 1 }]);
 
+      // Execute: Navigate RIGHT from Space 1 should go to Space 2 (empty)
       const result = await spaceNavigation.navigateSpace('right');
-      expect(result).toBe(false); // Should fail to navigate
+
+      expect(result).toBe(true); // Should succeed now
+
+      // Verify creating empty page
+      expect(mockChrome.tabs.create).toHaveBeenCalledWith({
+        url: expect.stringContaining('empty-space.html'),
+        active: true,
+      });
+
+      // Verify grouping
+      expect(mockChrome.tabs.group).toHaveBeenCalledWith({
+        tabIds: [999], // Mocked ID from tabs.create
+        groupId: 2,
+      });
     });
   });
 });

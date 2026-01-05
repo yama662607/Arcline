@@ -91,7 +91,14 @@ const manifest = defineManifest(({ mode }) => {
     },
     web_accessible_resources: [
       {
-        resources: ['index.html', 'popup.html', 'newtab.html', 'assets/*', 'icons/*'],
+        resources: [
+          'index.html',
+          'popup.html',
+          'newtab.html',
+          'empty-space.html',
+          'assets/*',
+          'icons/*',
+        ],
         matches: ['<all_urls>'],
       },
       {

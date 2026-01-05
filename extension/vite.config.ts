@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => ({
         index: resolve(__dirname, 'index.html'),
         popup: resolve(__dirname, 'popup.html'),
         newtab: resolve(__dirname, 'newtab.html'),
+        'empty-space': resolve(__dirname, 'empty-space.html'),
       },
     },
   },

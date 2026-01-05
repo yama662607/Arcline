@@ -16,7 +16,7 @@ interface SettingsPanelProps {
   variant?: 'standalone' | 'floating';
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: settings panel has many configuration options
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SettingsPanel layout is complex but remains readable
 export function SettingsPanel({ variant = 'standalone' }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<
     'general' | 'archive' | 'appearance' | 'gestures' | 'import'

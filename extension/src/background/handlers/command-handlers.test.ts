@@ -18,7 +18,7 @@ describe('command-handlers', () => {
     } as unknown as CommandHandlersDeps;
 
     const handlers = createCommandHandlers(mockDeps);
-    const handler = handlers.navigateSpace;
+    const handler = handlers.navigateSpace!;
 
     expect(handler).toBeDefined();
     if (!handler) {
