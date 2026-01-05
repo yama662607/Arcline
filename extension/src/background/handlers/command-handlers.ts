@@ -58,6 +58,9 @@ export type CommandHandlersDeps = {
   reorderTab: BrowserFns['reorderTab'];
   navigateSpace: typeof import('../services/space-navigation')['navigateSpace'];
   activateSpace: typeof import('../services/space-navigation')['activateSpace'];
+  countBookmarks: BrowserFns['countBookmarks'];
+  getInactiveSpaces: BrowserFns['getInactiveSpaces'];
+  restoreSpaceByFolderName: BrowserFns['restoreSpaceByFolderName'];
 };
 
 function isTabEntry(value: unknown): value is TabEntry {

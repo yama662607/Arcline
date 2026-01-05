@@ -443,6 +443,30 @@ export class ServiceWorkerBridge {
     }) as Promise<SearchResult[]>;
   }
 
+  async getInactiveSpaces(): Promise<string[]> {
+    return this.sendMessage({
+      type: 'query',
+      method: 'getInactiveSpaces',
+      params: {},
+    }) as Promise<string[]>;
+  }
+
+  async restoreSpaceByFolderName(folderName: string): Promise<number> {
+    return this.sendMessage({
+      type: 'mutation',
+      method: 'restoreSpaceByFolderName',
+      params: { folderName },
+    }) as Promise<number>;
+  }
+
+  async countBookmarks(): Promise<{ spaces: number; items: number }> {
+    return this.sendMessage({
+      type: 'query',
+      method: 'countBookmarks',
+      params: {},
+    }) as Promise<{ spaces: number; items: number }>;
+  }
+
   async navigateSpace(direction: 'left' | 'right'): Promise<boolean> {
     const perfId = `bridge-nav-${Math.random().toString(36).slice(2, 6)}`;
     const t0 = Date.now();

@@ -31,7 +31,7 @@ describe('bookmark-import', () => {
   it('should parse HTML structure', () => {
     const bookmarks = parseNetscapeHtml(sampleHtml);
     expect(bookmarks.length).toBe(1);
-    expect(bookmarks[0]!.title).toBe('Bookmarks bar');
+    expect(bookmarks[0]?.title).toBe('Bookmarks bar');
   });
 
   it('should unwrap containers in importBookmarks', () => {
@@ -39,8 +39,8 @@ describe('bookmark-import', () => {
     expect(result.success).toBe(true);
     // Should skip "Bookmarks bar" and "Arc"
     expect(result.bookmarks.length).toBe(1);
-    expect(result.bookmarks[0]!.title).toBe('Work Space');
-    expect(result.bookmarks[0]!.children?.length).toBe(2); // Google and Project A
+    expect(result.bookmarks[0]?.title).toBe('Work Space');
+    expect(result.bookmarks[0]?.children?.length).toBe(2); // Google and Project A
   });
 
   it('should parse Arc firebaseSyncState with spaceModels mapping', () => {
@@ -72,8 +72,8 @@ describe('bookmark-import', () => {
     const result = importBookmarks(arcJson);
     expect(result.success).toBe(true);
     expect(result.bookmarks.length).toBe(1);
-    expect(result.bookmarks[0]!.title).toBe('Daisuke');
-    expect(result.bookmarks[0]!.children?.[0]?.title).toBe('Google');
+    expect(result.bookmarks[0]?.title).toBe('Daisuke');
+    expect(result.bookmarks[0]?.children?.[0]?.title).toBe('Google');
   });
 
   it('should handle technical containers with null titles', () => {
@@ -103,6 +103,6 @@ describe('bookmark-import', () => {
     const result = importBookmarks(arcJson);
     expect(result.success).toBe(true);
     // Should use "Pinned Tabs" for null title if ID is 'pinned'
-    expect(result.bookmarks.some(b => b.title === 'Pinned Tabs')).toBe(true);
+    expect(result.bookmarks.some((b) => b.title === 'Pinned Tabs')).toBe(true);
   });
 });

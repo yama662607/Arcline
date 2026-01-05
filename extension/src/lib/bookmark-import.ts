@@ -315,7 +315,6 @@ function collectArcBookmarks(data: ArcSidebarData): ImportedBookmark[] {
   }
 
   // Identify roots (items whose parent is a space container or null)
-  const rootIds = new Set<string>();
   const spaceFolders: Record<string, ImportedBookmark> = {};
 
   for (const item of Object.values(itemsMap)) {
@@ -512,7 +511,6 @@ function parseArcItemWithChildren(
 ): ImportedBookmark | null {
   return tryParseArcTab(item) ?? tryParseArcUrl(item) ?? tryParseArcFolder(item, itemsMap);
 }
-
 
 /**
  * Clean Arc URL (handle escaped characters)

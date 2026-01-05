@@ -305,7 +305,11 @@ export function SpaceManagementModal({ isOpen, onClose }: SpaceManagementModalPr
   const removeSpaceMutation = useRemoveSpace();
   const updateSpaceMutation = useUpdateSpace();
 
-  const { data: inactiveSpaces, isLoading: inactiveSpacesLoading, refetch: refetchInactive } = useInactiveSpaces();
+  const {
+    data: inactiveSpaces,
+    isLoading: inactiveSpacesLoading,
+    refetch: refetchInactive,
+  } = useInactiveSpaces();
   const restoreSpaceMutation = useRestoreSpaceByFolderName();
   const { data: bookmarkCount, refetch: refetchCount } = useBookmarkCount();
 
@@ -552,7 +556,7 @@ export function SpaceManagementModal({ isOpen, onClose }: SpaceManagementModalPr
                       <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
                     </div>
                   ) : inactiveSpaces && inactiveSpaces.length > 0 ? (
-                    inactiveSpaces.map((folderName) => (
+                    inactiveSpaces.map((folderName: string) => (
                       <div
                         key={folderName}
                         className="flex items-center justify-between rounded-lg border border-white/5 bg-black/10 p-3"

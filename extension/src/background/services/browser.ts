@@ -10,6 +10,7 @@ import {
 } from '@/shared/settings';
 import type { ArchivedTab, PinnedItem, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 import {
+  countArcifyBookmarks,
   createPinnedFolder,
   createPinnedTab,
   exportSpaceBookmarks,
@@ -17,6 +18,7 @@ import {
   importSpaceBookmarks,
   movePinnedItem,
   removePinnedItem,
+  restoreSpacesFromBookmarks,
   updatePinnedItem,
 } from './bookmarks';
 import { openFloatingUiOnTab } from './ui-messaging';

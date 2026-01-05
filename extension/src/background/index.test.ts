@@ -31,6 +31,9 @@ vi.mock('./services/browser', () => {
     exportSpaceBookmarks: fn(),
     importSpaceBookmarks: fn(),
     reorderTab: fn(),
+    countBookmarks: asyncFn({ spaces: 0, items: 0 }),
+    getInactiveSpaces: asyncFn([]),
+    restoreSpaceByFolderName: asyncFn(1),
   };
 });
 

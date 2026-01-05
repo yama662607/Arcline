@@ -12,12 +12,14 @@ type MockSpacesState = {
   previousSpaceId: number | null;
   favoriteSpaceIds: number[];
   swipeProgress: number;
+  isModalOpen: boolean;
   setSpaces: (spaces: SpaceSnapshot[]) => void;
   setActiveSpace: (spaceId: number) => void;
   setActiveSpaceFromTabs: (spaces: SpaceSnapshot[]) => void;
   setFavoriteSpaces: (spaceIds: number[]) => void;
   toggleFavoriteSpace: (spaceId: number) => void;
   setSwipeProgress: (progress: number) => void;
+  setIsModalOpen: (open: boolean) => void;
 };
 
 // Mock Component Mocks
@@ -73,6 +75,10 @@ vi.mock('@/hooks/use-spaces-query', () => ({
   useCreateSpace: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   useRemoveSpace: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useUpdateSpace: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useSettings: vi.fn(() => ({ data: {} })),
+  useInactiveSpaces: vi.fn(() => ({ data: [], isLoading: false, refetch: vi.fn() })),
+  useRestoreSpaceByFolderName: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useBookmarkCount: vi.fn(() => ({ data: 0, refetch: vi.fn() })),
 }));
 
 vi.mock('@/store', () => ({
@@ -126,12 +132,14 @@ describe('SpacesWorkspace', () => {
           previousSpaceId: null,
           favoriteSpaceIds: [],
           swipeProgress: 0,
+          isModalOpen: false,
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setActiveSpace: vi.fn<(spaceId: number) => void>(),
           setActiveSpaceFromTabs: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
           toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
           setSwipeProgress: vi.fn<(progress: number) => void>(),
+          setIsModalOpen: vi.fn<(open: boolean) => void>(),
         };
         return selector(state);
       }
@@ -179,12 +187,14 @@ describe('SpacesWorkspace', () => {
           previousSpaceId: null,
           favoriteSpaceIds: [],
           swipeProgress: 0,
+          isModalOpen: false,
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setActiveSpace: vi.fn<(spaceId: number) => void>(),
           setActiveSpaceFromTabs: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
           toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
           setSwipeProgress: vi.fn<(progress: number) => void>(),
+          setIsModalOpen: vi.fn<(open: boolean) => void>(),
         };
         return selector(state);
       }
