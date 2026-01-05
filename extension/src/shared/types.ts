@@ -49,6 +49,7 @@ export type SpaceColor =
 
 export interface SpaceSnapshot {
   id: number;
+  uuid?: string;
   name: string;
   color: TabGroupColor;
   themeColor?: SpaceColor;

@@ -6,34 +6,22 @@ vi.mock('./ui-messaging', () => ({
   openFloatingUiOnTab: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('./browser', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./browser')>();
-  return {
-    ...actual,
-    getSpacesSnapshot: vi.fn().mockResolvedValue([
-      {
-        id: -1,
-        name: 'Ungrouped',
-        color: 'grey',
-        windowId: 1,
-        tabs: [],
-        pinnedTabs: [],
-        pinnedItems: [],
-        temporaryTabs: [
-          {
-            id: 1,
-            title: 'Tab 1',
-            url: 'http://a.com',
-            pinned: false,
-            active: false,
-            windowId: 1,
-            groupId: -1,
-          },
-        ],
-      },
-    ]),
-  };
-});
+// Mock Dexie db
+vi.mock('@/db', () => ({
+  db: {
+    spaces: {
+      orderBy: vi.fn().mockReturnThis(),
+      toArray: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue(undefined),
+    },
+    items: {
+      where: vi.fn().mockReturnThis(),
+      equals: vi.fn().mockReturnThis(),
+      toArray: vi.fn().mockResolvedValue([]),
+    },
+    transaction: vi.fn().mockImplementation((_mode, _tables, callback) => callback()),
+  },
+}));
 
 import { clearCachedSnapshot, activateTab } from './browser';
 

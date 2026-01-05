@@ -40,19 +40,61 @@ vi.mock('./bookmarks', () => ({
   syncSpaceToBookmarks: vi.fn(),
 }));
 
-import { getPinnedItemsForSpace } from './bookmarks';
+// Mock Dexie db
+vi.mock('@/db', () => ({
+  db: {
+    spaces: {
+      orderBy: vi.fn().mockReturnThis(),
+      toArray: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue(undefined),
+    },
+    items: {
+      where: vi.fn().mockReturnThis(),
+      equals: vi.fn().mockReturnThis(),
+      toArray: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue(undefined),
+    },
+    transaction: vi.fn().mockImplementation((_mode, _tables, callback) => callback()),
+  },
+}));
+
 import { clearCachedSnapshot, getSpacesSnapshot } from './browser';
+
+import { db } from '@/db';
+
+// Helper to mock DB data
+function mockDbSpace(name: string, id: number, color: TabGroupColor = 'blue') {
+  return {
+    id,
+    uuid: `uuid-${id}`,
+    name,
+    color,
+    sortOrder: 0,
+    windowId: 100,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    tabGroupId: id,
+  };
+}
 
 describe('getSpacesSnapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getPinnedItemsForSpace).mockResolvedValue([]);
+    // Reset DB mocks
+    vi.mocked(db.spaces.orderBy).mockReturnThis();
+    vi.mocked(db.spaces.toArray).mockResolvedValue([]);
+    vi.mocked(db.items.where).mockReturnThis();
+    // biome-ignore lint/suspicious/noExplicitAny: mocking Dexie chain
+    vi.mocked((db.items as any).equals).mockReturnThis();
+    vi.mocked(db.items.toArray).mockResolvedValue([]);
+
     clearCachedSnapshot();
   });
 
   it('should return empty array when no tab groups exist', async () => {
     mockChrome.tabGroups.query.mockResolvedValue([]);
     mockChrome.tabs.query.mockResolvedValue([]);
+    // DB is empty by default
 
     const result = await getSpacesSnapshot();
 
@@ -74,9 +116,22 @@ describe('getSpacesSnapshot', () => {
     mockChrome.tabGroups.query.mockResolvedValue(mockTabGroups);
     mockChrome.tabs.query.mockResolvedValue([]);
 
+    // Mock DB space
+    const dbSpace = mockDbSpace('Work', 1);
+    vi.mocked(db.spaces.toArray).mockResolvedValue([dbSpace]);
+
     // Mock pinned items for Work space
-    vi.mocked(getPinnedItemsForSpace).mockResolvedValue([
-      { type: 'tab', id: 'b1', title: 'Start', url: 'http://start.com' },
+    vi.mocked(db.items.toArray).mockResolvedValue([
+      {
+        id: 100,
+        spaceId: 1,
+        type: 'tab',
+        title: 'Start',
+        url: 'http://start.com',
+        sortOrder: 0,
+        parentId: undefined,
+        createdAt: new Date(),
+      } as any,
     ]);
 
     const result = await getSpacesSnapshot();
@@ -85,7 +140,8 @@ describe('getSpacesSnapshot', () => {
     expect(result[0]?.name).toBe('Work');
     expect(result[0]?.pinnedItems).toHaveLength(1);
     expect((result[0]?.pinnedItems[0] as PinnedTab).title).toBe('Start');
-    expect(getPinnedItemsForSpace).toHaveBeenCalledWith('Work');
+    // We expect DB to be queried
+    expect(db.spaces.orderBy).toHaveBeenCalledWith('sortOrder');
   });
 
   it('should link pinned items to open tabs in the space', async () => {
@@ -122,9 +178,21 @@ describe('getSpacesSnapshot', () => {
     mockChrome.tabGroups.query.mockResolvedValue(mockTabGroups);
     mockChrome.tabs.query.mockResolvedValue(mockTabs);
 
+    // Mock DB space
+    vi.mocked(db.spaces.toArray).mockResolvedValue([mockDbSpace('Work', 1)]);
+
     // Pinned item matches the open tab URL
-    vi.mocked(getPinnedItemsForSpace).mockResolvedValue([
-      { type: 'tab', id: 'b1', title: 'Start', url: 'http://start.com' },
+    vi.mocked(db.items.toArray).mockResolvedValue([
+      {
+        id: 100,
+        spaceId: 1,
+        type: 'tab',
+        title: 'Start',
+        url: 'http://start.com',
+        sortOrder: 0,
+        parentId: undefined,
+        createdAt: new Date(),
+      } as any,
     ]);
 
     const result = await getSpacesSnapshot();
@@ -162,6 +230,10 @@ describe('getSpacesSnapshot', () => {
         url: 'u',
       },
     ]);
+
+    // Mock DB space
+    vi.mocked(db.spaces.toArray).mockResolvedValue([mockDbSpace('G', 1)]);
+
     const result = await getSpacesSnapshot();
     expect(result).toHaveLength(1);
     expect(result[0]?.tabs).toHaveLength(1);

@@ -331,6 +331,10 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
             resolvedName = targetSpace.name;
           }
 
+          if (!resolvedName) {
+            sendResponse({ ok: false, error: 'Could not resolve space name' });
+            return;
+          }
           const bookmarks = await deps.getBookmarksForSpace(resolvedName);
           sendResponse(bookmarks);
         } catch (error) {

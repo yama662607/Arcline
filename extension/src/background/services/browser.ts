@@ -8,22 +8,27 @@ import {
   SETTINGS_STORAGE_KEY,
   settingsSchema,
 } from '@/shared/settings';
-import type { ArchivedTab, PinnedItem, Settings, SpaceSnapshot, TabEntry } from '@/shared/types';
 import {
   countArcifyBookmarks,
   createPinnedFolder,
   createPinnedTab,
   exportSpaceBookmarks,
-  getPinnedItemsForSpace,
   importSpaceBookmarks,
   movePinnedItem,
   removePinnedItem,
-  restoreSpacesFromBookmarks,
   updatePinnedItem,
 } from './bookmarks';
 import { openFloatingUiOnTab } from './ui-messaging';
-import type { SpaceState } from './spaces';
-import { deriveSpaceStateFromSnapshots, loadSpaceState, saveSpaceState } from './spaces';
+import type {
+  ArchivedTab,
+  PinnedItem,
+  Settings,
+  SpaceSnapshot,
+  TabEntry,
+  PinnedFolder,
+  PinnedTab,
+} from '@/shared/types';
+import { db } from '@/db';
 
 const TAB_GROUP_ID_NONE = -1;
 const isTabGroupsSupported = () =>
@@ -100,31 +105,6 @@ function createEmptySpaceSnapshot({
 
 type GlobalPinnedMap = Map<number, TabEntry>;
 
-function initializeSpaceSnapshots(tabGroups: chrome.tabGroups.TabGroup[], timestamp: number) {
-  const groupMap = new Map<number, SpaceSnapshot>();
-
-  for (const group of tabGroups) {
-    const snapshot = createEmptySpaceSnapshot({
-      id: group.id,
-      name: group.title ?? 'Untitled',
-      color: (group.color ?? 'grey') as TabGroupColor,
-      windowId: group.windowId ?? -1,
-      timestamp,
-    });
-    groupMap.set(snapshot.id, snapshot);
-  }
-
-  const ungrouped = createEmptySpaceSnapshot({
-    id: TAB_GROUP_ID_NONE,
-    name: 'Ungrouped',
-    color: 'grey' as TabGroupColor,
-    windowId: -1,
-    timestamp,
-  });
-
-  return { groupMap, ungrouped };
-}
-
 function getGroupedSpace(groupId: number | undefined, groupMap: Map<number, SpaceSnapshot>) {
   if (typeof groupId !== 'number' || groupId < 0) {
     return undefined;
@@ -200,187 +180,9 @@ function mergeGlobalPinnedTabs(spaces: SpaceSnapshot[], globalPinned: GlobalPinn
   }
 }
 
-function buildSnapshotList(
-  groupMap: Map<number, SpaceSnapshot>,
-  ungrouped: SpaceSnapshot,
-  globalPinned: GlobalPinnedMap
-): SpaceSnapshot[] {
-  const spaces = Array.from(groupMap.values());
-  if (hasUngroupedContent(ungrouped)) {
-    spaces.push(ungrouped);
-  }
-
-  spaces.sort((a, b) => a.id - b.id);
-
-  mergeGlobalPinnedTabs(spaces, globalPinned);
-
-  return spaces;
-}
-
-function indexTabsById(allTabs: chrome.tabs.Tab[]): Map<number, TabEntry> {
-  const tabsById = new Map<number, TabEntry>();
-
-  for (const tab of allTabs) {
-    const entry = mapTab(tab);
-    if (!entry) continue;
-    tabsById.set(entry.id, entry);
-  }
-
-  return tabsById;
-}
-
 export async function getActiveTabEntry(): Promise<TabEntry | null> {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return activeTab ? mapTab(activeTab) : null;
-}
-
-function buildSnapshotFromState(
-  state: SpaceState,
-  tabsById: Map<number, TabEntry>,
-  timestamp: number
-): SpaceSnapshot {
-  const pinnedTabs: TabEntry[] = [];
-  const tabs: TabEntry[] = [];
-  const temporaryTabs: TabEntry[] = [];
-
-  const pinnedIds = new Set<number>(state.spaceBookmarks ?? []);
-  const temporaryIds = Array.isArray(state.temporaryTabs) ? state.temporaryTabs : [];
-
-  for (const id of pinnedIds) {
-    const entry = tabsById.get(id);
-    if (!entry) continue;
-    pinnedTabs.push({ ...entry, pinned: true, groupId: state.id });
-  }
-
-  for (const id of temporaryIds) {
-    if (pinnedIds.has(id)) continue;
-    const entry = tabsById.get(id);
-    if (!entry) continue;
-
-    const adjustedEntry: TabEntry = { ...entry, pinned: false, groupId: state.id };
-
-    if (state.id === TAB_GROUP_ID_NONE) {
-      temporaryTabs.push(adjustedEntry);
-    } else {
-      tabs.push(adjustedEntry);
-    }
-  }
-
-  const sampleTab = pinnedTabs[0] ?? tabs[0] ?? temporaryTabs[0];
-  const windowId = sampleTab?.windowId ?? -1;
-
-  return {
-    id: state.id,
-    name: state.name,
-    color: state.color,
-    tabs,
-    pinnedTabs,
-    pinnedItems: [],
-    temporaryTabs,
-    windowId,
-    created_at: timestamp,
-    last_active_at: timestamp,
-  };
-}
-
-function buildSnapshotsFromSpaceState(
-  spaceStates: SpaceState[],
-  allTabs: chrome.tabs.Tab[],
-  timestamp: number
-): SpaceSnapshot[] {
-  const tabsById = indexTabsById(allTabs);
-
-  const snapshots: SpaceSnapshot[] = [];
-
-  for (const state of spaceStates) {
-    snapshots.push(buildSnapshotFromState(state, tabsById, timestamp));
-  }
-
-  snapshots.sort((a, b) => a.id - b.id);
-
-  return snapshots;
-}
-
-async function upsertSpaceStateEntry(entry: SpaceState): Promise<void> {
-  try {
-    const current = await loadSpaceState();
-    const index = current.findIndex((space) => space.id === entry.id);
-
-    if (index === -1) {
-      await saveSpaceState([...current, entry]);
-      return;
-    }
-
-    const next = current.slice();
-    next[index] = { ...next[index], ...entry };
-    await saveSpaceState(next);
-  } catch (error) {
-    console.warn('[Arcline] Failed to update SpaceState entry', error);
-  }
-}
-
-async function removeSpaceFromState(spaceId: number): Promise<void> {
-  try {
-    const current = await loadSpaceState();
-    const filtered = current.filter((space) => space.id !== spaceId);
-    if (filtered.length === current.length) {
-      return;
-    }
-
-    await saveSpaceState(filtered);
-  } catch (error) {
-    console.warn('[Arcline] Failed to remove space from SpaceState', error);
-  }
-}
-
-async function updateTabMembershipInState(
-  tabId: number,
-  spaceId: number,
-  pinned: boolean
-): Promise<void> {
-  try {
-    const current = await loadSpaceState();
-
-    const withTabRemoved = current.map((space) => ({
-      ...space,
-      spaceBookmarks: (space.spaceBookmarks ?? []).filter((id) => id !== tabId),
-      temporaryTabs: (space.temporaryTabs ?? []).filter((id) => id !== tabId),
-    }));
-
-    const existingIndex = withTabRemoved.findIndex((space) => space.id === spaceId);
-
-    if (existingIndex === -1) {
-      const newSpace: SpaceState = {
-        id: spaceId,
-        name: spaceId === TAB_GROUP_ID_NONE ? 'Ungrouped' : 'Untitled',
-        color: 'grey' as TabGroupColor,
-        spaceBookmarks: pinned ? [tabId] : [],
-        temporaryTabs: pinned ? [] : [tabId],
-      };
-
-      await saveSpaceState([...withTabRemoved, newSpace]);
-      return;
-    }
-
-    const target = withTabRemoved[existingIndex];
-    if (!target) {
-      await saveSpaceState(withTabRemoved);
-      return;
-    }
-
-    const updated: SpaceState = {
-      ...target,
-      spaceBookmarks: pinned ? [...target.spaceBookmarks, tabId] : target.spaceBookmarks,
-      temporaryTabs: pinned ? target.temporaryTabs : [...target.temporaryTabs, tabId],
-    };
-
-    const next = withTabRemoved.slice();
-    next[existingIndex] = updated;
-
-    await saveSpaceState(next);
-  } catch (error) {
-    console.warn('[Arcline] Failed to update tab membership in SpaceState', error);
-  }
 }
 
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
@@ -389,60 +191,109 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       return cachedSnapshot;
     }
 
+    // 1. Get managed spaces from Dexie
+    const dbSpaces = await db.spaces.orderBy('sortOrder').toArray();
+
+    // 2. Get active state from Chrome
     const { tabGroups, allTabs } = await queryChromeState();
     const timestamp = Date.now();
-    const { groupMap, ungrouped } = initializeSpaceSnapshots(tabGroups, timestamp);
+
+    const activeGroupMap = new Map<string, chrome.tabGroups.TabGroup>();
+    for (const tg of tabGroups) {
+      if (tg.title) {
+        activeGroupMap.set(tg.title, tg);
+      }
+    }
+
+    const snapshots: SpaceSnapshot[] = [];
+    const groupMap = new Map<number, SpaceSnapshot>();
+    const seenGroupIds = new Set<number>();
+    const seenDbUuids = new Set<string>();
+
+    // 3. Build snapshots from DB spaces
+    for (const dbSpace of dbSpaces) {
+      const activeGroup = activeGroupMap.get(dbSpace.name);
+      const snapshotId = activeGroup?.id ?? TAB_GROUP_ID_NONE;
+
+      const snapshot = createEmptySpaceSnapshot({
+        id: snapshotId,
+        name: dbSpace.name,
+        color: (activeGroup?.color as TabGroupColor) || (dbSpace.color as TabGroupColor) || 'grey',
+        windowId: activeGroup?.windowId ?? -1,
+        timestamp: dbSpace.updatedAt.getTime(),
+      });
+
+      snapshot.uuid = dbSpace.uuid;
+      snapshot.pinnedItems = await getPinnedItemsFromDb(dbSpace.id!);
+
+      snapshots.push(snapshot);
+      seenDbUuids.add(dbSpace.uuid);
+
+      if (snapshotId !== TAB_GROUP_ID_NONE) {
+        groupMap.set(snapshotId, snapshot);
+        seenGroupIds.add(snapshotId);
+      }
+
+      // Sync tabGroupId back to DB if it changed
+      if (dbSpace.tabGroupId !== activeGroup?.id) {
+        await db.spaces.update(dbSpace.id!, { tabGroupId: activeGroup?.id });
+      }
+    }
+
+    // 4. Handle "Ghost" groups (active in Chrome but not in DB)
+    // These might be temporary groups created by the user or from other extensions
+    for (const group of tabGroups) {
+      if (seenGroupIds.has(group.id)) continue;
+
+      const snapshot = createEmptySpaceSnapshot({
+        id: group.id,
+        name: group.title || 'Untitled',
+        color: (group.color ?? 'grey') as TabGroupColor,
+        windowId: group.windowId ?? -1,
+        timestamp,
+      });
+
+      snapshots.push(snapshot);
+      groupMap.set(group.id, snapshot);
+    }
+
+    // 5. Add Ungrouped snapshot
+    const ungrouped = createEmptySpaceSnapshot({
+      id: TAB_GROUP_ID_NONE,
+      name: 'Ungrouped',
+      color: 'grey' as TabGroupColor,
+      windowId: -1,
+      timestamp,
+    });
+
     const globalPinned: GlobalPinnedMap = new Map();
 
+    // 6. Distribute tabs
     distributeTabs(allTabs, groupMap, ungrouped, globalPinned);
 
-    const snapshots = buildSnapshotList(groupMap, ungrouped, globalPinned);
+    // 7. Finalize list
+    const finalSnapshots = [...snapshots];
+    if (hasUngroupedContent(ungrouped)) {
+      finalSnapshots.push(ungrouped);
+    }
 
-    // Populate pinnedItems from bookmarks for each space
-    for (const snapshot of snapshots) {
-      if (snapshot.id !== TAB_GROUP_ID_NONE) {
-        // Only for actual spaces (groups)
-        snapshot.pinnedItems = await getPinnedItemsForSpace(snapshot.name);
+    mergeGlobalPinnedTabs(finalSnapshots, globalPinned);
+
+    // 8. Link pinned items to open tabs
+    for (const snapshot of finalSnapshots) {
+      if (snapshot.pinnedItems.length > 0) {
         linkPinnedItemsToOpenTabs(snapshot.pinnedItems, [
           ...snapshot.temporaryTabs,
           ...snapshot.tabs,
         ]);
-      } else {
-        snapshot.pinnedItems = [];
       }
     }
 
-    // Persist SpaceState derived from the current snapshot so that
-    // other background operations can treat it as the single source of truth.
-    const state = deriveSpaceStateFromSnapshots(snapshots);
-    await saveSpaceState(state);
-
-    await saveSpaceState(state);
-
-    cachedSnapshot = snapshots;
-    return snapshots;
+    cachedSnapshot = finalSnapshots;
+    return finalSnapshots;
   } catch (error) {
-    console.warn('Failed to load spaces snapshot', error);
-    try {
-      const state = await loadSpaceState();
-      if (!state.length) {
-        return [];
-      }
-
-      const allTabs = await chrome.tabs.query({});
-      if (!Array.isArray(allTabs) || allTabs.length === 0) {
-        return [];
-      }
-
-      const timestamp = Date.now();
-      return buildSnapshotsFromSpaceState(state, allTabs, timestamp);
-    } catch (fallbackError) {
-      console.warn(
-        '[Arcline] Failed to build spaces snapshot from stored SpaceState',
-        fallbackError
-      );
-      return [];
-    }
+    console.warn('[Arcline] Failed to load spaces snapshot from Dexie', error);
+    return [];
   }
 }
 
@@ -451,11 +302,7 @@ export async function toggleTabPinned(tabId: number, nextPinned?: boolean): Prom
   const pinned = nextPinned ?? !tab.pinned;
   await chrome.tabs.update(tabId, { pinned });
 
-  const spaceId = typeof tab.groupId === 'number' ? tab.groupId : TAB_GROUP_ID_NONE;
-  await updateTabMembershipInState(tabId, spaceId, pinned);
-
   await broadcastSpacesSnapshot();
-
   return pinned;
 }
 
@@ -471,11 +318,11 @@ export async function moveTabToSpace(tabId: number, spaceId: number): Promise<nu
   }
 
   try {
-    const tab = await chrome.tabs.get(tabId);
-    const pinned = Boolean(tab.pinned);
-    await updateTabMembershipInState(tabId, spaceId, pinned);
+    await chrome.tabs.get(tabId);
+    // Note: We no longer manually update SpaceState in localStorage here,
+    // getSpacesSnapshot will derive everything from live state and Dexie.
   } catch (error) {
-    console.warn('[Arcline] Failed to update SpaceState for moved tab', error);
+    console.warn('[Arcline] Failed to update state for moved tab', error);
   }
 
   await broadcastSpacesSnapshot();
@@ -506,15 +353,7 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
 
   await chrome.tabGroups.update(groupId, {
     title: name,
-    color: color ?? 'blue',
-  });
-
-  await upsertSpaceStateEntry({
-    id: groupId,
-    name,
     color: (color ?? 'blue') as TabGroupColor,
-    spaceBookmarks: [],
-    temporaryTabs: [],
   });
 
   // Sync new space to bookmarks
@@ -531,8 +370,6 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
 
 export async function removeSpace(spaceId: number): Promise<void> {
   if (!isTabGroupsSupported()) return;
-
-  await removeSpaceFromState(spaceId);
 
   // Get space name for bookmark cleanup
   const spaces = await getSpacesSnapshot();
@@ -566,6 +403,8 @@ export async function removeSpace(spaceId: number): Promise<void> {
 }
 
 export async function broadcastSpacesSnapshot(): Promise<void> {
+  // Clear cache to ensure next call fetches fresh data
+  cachedSnapshot = null;
   const spaces = await getSpacesSnapshot();
   try {
     await chrome.runtime.sendMessage({ command: 'spacesSnapshot', spaces });
@@ -708,35 +547,57 @@ export async function activateTab(
   }
 }
 
-// Reorder tabs within a space (updates SpaceState only)
+// Reorder tabs within a space
 export async function reorderTab(
   tabId: number,
   spaceId: number,
   newIndex: number,
   listType: 'pinned' | 'temporary'
 ): Promise<void> {
-  const current = await loadSpaceState();
-  const spaceIndex = current.findIndex((s) => s.id === spaceId);
-  if (spaceIndex === -1) return;
+  if (listType === 'temporary') {
+    // For temporary tabs, we use native Chrome move
+    // We need to find the correct index in the window/group
+    const tabs = await chrome.tabs.query({ groupId: spaceId });
+    const sortedTabs = tabs.sort((a, b) => a.index - b.index);
 
-  const space = current[spaceIndex];
-  if (!space) return;
+    // Find the target absolute index in the window
+    const targetTabIndex =
+      sortedTabs[newIndex]?.index ?? sortedTabs[sortedTabs.length - 1]?.index ?? 0;
 
-  // spaceBookmarks maps to Pinned tabs in UI
-  const listKey = listType === 'pinned' ? 'spaceBookmarks' : 'temporaryTabs';
-  const list = [...(space[listKey] || [])];
+    await chrome.tabs.move(tabId, { index: targetTabIndex });
+  } else {
+    // For pinned items (bookmarks), we update sortOrder in Dexie
+    // This requires mapping tabId back to a Dexie item
+    // Since tabId for pinned items in UI is often the bookmarkId/itemId stringified
+    // Wait, the command handler passes number tabId.
 
-  const currentIndex = list.indexOf(tabId);
-  if (currentIndex === -1) return;
+    // Let's find the item in Dexie by URL since tabId might not be enough for pinned items
+    const tab = await chrome.tabs.get(tabId);
+    const item = await db.items.where({ spaceId, url: tab.url }).first();
 
-  list.splice(currentIndex, 1);
-  list.splice(newIndex, 0, tabId);
+    if (item?.id) {
+      // Update sortOrder for all items in this level
+      const siblings = await db.items.where({ spaceId, parentId: item.parentId }).toArray();
+      const sortedSiblings = siblings.sort((a, b) => a.sortOrder - b.sortOrder);
 
-  const updatedSpace = { ...space, [listKey]: list };
-  const next = [...current];
-  next[spaceIndex] = updatedSpace;
+      const currentIndex = sortedSiblings.findIndex((s) => s.id === item.id);
+      if (currentIndex !== -1) {
+        sortedSiblings.splice(currentIndex, 1);
+        sortedSiblings.splice(newIndex, 0, item);
 
-  await saveSpaceState(next);
+        // Batch update sortOrder
+        await db.transaction('rw', db.items, async () => {
+          for (let i = 0; i < sortedSiblings.length; i++) {
+            const sibling = sortedSiblings[i];
+            if (sibling?.id) {
+              await db.items.update(sibling.id, { sortOrder: i });
+            }
+          }
+        });
+      }
+    }
+  }
+
   await broadcastSpacesSnapshot();
 }
 
@@ -1115,12 +976,9 @@ export async function countBookmarks(): Promise<{ spaces: number; items: number 
  */
 export async function getInactiveSpaces(): Promise<string[]> {
   const snapshots = await getSpacesSnapshot();
-  const activeSpaceNames = new Set(snapshots.map((s) => s.name));
-
-  const bookmarkSpaces = await restoreSpacesFromBookmarks();
-  return bookmarkSpaces
-    .map((s) => s.spaceName)
-    .filter((name) => !activeSpaceNames.has(name) && name !== 'Ungrouped');
+  return snapshots
+    .filter((s) => s.id === TAB_GROUP_ID_NONE && s.name !== 'Ungrouped')
+    .map((s) => s.name);
 }
 
 /**
@@ -1144,7 +1002,7 @@ async function ensureSpaceStaysAlive(groupId: number, currentTabId: number): Pro
     const spaces = await getSpacesSnapshot();
     const space = spaces.find((s) => s.id === groupId);
     const color = space?.color || 'grey';
-    const url = chrome.runtime.getURL(`empty-space.html?color=${encodeURIComponent(color)}`);
+    const url = chrome.runtime.getURL(`empty - space.html ? color = ${encodeURIComponent(color)} `);
     const newTab = await chrome.tabs.create({ url, active: true });
     if (newTab.id) {
       await chrome.tabs.group({ tabIds: [newTab.id], groupId });
@@ -1160,4 +1018,45 @@ async function cleanupEmptySpaceTab(groupId: number): Promise<void> {
   if (emptyTab?.id) {
     await chrome.tabs.remove(emptyTab.id);
   }
+}
+
+async function getPinnedItemsFromDb(spaceId: number): Promise<PinnedItem[]> {
+  const allItems = await db.items.where('spaceId').equals(spaceId).toArray();
+
+  // Create lookup map for parent-child relationship
+  const itemsByParent = new Map<number | undefined, any[]>();
+  for (const item of allItems) {
+    const parentId = item.parentId;
+    if (!itemsByParent.has(parentId)) {
+      itemsByParent.set(parentId, []);
+    }
+    itemsByParent.get(parentId)?.push(item);
+  }
+
+  function buildTree(parentId: number | undefined): PinnedItem[] {
+    const children = itemsByParent.get(parentId) || [];
+    return children
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((item) => {
+        if (item.type === 'folder') {
+          return {
+            type: 'folder',
+            id: String(item.id),
+            title: item.name || item.title,
+            children: buildTree(item.id),
+            parentId: item.parentId ? String(item.parentId) : undefined,
+          } as PinnedFolder;
+        }
+        return {
+          type: 'tab',
+          id: String(item.id),
+          url: item.url || '',
+          title: item.title,
+          favIconUrl: item.faviconUrl,
+          parentId: item.parentId ? String(item.parentId) : undefined,
+        } as PinnedTab;
+      });
+  }
+
+  return buildTree(undefined);
 }
