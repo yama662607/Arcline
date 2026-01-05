@@ -11,6 +11,9 @@ import { searchService } from '@/services/search';
 
 const ARCLINE_ROOT_FOLDER = 'Arcline';
 
+// Store the Arcline root folder ID for event handling
+let arclineRootFolderId: string | null = null;
+
 /**
  * Initialize the sync service by loading data from Chrome Bookmarks into IndexedDB.
  * Should be called when the extension starts.
@@ -37,8 +40,12 @@ async function syncBookmarksToDb(): Promise<void> {
 
   if (!arclineFolder) {
     console.log('[Arcline] No Arcline bookmark folder found, skipping sync.');
+    arclineRootFolderId = null;
     return;
   }
+
+  // Store the root folder ID for event handling
+  arclineRootFolderId = arclineFolder.id;
 
   // Get all children (spaces)
   const children = await chrome.bookmarks.getChildren(arclineFolder.id);
@@ -72,7 +79,7 @@ async function syncSpaceFolder(
 ): Promise<number | undefined> {
   const now = new Date();
   const space: SpaceRecord = {
-    uuid: folder.id, // Use Chrome bookmark ID as UUID for now
+    uuid: folder.id, // Use Chrome bookmark ID as UUID
     name: folder.title,
     color: 'blue', // Default color, could be stored in metadata later
     sortOrder: folder.index ?? 0,
@@ -157,29 +164,51 @@ function setupBookmarkListeners(): void {
   console.log('[Arcline] Bookmark event listeners registered.');
 }
 
+/**
+ * Handle bookmark creation.
+ * Handles both:
+ * 1. New space folder (direct child of Arcline root)
+ * 2. New item (bookmark/folder within a space)
+ */
 async function handleBookmarkCreated(bookmark: chrome.bookmarks.BookmarkTreeNode): Promise<void> {
-  // Check if this bookmark is within an Arcline space
-  const item = await db.items
-    .where('bookmarkId')
-    .equals(bookmark.parentId ?? '')
-    .first();
+  const parentId = bookmark.parentId ?? '';
 
-  if (!item) {
-    // Parent not found in our DB, might be a space-level item
-    // Check if parent is an Arcline space folder
-    const space = await db.spaces
-      .where('uuid')
-      .equals(bookmark.parentId ?? '')
-      .first();
-    if (!space || !space.id) return;
+  // Case 1: New space folder created under Arcline root
+  if (arclineRootFolderId && parentId === arclineRootFolderId && !bookmark.url) {
+    const now = new Date();
+    const newSpace: SpaceRecord = {
+      uuid: bookmark.id,
+      name: bookmark.title,
+      color: 'blue',
+      sortOrder: bookmark.index ?? 0,
+      isActive: false,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-    // Add item to the space
+    const spaceId = await db.spaces.add(newSpace);
+    if (spaceId) {
+      const addedSpace = await db.spaces.get(spaceId);
+      if (addedSpace) {
+        searchService.updateSpace(addedSpace);
+      }
+    }
+    console.log(`[Arcline] New space synced: ${bookmark.title}`);
+    return;
+  }
+
+  // Case 2: Check if parent is directly in items table
+  const parentItem = await db.items.where('bookmarkId').equals(parentId).first();
+
+  if (parentItem && parentItem.id) {
+    // Add item with parent reference
     const now = new Date();
     const newItem: ItemRecord = {
-      spaceId: space.id,
+      spaceId: parentItem.spaceId,
       type: bookmark.url ? 'bookmark' : 'folder',
       title: bookmark.title,
       url: bookmark.url,
+      parentId: parentItem.id,
       sortOrder: bookmark.index ?? 0,
       bookmarkId: bookmark.id,
       createdAt: now,
@@ -196,14 +225,17 @@ async function handleBookmarkCreated(bookmark: chrome.bookmarks.BookmarkTreeNode
     return;
   }
 
-  // Add item with parent reference
+  // Case 3: Check if parent is a space folder (item at root of space)
+  const space = await db.spaces.where('uuid').equals(parentId).first();
+  if (!space || !space.id) return;
+
+  // Add item to the space (no parentId since it's at the root of the space)
   const now = new Date();
   const newItem: ItemRecord = {
-    spaceId: item.spaceId,
+    spaceId: space.id,
     type: bookmark.url ? 'bookmark' : 'folder',
     title: bookmark.title,
     url: bookmark.url,
-    parentId: item.id,
     sortOrder: bookmark.index ?? 0,
     bookmarkId: bookmark.id,
     createdAt: now,
@@ -219,10 +251,34 @@ async function handleBookmarkCreated(bookmark: chrome.bookmarks.BookmarkTreeNode
   }
 }
 
+/**
+ * Handle bookmark changes.
+ * Handles both:
+ * 1. Space folder rename
+ * 2. Item title/URL change
+ */
 async function handleBookmarkChanged(
   id: string,
   changeInfo: { title?: string; url?: string }
 ): Promise<void> {
+  // Case 1: Check if it's a space folder
+  const space = await db.spaces.where('uuid').equals(id).first();
+  if (space && space.id) {
+    const now = new Date();
+    await db.spaces.update(space.id, {
+      name: changeInfo.title ?? space.name,
+      updatedAt: now,
+    });
+
+    const updatedSpace = await db.spaces.get(space.id);
+    if (updatedSpace) {
+      searchService.updateSpace(updatedSpace);
+    }
+    console.log(`[Arcline] Space renamed: ${changeInfo.title}`);
+    return;
+  }
+
+  // Case 2: Check if it's an item
   const item = await db.items.where('bookmarkId').equals(id).first();
   if (!item || !item.id) return;
 
@@ -239,7 +295,34 @@ async function handleBookmarkChanged(
   }
 }
 
+/**
+ * Handle bookmark removal.
+ * Handles both:
+ * 1. Space folder deletion (removes space and all items)
+ * 2. Item deletion (removes item and all children)
+ */
 async function handleBookmarkRemoved(id: string): Promise<void> {
+  // Case 1: Check if it's a space folder
+  const space = await db.spaces.where('uuid').equals(id).first();
+  if (space && space.id) {
+    // Remove all items in this space
+    const items = await db.items.where('spaceId').equals(space.id).toArray();
+    for (const item of items) {
+      if (item.id) {
+        searchService.removeItem(item.id);
+      }
+    }
+    await db.items.where('spaceId').equals(space.id).delete();
+
+    // Remove the space
+    searchService.removeSpace(space.id);
+    await db.spaces.delete(space.id);
+
+    console.log(`[Arcline] Space deleted: ${space.name}`);
+    return;
+  }
+
+  // Case 2: Check if it's an item
   const item = await db.items.where('bookmarkId').equals(id).first();
   if (!item || !item.id) return;
 
@@ -247,41 +330,60 @@ async function handleBookmarkRemoved(id: string): Promise<void> {
   searchService.removeItem(item.id);
 
   // Remove all children recursively
-  const children = await db.items.where('parentId').equals(item.id).toArray();
-  for (const child of children) {
-    if (child.bookmarkId) {
-      await handleBookmarkRemoved(child.bookmarkId);
-    }
-  }
+  await removeItemChildren(item.id);
 
   // Remove the item itself
   await db.items.delete(item.id);
 }
 
+/**
+ * Recursively remove all children of an item.
+ */
+async function removeItemChildren(parentId: number): Promise<void> {
+  const children = await db.items.where('parentId').equals(parentId).toArray();
+  for (const child of children) {
+    if (child.id) {
+      searchService.removeItem(child.id);
+      await removeItemChildren(child.id);
+      await db.items.delete(child.id);
+    }
+  }
+}
+
+/**
+ * Handle bookmark moves.
+ * Updates the parent reference and sort order.
+ */
 async function handleBookmarkMoved(
   id: string,
   moveInfo: { parentId: string; index: number; oldParentId: string; oldIndex: number }
 ): Promise<void> {
+  // Check if it's an item (not a space)
   const item = await db.items.where('bookmarkId').equals(id).first();
   if (!item || !item.id) return;
 
   // Find new parent
   let newParentId: number | undefined;
+  let newSpaceId = item.spaceId;
+
   const parentItem = await db.items.where('bookmarkId').equals(moveInfo.parentId).first();
   if (parentItem) {
     newParentId = parentItem.id;
+    newSpaceId = parentItem.spaceId;
   } else {
     // Check if parent is a space
     const space = await db.spaces.where('uuid').equals(moveInfo.parentId).first();
-    if (space) {
-      // Moving to space root, no parentId
+    if (space && space.id) {
+      // Moving to space root, no parentId but update spaceId
       newParentId = undefined;
+      newSpaceId = space.id;
     }
   }
 
   const now = new Date();
   await db.items.update(item.id, {
     parentId: newParentId,
+    spaceId: newSpaceId,
     sortOrder: moveInfo.index,
     updatedAt: now,
   });
@@ -293,4 +395,11 @@ async function handleBookmarkMoved(
 export async function forceResync(): Promise<void> {
   await syncBookmarksToDb();
   await searchService.buildIndex();
+}
+
+/**
+ * Get the Arcline root folder ID (for testing).
+ */
+export function getArclineRootFolderId(): string | null {
+  return arclineRootFolderId;
 }

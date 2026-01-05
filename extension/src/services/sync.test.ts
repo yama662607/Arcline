@@ -17,7 +17,7 @@ vi.stubGlobal('chrome', {
 });
 
 // Import after mocking
-import { initializeSync, forceResync } from './sync';
+import { initializeSync, forceResync, getArclineRootFolderId } from './sync';
 
 let db: ArclineDatabase;
 
@@ -53,6 +53,7 @@ describe('Sync Service', () => {
 
       const spaces = await db.spaces.toArray();
       expect(spaces).toHaveLength(0);
+      expect(getArclineRootFolderId()).toBeNull();
     });
 
     it('should sync spaces and items when Arcline folder exists', async () => {
@@ -90,6 +91,44 @@ describe('Sync Service', () => {
       const items = await db.items.toArray();
       expect(items).toHaveLength(1);
       expect(items[0]?.title).toBe('GitHub');
+
+      // Should store root folder ID
+      expect(getArclineRootFolderId()).toBe('arcline-root');
+    });
+
+    it('should sync nested folders correctly', async () => {
+      mockBookmarks.search.mockResolvedValue([
+        { id: 'arcline-root', title: 'Arcline', url: undefined },
+      ]);
+
+      mockBookmarks.getChildren.mockImplementation((id: string) => {
+        if (id === 'arcline-root') {
+          return Promise.resolve([{ id: 'space-1', title: 'Work', url: undefined, index: 0 }]);
+        }
+        if (id === 'space-1') {
+          return Promise.resolve([
+            { id: 'folder-1', title: 'Design', url: undefined, index: 0 },
+            { id: 'bm-1', title: 'GitHub', url: 'https://github.com', index: 1 },
+          ]);
+        }
+        if (id === 'folder-1') {
+          return Promise.resolve([
+            { id: 'bm-2', title: 'Figma', url: 'https://figma.com', index: 0 },
+          ]);
+        }
+        return Promise.resolve([]);
+      });
+
+      await initializeSync();
+
+      const items = await db.items.toArray();
+      expect(items).toHaveLength(3); // folder + 2 bookmarks
+
+      const folder = items.find((i) => i.type === 'folder');
+      expect(folder?.title).toBe('Design');
+
+      const figma = items.find((i) => i.title === 'Figma');
+      expect(figma?.parentId).toBe(folder?.id);
     });
   });
 
@@ -123,6 +162,21 @@ describe('Sync Service', () => {
       const spaces = await db.spaces.toArray();
       expect(spaces).toHaveLength(1);
       expect(spaces[0]?.name).toBe('New Space');
+    });
+  });
+
+  describe('bookmark event handlers', () => {
+    // These tests verify the structure; actual event handling is tested via integration
+
+    it('should have all event listeners registered', async () => {
+      mockBookmarks.search.mockResolvedValue([]);
+
+      await initializeSync();
+
+      expect(mockBookmarks.onCreated.addListener).toHaveBeenCalledTimes(1);
+      expect(mockBookmarks.onChanged.addListener).toHaveBeenCalledTimes(1);
+      expect(mockBookmarks.onRemoved.addListener).toHaveBeenCalledTimes(1);
+      expect(mockBookmarks.onMoved.addListener).toHaveBeenCalledTimes(1);
     });
   });
 });
