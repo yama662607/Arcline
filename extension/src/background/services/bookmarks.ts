@@ -3,6 +3,7 @@
 import type { PinnedFolder, PinnedItem, PinnedTab, SearchResult, TabEntry } from '@/shared/types';
 
 const ARCLINE_FOLDER_NAME = 'Arcline';
+const ARCLINE_ARCHIVE_FOLDER_NAME = 'Arcline Archive';
 const BOOKMARK_MIRROR_STATUS_KEY = 'arclineBookmarkSync';
 
 export interface BookmarkSyncStatus {
@@ -15,6 +16,34 @@ export interface SpaceBookmarkData {
   spaceId: number;
   spaceName: string;
   bookmarks: chrome.bookmarks.BookmarkTreeNode[];
+}
+
+/**
+ * Archiveフォルダを取得または作成する
+ */
+export async function getOrCreateArchiveFolder(): Promise<chrome.bookmarks.BookmarkTreeNode> {
+  try {
+    const bookmarkTree = await chrome.bookmarks.getTree();
+    const rootNode = bookmarkTree[0];
+    if (!rootNode?.children) throw new Error('Bookmark tree structure not found');
+
+    const bookmarksBar = rootNode.children.find((node) => node.id === '1') || rootNode.children[0];
+    if (!bookmarksBar) throw new Error('Bookmarks bar not found');
+
+    const existingFolder = bookmarksBar.children?.find(
+      (node) => node.title === ARCLINE_ARCHIVE_FOLDER_NAME
+    );
+
+    if (existingFolder) return existingFolder;
+
+    return await chrome.bookmarks.create({
+      parentId: bookmarksBar.id,
+      title: ARCLINE_ARCHIVE_FOLDER_NAME,
+    });
+  } catch (error) {
+    console.warn('[Arcline] Failed to get/create Archive folder:', error);
+    throw error;
+  }
 }
 
 /**
@@ -568,5 +597,98 @@ export async function cleanupAllBookmarks(): Promise<void> {
   } catch (error) {
     console.error('[Arcline] Failed to cleanup bookmarks:', error);
     throw error;
+  }
+}
+
+/**
+ * タブをアーカイブ（ブックマークへ保存）
+ */
+export async function addToArchive(tab: {
+  title: string;
+  url: string;
+  spaceName?: string;
+}): Promise<void> {
+  try {
+    const archiveRoot = await getOrCreateArchiveFolder();
+
+    // Spaceごとのサブフォルダを作成するか、フラットにするか
+    // UIでスペース名を表示したいので、スペースフォルダに入れるのが綺麗
+    const spaceName = tab.spaceName || 'Ungrouped';
+
+    // サブフォルダを探す
+    const children = await chrome.bookmarks.getChildren(archiveRoot.id);
+    let spaceFolder = children.find((c) => c.title === spaceName);
+
+    if (!spaceFolder) {
+      spaceFolder = await chrome.bookmarks.create({
+        parentId: archiveRoot.id,
+        title: spaceName,
+      });
+    }
+
+    await chrome.bookmarks.create({
+      parentId: spaceFolder.id,
+      title: tab.title,
+      url: tab.url,
+    });
+  } catch (error) {
+    console.error('[Arcline] Failed to add to archive:', error);
+  }
+}
+
+/**
+ * アーカイブされたタブを取得
+ */
+import type { ArchivedTab } from '@/shared/types';
+export async function fetchArchivedBookmarks(): Promise<ArchivedTab[]> {
+  try {
+    const archiveRoot = await getOrCreateArchiveFolder();
+    const result: ArchivedTab[] = [];
+
+    const spaceFolders = await chrome.bookmarks.getChildren(archiveRoot.id);
+
+    for (const folder of spaceFolders) {
+      // フォルダでない（直接のアイテム）場合
+      if (folder.url) {
+        result.push({
+          id: folder.id,
+          title: folder.title,
+          url: folder.url,
+          spaceId: 0, // Bookmarks don't store internal IDs easily
+          spaceName: 'Ungrouped',
+          archivedAt: folder.dateAdded || Date.now(),
+        });
+        continue;
+      }
+
+      // スペースフォルダの場合、中身を取得
+      const items = await chrome.bookmarks.getChildren(folder.id);
+      for (const item of items) {
+        if (item.url) {
+          result.push({
+            id: item.id,
+            title: item.title,
+            url: item.url,
+            spaceId: 0,
+            spaceName: folder.title,
+            archivedAt: item.dateAdded || Date.now(),
+          });
+        }
+      }
+    }
+
+    // Sort by archivedAt desc
+    return result.sort((a, b) => b.archivedAt - a.archivedAt);
+  } catch (error) {
+    console.error('[Arcline] Failed to fetch archived bookmarks:', error);
+    return [];
+  }
+}
+
+export async function removeFromArchive(bookmarkId: string): Promise<void> {
+  try {
+    await chrome.bookmarks.remove(bookmarkId);
+  } catch (error) {
+    console.warn('[Arcline] Failed to remove from archive:', error);
   }
 }

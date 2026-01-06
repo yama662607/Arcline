@@ -714,8 +714,7 @@ export async function updateSettings(settings: Partial<Settings>): Promise<void>
 }
 
 // Archive functionality
-const ARCHIVED_TABS_KEY = 'archivedTabs';
-const MAX_ARCHIVED_TABS = 100;
+
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -750,103 +749,69 @@ function parseTabNameOverrides(
   return out;
 }
 
+import {
+  addToArchive,
+  fetchArchivedBookmarks,
+  removeFromArchive,
+} from './bookmarks';
+
+// ... (keep earlier code)
+
 export async function getArchivedTabs(): Promise<ArchivedTab[]> {
-  const result = await chrome.storage.local.get(ARCHIVED_TABS_KEY);
-  const raw = (result as Record<string, unknown>)[ARCHIVED_TABS_KEY];
-  return Array.isArray(raw) ? (raw as ArchivedTab[]) : [];
+  return await fetchArchivedBookmarks();
 }
 
 export async function addArchivedTab(
   tabData: Omit<ArchivedTab, 'id' | 'archivedAt'>
 ): Promise<void> {
-  if (!tabData || !tabData.url || !tabData.title || !tabData.spaceId) return;
-
-  const archivedTabs = await getArchivedTabs();
-
-  // Check for duplicates
-  const exists = archivedTabs.some((t) => t.url === tabData.url && t.spaceId === tabData.spaceId);
-  if (exists) return;
-
-  // Add new tab with timestamp and ID
-  const newArchiveEntry: ArchivedTab = {
-    ...tabData,
-    id: `archive_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    archivedAt: Date.now(),
-  };
-
-  archivedTabs.push(newArchiveEntry);
-
-  // Sort by timestamp (newest first)
-  archivedTabs.sort((a, b) => b.archivedAt - a.archivedAt);
-
-  // Enforce limit (remove oldest if over limit)
-  if (archivedTabs.length > MAX_ARCHIVED_TABS) {
-    archivedTabs.splice(MAX_ARCHIVED_TABS);
-  }
-
-  await chrome.storage.local.set({ [ARCHIVED_TABS_KEY]: archivedTabs });
+  await addToArchive({
+    title: tabData.title,
+    url: tabData.url,
+    spaceName: tabData.spaceName,
+  });
 }
 
-export async function removeArchivedTab(url: string, spaceId: number): Promise<void> {
-  if (!url || !spaceId) return;
-
-  let archivedTabs = await getArchivedTabs();
-  archivedTabs = archivedTabs.filter((tab) => !(tab.url === url && tab.spaceId === spaceId));
-  await chrome.storage.local.set({ [ARCHIVED_TABS_KEY]: archivedTabs });
+export async function removeArchivedTab(bookmarkId: string): Promise<void> {
+  await removeFromArchive(bookmarkId);
 }
 
 export async function archiveTab(tabId: number): Promise<void> {
   try {
     const tab = await chrome.tabs.get(tabId);
-    if (!tab || !tab.url || !tab.title) return;
 
-    // Get current active space
+    // Find space name if possible
+    let spaceName = 'Ungrouped';
     const spaces = await getSpacesSnapshot();
-    const activeSpace = spaces.find((s) => s.windowId === tab.windowId);
-    if (!activeSpace) return;
+    const space = spaces.find(s =>
+      s.tabs.some(t => t.id === tabId) || s.temporaryTabs.some(t => t.id === tabId)
+    );
+    if (space) spaceName = space.name;
 
-    const tabData = {
-      url: tab.url,
-      title: tab.title,
-      favIconUrl: tab.favIconUrl,
-      spaceId: activeSpace.id,
-      spaceName: activeSpace.name,
-      originalTabId: tabId,
-    };
+    await addArchivedTab({
+      title: tab.title || 'Untitled',
+      url: tab.url || '',
+      spaceId: space?.id || TAB_GROUP_ID_NONE,
+      spaceName: spaceName,
+    });
 
-    await addArchivedTab(tabData);
     await chrome.tabs.remove(tabId);
+
+    // Invalidate queries or broadcast if needed
+    // But archive view uses RQ refetch usually.
   } catch (error) {
-    console.error(`Error archiving tab ${tabId}:`, error);
-    throw error;
+    console.warn('[Arcline] Failed to archive tab:', error);
   }
 }
 
 export async function restoreArchivedTab(archivedTab: ArchivedTab): Promise<void> {
   try {
-    // Create the tab
-    const newTab = await chrome.tabs.create({
-      url: archivedTab.url,
-      active: true,
-    });
-
-    // Group the new tab into the correct space
-    const spaces = await getSpacesSnapshot();
-    const targetSpace = spaces.find((s) => s.id === archivedTab.spaceId);
-    if (targetSpace && newTab.id) {
-      await chrome.tabs.group({
-        tabIds: [newTab.id],
-        groupId: targetSpace.id,
-      });
-    }
-
-    // Remove from archive
-    await removeArchivedTab(archivedTab.url, archivedTab.spaceId);
+    await chrome.tabs.create({ url: archivedTab.url, active: true });
+    await removeArchivedTab(archivedTab.id);
   } catch (error) {
-    console.error(`Error restoring archived tab ${archivedTab.url}:`, error);
-    throw error;
+    console.warn('[Arcline] Failed to restore archived tab:', error);
   }
 }
+
 
 // Import bookmark functionality from dedicated service
 import {

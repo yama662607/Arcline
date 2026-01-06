@@ -3,9 +3,10 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
 } from 'react';
-import { forwardRef, useCallback } from 'react';
+import React, { forwardRef, useCallback, useRef, useState } from 'react';
 
 import type { TabEntry } from '@/shared/types';
+import { TabPeekPreview } from './TabPeekPreview';
 
 export interface TabRowProps extends React.HTMLAttributes<HTMLDivElement> {
   tab: TabEntry;
@@ -141,6 +142,43 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
     onLegacyDragEnd
   );
 
+  const [showPeek, setShowPeek] = useState(false);
+  const [peekPosition, setPeekPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      if (rowRef.current) {
+        const rect = rowRef.current.getBoundingClientRect();
+        // Position to the right of the tab row
+        setPeekPosition({ top: rect.top, left: rect.right + 12 });
+        setShowPeek(true);
+      }
+    }, 600); // 600ms delay for peek
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setShowPeek(false);
+  }, []);
+
+  // Merge refs
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      // Handle the forwarded ref
+      if (typeof ref === 'function') {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+      // Handle our local ref
+      rowRef.current = node;
+    },
+    [ref]
+  );
+
   const containerClasses = [
     variant === 'floating'
       ? `group relative flex items-center gap-0 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded-lg hover:bg-white/10 transition-colors`
@@ -168,12 +206,15 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
 
   return (
     <div
-      ref={ref}
+      ref={setRefs}
       className={containerClasses}
-      onContextMenu={props.onContextMenu || handleContextMenuLegacy} // Use prop (Radix) if available, else legacy
+      onContextMenu={props.onContextMenu || handleContextMenuLegacy}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       role="group"
       {...props}
     >
+      <TabPeekPreview tab={tab} isVisible={showPeek} position={peekPosition} />
       <div
         className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface pr-2"
         onClick={() => onTabSelect?.(tab)}

@@ -295,70 +295,81 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                 {/* Content with slide animation */}
                 <SpaceContentView
                   activeSpaceId={activeSpaceId}
-                  renderContent={(spaceId, { isActive }) => {
-                    const space = getSpaceById(spaceId);
-                    const temporaryTabs = buildTemporaryTabs(space);
-                    return space ? (
-                      <div className="space-y-3 px-3 pb-4 pt-4">
-                        {/* Space Header */}
-                        <div className="flex items-center gap-2">
-                          {space.icon && <span className="text-xl">{space.icon}</span>}
-                          <h2 className="text-sm font-medium text-white/70">
-                            {space.name || 'No Space'}
-                          </h2>
-                          <div className="ml-auto">
-                            <MoreMenu
-                              variant={componentVariant}
-                              onOpenSettings={() => setShowSettings(true)}
-                              onOpenArchive={() => setShowArchive(true)}
-                              onOpenBookmarkImport={() => setShowBookmarkImport(true)}
-                            />
+                  renderContent={useCallback(
+                    (spaceId: number | null, { isActive }: { isActive: boolean }) => {
+                      const space = getSpaceById(spaceId);
+                      const temporaryTabs = buildTemporaryTabs(space);
+                      return space ? (
+                        <div className="space-y-3 px-3 pb-4 pt-4">
+                          {/* Space Header */}
+                          <div className="flex items-center gap-2">
+                            {space.icon && <span className="text-xl">{space.icon}</span>}
+                            <h2 className="text-sm font-medium text-white/70">
+                              {space.name || 'No Space'}
+                            </h2>
+                            <div className="ml-auto">
+                              <MoreMenu
+                                variant={componentVariant}
+                                onOpenSettings={() => setShowSettings(true)}
+                                onOpenArchive={() => setShowArchive(true)}
+                                onOpenBookmarkImport={() => setShowBookmarkImport(true)}
+                              />
+                            </div>
                           </div>
+
+                          <EnhancedTabList
+                            tabs={space.pinnedTabs}
+                            title=""
+                            emptyMessage="No pinned tabs"
+                            variant={componentVariant}
+                            floatingContext={variant === 'floating' ? 'pinned' : undefined}
+                            interactive={isActive}
+                          />
+
+                          {/* Divider with Clear button */}
+                          <div className="relative flex items-center gap-2 py-2">
+                            <div className="flex-1 h-px bg-white/10" />
+                            {temporaryTabs.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Close all temporary tabs
+                                  const tabIds = temporaryTabs.map((t) => t.id);
+                                  chrome.tabs.remove(tabIds);
+                                }}
+                                disabled={!isActive} // Disable interaction if not active to prevent accidental clicks
+                                className="px-2 py-1 text-xs text-white/50 hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-default"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          <EnhancedTabList
+                            tabs={temporaryTabs}
+                            title=""
+                            emptyMessage="No temporary tabs"
+                            variant={componentVariant}
+                            floatingContext={variant === 'floating' ? 'temporary' : undefined}
+                            interactive={isActive}
+                          />
                         </div>
-
-                        <EnhancedTabList
-                          tabs={space.pinnedTabs}
-                          title=""
-                          emptyMessage="No pinned tabs"
-                          variant={componentVariant}
-                          floatingContext={variant === 'floating' ? 'pinned' : undefined}
-                          interactive={isActive}
-                        />
-
-                        {/* Divider with Clear button */}
-                        <div className="relative flex items-center gap-2 py-2">
-                          <div className="flex-1 h-px bg-white/10" />
-                          {temporaryTabs.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                // Close all temporary tabs
-                                const tabIds = temporaryTabs.map((t) => t.id);
-                                chrome.tabs.remove(tabIds);
-                              }}
-                              disabled={!isActive} // Disable interaction if not active to prevent accidental clicks
-                              className="px-2 py-1 text-xs text-white/50 hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-default"
-                            >
-                              Clear
-                            </button>
-                          )}
+                      ) : (
+                        <div className="px-4 py-8 text-center text-xs text-white/50">
+                          No spaces available. Create a space to get started.
                         </div>
-
-                        <EnhancedTabList
-                          tabs={temporaryTabs}
-                          title=""
-                          emptyMessage="No temporary tabs"
-                          variant={componentVariant}
-                          floatingContext={variant === 'floating' ? 'temporary' : undefined}
-                          interactive={isActive}
-                        />
-                      </div>
-                    ) : (
-                      <div className="px-4 py-8 text-center text-xs text-white/50">
-                        No spaces available. Create a space to get started.
-                      </div>
-                    );
-                  }}
+                      );
+                    },
+                    [
+                      componentVariant,
+                      getSpaceById,
+                      buildTemporaryTabs,
+                      variant,
+                      setShowSettings,
+                      setShowArchive,
+                      setShowBookmarkImport,
+                    ]
+                  )}
                 />
               </div>
             </div>
