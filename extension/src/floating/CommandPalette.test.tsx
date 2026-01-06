@@ -19,6 +19,9 @@ const mockBridge = {
   openUrlInTab: vi.fn(),
   searchHistory: vi.fn().mockResolvedValue([]),
   searchBookmarks: vi.fn().mockResolvedValue([]),
+  setActiveSpace: vi.fn(),
+  getActiveTab: vi.fn().mockResolvedValue(null),
+  toggleTabPinned: vi.fn(),
 };
 
 vi.mock('@/hooks/use-service-worker-bridge', () => ({
@@ -30,6 +33,10 @@ vi.mock('@/hooks/use-universal-search', () => ({
     results: [],
     isLoading: false,
   }),
+}));
+
+vi.mock('@/store', () => ({
+  useSpacesStore: () => [],
 }));
 
 import { useUniversalSearch } from '@/hooks/use-universal-search';
@@ -63,14 +70,12 @@ describe('CommandPalette', () => {
 
   it('does not render content when isOpen is false', () => {
     renderComponent(false);
-    expect(
-      screen.queryByPlaceholderText(/Search tabs, bookmarks, history/i)
-    ).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Search or enter URL/i)).not.toBeInTheDocument();
   });
 
   it('renders search input when isOpen is true', () => {
     renderComponent(true);
-    expect(screen.getByPlaceholderText(/Search tabs, bookmarks, history/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Search or enter URL/i)).toBeInTheDocument();
   });
 
   it('displays loading state', () => {
@@ -79,7 +84,7 @@ describe('CommandPalette', () => {
       isLoading: true,
     });
     renderComponent(true);
-    expect(screen.getByText(/Searching/i)).toBeInTheDocument();
+    expect(screen.getByText(/Loading/i)).toBeInTheDocument();
   });
 
   it('displays search results', () => {

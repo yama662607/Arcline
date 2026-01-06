@@ -481,6 +481,14 @@ export class ServiceWorkerBridge {
     }) as Promise<boolean>;
   }
 
+  async searchLocal(query: string, limit?: number): Promise<SearchResult[]> {
+    return this.sendMessage({
+      type: 'query',
+      method: 'searchLocal',
+      params: { query, limit },
+    }) as Promise<SearchResult[]>;
+  }
+
   // Setup React Query queries
   setupQueries() {
     // Spaces snapshot query

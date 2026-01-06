@@ -38,6 +38,7 @@ interface MountOptions {
   t0?: number;
   onBootstrapReady?: () => void;
   onClosed?: () => void;
+  onOpenStateChange?: (isOpen: boolean) => void;
 }
 
 interface FloatingUiHandle {
@@ -60,8 +61,14 @@ function injectStyles(shadowRoot: ShadowRoot) {
 
 const FloatingUiRoot = forwardRef<
   FloatingUiHandle,
-  { onBootstrapReady?: () => void; onClosed?: () => void; perfId?: string; t0?: number }
->(({ onBootstrapReady, onClosed, perfId, t0 }, ref) => {
+  {
+    onBootstrapReady?: () => void;
+    onClosed?: () => void;
+    onOpenStateChange?: (isOpen: boolean) => void;
+    perfId?: string;
+    t0?: number;
+  }
+>(({ onBootstrapReady, onClosed, onOpenStateChange, perfId, t0 }, ref) => {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
@@ -198,6 +205,10 @@ const FloatingUiRoot = forwardRef<
     // The host element is styled by floating-ui.ts content script.
   }, []);
 
+  useEffect(() => {
+    onOpenStateChange?.(open || pinned);
+  }, [open, pinned, onOpenStateChange]);
+
   return (
     <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[300px] font-sans text-base leading-normal text-left">
       <div
@@ -328,7 +339,7 @@ const FloatingUiRoot = forwardRef<
 FloatingUiRoot.displayName = 'FloatingUiRoot';
 
 export async function mountFloatingUi(options: MountOptions): Promise<FloatingUiInstance> {
-  const { host, shadowRoot, perfId, t0, onBootstrapReady, onClosed } = options;
+  const { host, shadowRoot, perfId, t0, onBootstrapReady, onClosed, onOpenStateChange } = options;
   void host;
   const t7 = Date.now();
   if (perfId)
@@ -359,6 +370,7 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
         ref={rootRef}
         onBootstrapReady={onBootstrapReady}
         onClosed={onClosed}
+        onOpenStateChange={onOpenStateChange}
         perfId={perfId}
         t0={t0}
       />

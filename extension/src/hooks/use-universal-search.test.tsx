@@ -9,19 +9,13 @@ const { mockBridge } = vi.hoisted(() => ({
   mockBridge: {
     searchHistory: vi.fn(),
     searchBookmarks: vi.fn(),
-    // Add other methods if needed for other tests
+    searchLocal: vi.fn(),
   },
 }));
 
 vi.mock('@/hooks/use-service-worker-bridge', () => ({
   useServiceWorkerBridge: () => mockBridge,
 }));
-
-vi.mock('./use-spaces-query', () => ({
-  useSpacesSnapshot: vi.fn(),
-}));
-
-import { useSpacesSnapshot } from './use-spaces-query';
 
 describe('useUniversalSearch', () => {
   let queryClient: QueryClient;
@@ -30,6 +24,7 @@ describe('useUniversalSearch', () => {
     vi.clearAllMocks();
     mockBridge.searchHistory.mockClear();
     mockBridge.searchBookmarks.mockClear();
+    mockBridge.searchLocal.mockClear();
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -37,7 +32,6 @@ describe('useUniversalSearch', () => {
         },
       },
     });
-    (useSpacesSnapshot as ReturnType<typeof vi.fn>).mockReturnValue({ data: [] });
   });
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -45,27 +39,26 @@ describe('useUniversalSearch', () => {
   );
 
   it('searches locally (tabs)', async () => {
-    const spacesData = [
-      {
-        id: 1,
-        tabs: [
-          { id: 101, title: 'Local Tab', url: 'http://local.com', active: false, pinned: false },
-        ],
-        pinnedItems: [],
-        temporaryTabs: [],
-        name: 'Space1',
-      },
-    ];
-    (useSpacesSnapshot as ReturnType<typeof vi.fn>).mockReturnValue({ data: spacesData });
+    mockBridge.searchLocal.mockResolvedValue([
+      { type: 'tab', id: '101', title: 'Local Tab', url: 'http://local.com' },
+    ]);
+    mockBridge.searchHistory.mockResolvedValue([]);
+    mockBridge.searchBookmarks.mockResolvedValue([]);
 
     const { result } = renderHook(() => useUniversalSearch('Local', true), { wrapper });
 
-    expect(result.current.results).toHaveLength(1);
+    await waitFor(
+      () => {
+        expect(result.current.results).toHaveLength(1);
+      },
+      { timeout: 2000 }
+    );
+
     expect(result.current.results[0]?.title).toBe('Local Tab');
   });
 
   it('searches remote (history/bookmarks)', async () => {
-    // TODO: Fix React Query async mock timing issues in test environment
+    mockBridge.searchLocal.mockResolvedValue([]);
     mockBridge.searchHistory.mockResolvedValue([
       { type: 'history', id: 'h1', title: 'History Item', url: 'http://h.com' },
     ]);
@@ -77,9 +70,6 @@ describe('useUniversalSearch', () => {
 
     await waitFor(
       () => {
-        // Wait for loading to start and finish
-        // With initialData, it might be false initially, but then true during fetch?
-        // Just waiting for results is safer properly.
         expect(result.current.results).toHaveLength(2);
       },
       { timeout: 2000 }
@@ -95,20 +85,9 @@ describe('useUniversalSearch', () => {
   });
 
   it('deduplicates results', async () => {
-    // TODO: Fix React Query async mock timing issues in test environment
-    const spacesData = [
-      {
-        id: 1,
-        tabs: [
-          { id: 101, title: 'Tab', url: 'http://duplicate.com', active: false, pinned: false },
-        ],
-        pinnedItems: [],
-        temporaryTabs: [],
-        name: 'Space1',
-      },
-    ];
-    (useSpacesSnapshot as ReturnType<typeof vi.fn>).mockReturnValue({ data: spacesData });
-
+    mockBridge.searchLocal.mockResolvedValue([
+      { type: 'tab', id: '101', title: 'Tab', url: 'http://duplicate.com' },
+    ]);
     mockBridge.searchHistory.mockResolvedValue([
       { type: 'history', id: 'h1', title: 'History', url: 'http://duplicate.com' },
     ]);
@@ -116,17 +95,13 @@ describe('useUniversalSearch', () => {
 
     const { result } = renderHook(() => useUniversalSearch('duplicate', true), { wrapper });
 
-    // Wait for async results
-    await waitFor(() => {
-      // We expect history to return duplicate but dedupe logic should filter it?
-      // Logic: merged = localResults + bookmarks + history
-      // distinct by URL.
-      // local has duplicate.com
-      // history has duplicate.com
-      // history should be ignored.
-      expect(mockBridge.searchHistory).toHaveBeenCalled();
-      expect(result.current.results).toHaveLength(1);
-    });
+    await waitFor(
+      () => {
+        expect(mockBridge.searchHistory).toHaveBeenCalled();
+        expect(result.current.results).toHaveLength(1);
+      },
+      { timeout: 2000 }
+    );
 
     expect(result.current.results[0]?.type).toBe('tab');
   });

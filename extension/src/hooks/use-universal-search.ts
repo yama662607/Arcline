@@ -1,93 +1,22 @@
-import { Index } from 'flexsearch';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
-import type { PinnedItem, SearchResult, SpaceSnapshot, TabEntry } from '@/shared/types';
-import { useSpacesSnapshot } from './use-spaces-query';
+import type { SearchResult } from '@/shared/types';
 
 /**
  * Custom hook for universal search across tabs, bookmarks, and history.
- * Uses FlexSearch for high-performance local search.
+ * Uses background service for search execution.
  */
 export function useUniversalSearch(query: string, enabled: boolean) {
   const bridge = useServiceWorkerBridge();
-  const { data: spaces } = useSpacesSnapshot();
 
-  // Reuse FlexSearch index across renders (rebuild when spaces change)
-  const indexRef = useRef<Index | null>(null);
-  const tabsMapRef = useRef<Map<number, SearchResult>>(new Map());
-
-  // 1. Local Tab/Space Search using FlexSearch
-  const localResults = useMemo(() => {
-    if (!spaces || !query.trim()) return [];
-
-    // Build search data
-    const tabsMap = new Map<number, SearchResult>();
-    let idCounter = 0;
-
-    spaces.forEach((space: SpaceSnapshot) => {
-      // Pinned Tabs
-      space.pinnedItems.forEach((item: PinnedItem) => {
-        if (item.type === 'tab') {
-          const id = idCounter++;
-          tabsMap.set(id, {
-            id: String(item.tabId || item.id),
-            title: item.title,
-            url: item.url,
-            type: 'tab',
-            favIconUrl: item.favIconUrl,
-            description: `Pinned in ${space.name}`,
-          });
-        }
-      });
-
-      // Open Tabs
-      space.tabs.forEach((tab: TabEntry) => {
-        const id = idCounter++;
-        tabsMap.set(id, {
-          id: String(tab.id),
-          title: tab.title,
-          url: tab.url,
-          type: 'tab',
-          favIconUrl: tab.favIconUrl,
-          description: space.name,
-        });
-      });
-
-      // Temporary Tabs
-      space.temporaryTabs.forEach((tab: TabEntry) => {
-        const id = idCounter++;
-        tabsMap.set(id, {
-          id: String(tab.id),
-          title: tab.title,
-          url: tab.url,
-          type: 'tab',
-          favIconUrl: tab.favIconUrl,
-          description: space.name,
-        });
-      });
-    });
-
-    tabsMapRef.current = tabsMap;
-
-    // Build FlexSearch index
-    const index = new Index({
-      tokenize: 'forward',
-      resolution: 9,
-    });
-
-    tabsMap.forEach((result, id) => {
-      // Combine title and url for searching
-      const content = [result.title, result.url].filter(Boolean).join(' ');
-      index.add(id, content);
-    });
-
-    indexRef.current = index;
-
-    // Perform search
-    const matchedIds = index.search(query, 50) as number[];
-    return matchedIds.map((id) => tabsMap.get(id)).filter(Boolean) as SearchResult[];
-  }, [spaces, query]);
+  // 1. Local Tab/Space Search (via Background Service)
+  const { data: localResults, isLoading: localLoading } = useQuery({
+    queryKey: ['search', 'local', query],
+    queryFn: () => bridge?.searchLocal(query) ?? Promise.resolve([]),
+    enabled: enabled && !!query.trim() && !!bridge,
+    staleTime: 0, // Always fetch fresh
+  });
 
   // 2. Remote Search (History)
   const { data: historyResults, isLoading: historyLoading } = useQuery({
@@ -107,7 +36,7 @@ export function useUniversalSearch(query: string, enabled: boolean) {
 
   // Merge results
   const results = useMemo(() => {
-    const merged: SearchResult[] = [...localResults];
+    const merged: SearchResult[] = localResults ? [...localResults] : [];
 
     const seenIds = new Set(merged.map((r) => r.url)); // simple dedup by URL
 
@@ -134,6 +63,6 @@ export function useUniversalSearch(query: string, enabled: boolean) {
 
   return {
     results,
-    isLoading: historyLoading || bookmarksLoading,
+    isLoading: localLoading || historyLoading || bookmarksLoading,
   };
 }

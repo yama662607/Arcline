@@ -136,7 +136,10 @@ function sendNavigateSpace(
   );
 }
 
-function sendActivateSpace(spaceId: number, options?: { perfId?: string; t0?: number }) {
+function sendActivateSpace(
+  spaceIdOrUuid: number | string,
+  options?: { perfId?: string; t0?: number }
+) {
   if (typeof crypto.randomUUID !== 'function') return;
 
   const perfId = options?.perfId || `activate-${Math.random().toString(36).slice(2, 6)}`;
@@ -147,10 +150,21 @@ function sendActivateSpace(spaceId: number, options?: { perfId?: string; t0?: nu
     `[Arcline][Perf][${perfId}] T1: Sending activateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (t0 || t1)}ms)`
   );
 
+  const params: { spaceId?: number; spaceUuid?: string; perfId?: string; t0?: number } = {
+    perfId,
+    t0,
+  };
+
+  if (typeof spaceIdOrUuid === 'number') {
+    params.spaceId = spaceIdOrUuid;
+  } else {
+    params.spaceUuid = spaceIdOrUuid;
+  }
+
   chrome.runtime.sendMessage(
     {
       method: 'activateSpace',
-      params: { spaceId, perfId, t0 },
+      params,
       id: crypto.randomUUID(),
     },
     () => {
@@ -159,6 +173,34 @@ function sendActivateSpace(spaceId: number, options?: { perfId?: string; t0?: nu
       }
     }
   );
+}
+// ...
+function handleSpaceBarSwitch(event: Event) {
+  const detail = (
+    event as CustomEvent<{ spaceId?: number; spaceUuid?: string; direction: SwipeDirection }>
+  ).detail;
+  if (
+    !detail ||
+    (typeof detail.spaceId !== 'number' && typeof detail.spaceUuid !== 'string') ||
+    !detail.direction
+  )
+    return;
+
+  const idOrUuid = detail.spaceUuid || detail.spaceId!;
+
+  const perfId = `spacebar-${Math.random().toString(36).slice(2, 6)}`;
+  const t0 = Date.now();
+  console.log(
+    `[Arcline][Perf][${perfId}] T0: Spacebar switch triggered at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
+  );
+
+  const started = gestureController.triggerFlickTransition(detail.direction, () => {
+    sendActivateSpace(idOrUuid, { perfId, t0 });
+  });
+
+  if (!started) {
+    sendActivateSpace(idOrUuid, { perfId, t0 });
+  }
 }
 
 function clearTransitionApplyTimer() {
@@ -528,6 +570,11 @@ async function startFloatingUi(options?: {
       onClosed: () => {
         enableHostElementPointerEvents();
       },
+      onOpenStateChange: (isOpen: boolean) => {
+        if (hostElement) {
+          hostElement.setAttribute('aria-hidden', (!isOpen).toString());
+        }
+      },
     })
     .catch((error) => {
       console.error('[Arcline] Failed to mount floating UI', error);
@@ -661,8 +708,9 @@ function teardownEdgeDetection() {
   }
 }
 
-// Keyboard shortcuts for swipe debug
+// Keyboard shortcuts for swipe debug and space switching
 document.addEventListener('keydown', (e) => {
+  // Debug shortcuts
   if (e.ctrlKey && e.shiftKey && e.key === 'S') {
     if (isSwipeDebugActive()) {
       disableSwipeDebug();
@@ -692,7 +740,63 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.shiftKey && e.key === 'W') {
     exportSwipeLogsToFile();
   }
+
+  // --- Arc-like Space Switching Shortcuts ---
+
+  // Control+1-9 (Mac & Windows): Switch to space by index
+  if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+    const numKey = parseInt(e.key, 10);
+    if (numKey >= 1 && numKey <= 9) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSpaceIndexSwitch(numKey - 1);
+      return;
+    }
+  }
+
+  // Command+Option+Arrow (Mac) or Ctrl+Alt+Arrow (Windows/Linux): Navigate spaces
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const isSequentialNav = isMac
+    ? e.metaKey && e.altKey && !e.ctrlKey && !e.shiftKey
+    : e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey;
+
+  if (isSequentialNav && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    e.preventDefault();
+    e.stopPropagation();
+    const direction: SwipeDirection = e.key === 'ArrowLeft' ? 'right' : 'left';
+    handleSequentialSpaceNav(direction);
+    return;
+  }
 });
+
+function handleSpaceIndexSwitch(index: number) {
+  const perfId = `kbd-idx-${Math.random().toString(36).slice(2, 6)}`;
+  const t0 = Date.now();
+  console.log(`[Arcline] Keyboard space switch to index ${index}`);
+
+  // Request spaces snapshot and switch to the space at the given index
+  chrome.runtime.sendMessage(
+    {
+      method: 'activateSpaceByIndex',
+      params: { index, perfId, t0 },
+      id: crypto.randomUUID(),
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        // Ignore
+      }
+    }
+  );
+}
+
+function handleSequentialSpaceNav(direction: SwipeDirection) {
+  const perfId = `kbd-nav-${Math.random().toString(36).slice(2, 6)}`;
+  const t0 = Date.now();
+  console.log(`[Arcline] Keyboard sequential navigation: ${direction}`);
+
+  // Use the existing sendNavigateSpace function
+  sendNavigateSpace(direction, { mode: 'flick', perfId, t0 });
+}
 
 // Re-enable hostElement pointer events when UI is closed
 export function enableHostElementPointerEvents() {
@@ -887,25 +991,6 @@ function handleWindowMessage(event: MessageEvent) {
     ensureHost();
     ensureBootstrapHotzone();
     void startFloatingUi();
-  }
-}
-
-function handleSpaceBarSwitch(event: Event) {
-  const detail = (event as CustomEvent<{ spaceId: number; direction: SwipeDirection }>).detail;
-  if (!detail || typeof detail.spaceId !== 'number' || !detail.direction) return;
-
-  const perfId = `spacebar-${Math.random().toString(36).slice(2, 6)}`;
-  const t0 = Date.now();
-  console.log(
-    `[Arcline][Perf][${perfId}] T0: Spacebar switch triggered at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
-  );
-
-  const started = gestureController.triggerFlickTransition(detail.direction, () => {
-    sendActivateSpace(detail.spaceId, { perfId, t0 });
-  });
-
-  if (!started) {
-    sendActivateSpace(detail.spaceId, { perfId, t0 });
   }
 }
 
