@@ -44,7 +44,8 @@ import {
   toggleFavorite,
 } from './services/favorites';
 import { initializeGestureDetection, subscribeToSwipe } from './services/gestures';
-import { activateSpace, navigateSpace } from './services/space-navigation';
+import { activateSpace, activateSpaceByIndex, navigateSpace } from './services/space-navigation';
+import { initializeSearch, searchLocal } from './services/search';
 import { initializeSync } from '@/services/sync';
 
 const LEGACY_UI_MODE_KEY = 'arclineoMode';
@@ -284,9 +285,11 @@ export const commandHandlers: Record<string, CommandHandler> = createCommandHand
   reorderTab,
   navigateSpace,
   activateSpace,
+  activateSpaceByIndex,
   countBookmarks,
   getInactiveSpaces,
   restoreSpaceByFolderName,
+  searchLocal,
 });
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -294,6 +297,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   await initializeAutoArchive();
   await registerGlobalContextMenus();
   await initializeSync();
+  await initializeSearch();
 });
 
 chrome.tabs.onZoomChange.addListener(async (info) => {
@@ -310,6 +314,7 @@ chrome.runtime.onStartup?.addListener(async () => {
   await initializeAutoArchive();
   await registerGlobalContextMenus();
   await initializeSync();
+  await initializeSearch();
 });
 
 initializeGestureDetection();

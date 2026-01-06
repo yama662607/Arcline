@@ -157,6 +157,61 @@ async function broadcastSpacesSafely(): Promise<void> {
   }
 }
 
+interface EmptySpaceHandleResult {
+  handled: boolean;
+  tabId?: number;
+  spaceId?: number;
+}
+
+async function handleEmptyOrVirtualSpace(
+  targetSpace: SpaceSnapshot,
+  options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
+): Promise<EmptySpaceHandleResult> {
+  // Virtual space (inactive folder) -> Restore it
+  if (targetSpace.id < 0) {
+    const newGroupId = await restoreSpaceByFolderName(targetSpace.name);
+    const tabs = await chrome.tabs.query({ groupId: newGroupId });
+    const activeTab = tabs.find((t) => t.active) || tabs[0];
+    if (activeTab?.id) {
+      const refreshedSpaces = await getSpacesSnapshot();
+      await openFloatingUiOnTab(activeTab.id, refreshedSpaces, newGroupId, options);
+      await notifyActiveSpaceChange(newGroupId);
+    }
+    return { handled: true, tabId: activeTab?.id, spaceId: newGroupId };
+  }
+
+  // Existing space but empty -> Create placeholder tab
+  const url = chrome.runtime.getURL(
+    `empty-space.html?color=${encodeURIComponent(targetSpace.color)}`
+  );
+  const newTab = await chrome.tabs.create({ url, active: true });
+
+  if (newTab.id) {
+    if (targetSpace.id !== -1) {
+      await chrome.tabs.group({ tabIds: [newTab.id], groupId: targetSpace.id });
+    }
+    const refreshed = await getSpacesSnapshot();
+    await openFloatingUiOnTab(newTab.id, refreshed, targetSpace.id, options);
+    return { handled: true, tabId: newTab.id, spaceId: targetSpace.id };
+  }
+
+  return { handled: true };
+}
+
+function optimisticallyUpdateActiveStates(
+  spaces: SpaceSnapshot[],
+  targetTabId: number | undefined
+): void {
+  for (const space of spaces) {
+    const lists: TabEntry[][] = [space.tabs, space.temporaryTabs, space.pinnedTabs];
+    for (const list of lists) {
+      for (const tab of list) {
+        tab.active = targetTabId !== undefined ? tab.id === targetTabId : false;
+      }
+    }
+  }
+}
+
 async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
   try {
     try {
@@ -214,29 +269,17 @@ export async function navigateSpace(
     return false;
   }
 
-  // Reuse spaces from resolveNavigationTarget instead of fetching again
   const spaces = target.allSpaces;
-
-  // Optimistically update active state in the snapshot
-  // This is faster than re-fetching and ensures the UI feels responsive
-  // We do this BEFORE activating the tab so the UI receives the "future" state immediately
-  for (const space of spaces) {
-    const lists: TabEntry[][] = [space.tabs, space.temporaryTabs, space.pinnedTabs];
-    for (const list of lists) {
-      for (const tab of list) {
-        tab.active = target.tab ? tab.id === target.tab.id : false;
-      }
-    }
-  }
-
-  // Parallelize tab activation, window focus, and UI data delivery
-  // Parallelize tab activation, window focus, and UI data delivery
   const targetTabId = target.tab?.id;
 
-  if (targetTabId) {
-    const activationPromise = activateTargetTab(target.tab!).then(async (activated) => {
+  // Optimistically update active state for UI responsiveness
+  optimisticallyUpdateActiveStates(spaces, targetTabId);
+
+  if (targetTabId && target.tab) {
+    // Parallelize tab activation, window focus, and UI data delivery
+    const activationPromise = activateTargetTab(target.tab).then(async (activated) => {
       if (activated) {
-        await focusWindowIfNeeded(target.tab!.windowId);
+        await focusWindowIfNeeded(target.tab?.windowId);
       }
     });
 
@@ -249,40 +292,8 @@ export async function navigateSpace(
     await Promise.all([activationPromise, openUiPromise]);
   } else {
     // Empty space or Virtual Space
-    if (target.space.id < 0) {
-      // Virtual space (inactive folder) -> Restore it
-      const newGroupId = await restoreSpaceByFolderName(target.space.name);
-      // restoreSpaceByFolderName activates the space and broadcasts snapshot.
-      // We just need to ensure UI is opened.
-      // Get the active tab of the new group
-      const tabs = await chrome.tabs.query({ groupId: newGroupId });
-      const activeTab = tabs.find((t) => t.active) || tabs[0];
-      if (activeTab?.id) {
-        const refreshedSpaces = await getSpacesSnapshot();
-        await openFloatingUiOnTab(activeTab.id, refreshedSpaces, newGroupId, {
-          ...options,
-          perfId,
-          t0,
-        });
-        await notifyActiveSpaceChange(newGroupId);
-      }
-      return true;
-    }
-
-    // Existing space but empty (e.g. manually cleared tabs)
-    const url = chrome.runtime.getURL(
-      `empty-space.html?color=${encodeURIComponent(target.space.color)}`
-    );
-    const newTab = await chrome.tabs.create({ url, active: true });
-
-    if (newTab.id) {
-      if (target.space.id !== -1) {
-        await chrome.tabs.group({ tabIds: [newTab.id], groupId: target.space.id });
-      }
-      // Update snapshot (optimistic or re-fetch)
-      await getSpacesSnapshot(); // Refresh state
-      await openFloatingUiOnTab(newTab.id, spaces, target.space.id, { ...options, perfId, t0 });
-    }
+    await handleEmptyOrVirtualSpace(target.space, { ...options, perfId, t0 });
+    return true;
   }
 
   await broadcastSpacesSafely();
@@ -292,7 +303,7 @@ export async function navigateSpace(
 }
 
 export async function activateSpace(
-  spaceId: number,
+  spaceIdOrUuid: number | string,
   options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
 ): Promise<boolean> {
   const t2 = Date.now();
@@ -304,7 +315,8 @@ export async function activateSpace(
   }
 
   const spaces = await getSpacesSnapshot();
-  const targetSpace = spaces.find((space) => space.id === spaceId);
+  const targetSpace = findTargetSpace(spaces, spaceIdOrUuid);
+
   if (!targetSpace) {
     return false;
   }
@@ -320,43 +332,50 @@ export async function activateSpace(
     }
     await focusWindowIfNeeded(targetTab.windowId);
 
-    // Refresh snapshot to ensure UI has latest data
     const refreshed = await getSpacesSnapshot();
     await openFloatingUiOnTab(targetTab.id, refreshed, targetSpace.id, options);
   } else {
     // Empty space or Virtual Space
-    if (targetSpace.id < 0) {
-      // Virtual Space
-      const newGroupId = await restoreSpaceByFolderName(targetSpace.name);
-      // restoreSpaceByFolderName activates the space.
-      const tabs = await chrome.tabs.query({ groupId: newGroupId });
-      const activeTab = tabs.find((t) => t.active) || tabs[0];
-      if (activeTab?.id) {
-        const refreshed = await getSpacesSnapshot();
-        await openFloatingUiOnTab(activeTab.id, refreshed, newGroupId, options);
-        await notifyActiveSpaceChange(newGroupId);
-      }
-      return true;
-    }
-
-    // Empty space: Create empty placeholder
-    console.log('[Arcline] Navigating to empty space, creating placeholder');
-    const url = chrome.runtime.getURL(
-      `empty-space.html?color=${encodeURIComponent(targetSpace.color)}`
-    );
-    const newTab = await chrome.tabs.create({ url, active: true });
-
-    if (newTab.id) {
-      if (targetSpace.id !== -1) {
-        await chrome.tabs.group({ tabIds: [newTab.id], groupId: targetSpace.id });
-      }
-      const refreshed = await getSpacesSnapshot();
-      await openFloatingUiOnTab(newTab.id, refreshed, targetSpace.id, options);
-    }
+    await handleEmptyOrVirtualSpace(targetSpace, options);
+    return true;
   }
 
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(targetSpace.id);
 
   return true;
+}
+
+function findTargetSpace(
+  spaces: SpaceSnapshot[],
+  spaceIdOrUuid: number | string
+): SpaceSnapshot | undefined {
+  if (typeof spaceIdOrUuid === 'number') {
+    return spaces.find((space) => space.id === spaceIdOrUuid);
+  }
+  return spaces.find((space) => space.uuid === spaceIdOrUuid);
+}
+
+/**
+ * Activate a space by its index (0-based) in the spaces list.
+ * Used for keyboard shortcuts like Control+1-9.
+ */
+export async function activateSpaceByIndex(
+  index: number,
+  options?: { perfId?: string; t0?: number }
+): Promise<boolean> {
+  const spaces = await getSpacesSnapshot();
+
+  if (index < 0 || index >= spaces.length) {
+    console.log(`[Arcline] Space index ${index} out of range (0-${spaces.length - 1})`);
+    return false;
+  }
+
+  const targetSpace = spaces[index];
+  if (!targetSpace) {
+    return false;
+  }
+
+  console.log(`[Arcline] Activating space by index ${index}: "${targetSpace.name}"`);
+  return activateSpace(targetSpace.uuid ?? targetSpace.id, options);
 }

@@ -29,6 +29,7 @@ import type {
   PinnedTab,
 } from '@/shared/types';
 import { db } from '@/db';
+import type { SpaceRecord } from '@/db/schema';
 
 const TAB_GROUP_ID_NONE = -1;
 const isTabGroupsSupported = () =>
@@ -185,19 +186,94 @@ export async function getActiveTabEntry(): Promise<TabEntry | null> {
   return activeTab ? mapTab(activeTab) : null;
 }
 
+// --- Helper types for getSpacesSnapshot ---
+interface SnapshotBuildContext {
+  snapshots: SpaceSnapshot[];
+  groupMap: Map<number, SpaceSnapshot>;
+  seenGroupIds: Set<number>;
+  activeGroupMap: Map<string, chrome.tabGroups.TabGroup>;
+  timestamp: number;
+}
+
+async function buildSnapshotsFromDbSpaces(
+  dbSpaces: SpaceRecord[],
+  ctx: SnapshotBuildContext
+): Promise<void> {
+  for (const dbSpace of dbSpaces) {
+    const activeGroup = ctx.activeGroupMap.get(dbSpace.name);
+    const snapshotId = activeGroup?.id ?? TAB_GROUP_ID_NONE;
+
+    const snapshot = createEmptySpaceSnapshot({
+      id: snapshotId,
+      name: dbSpace.name,
+      color: (activeGroup?.color as TabGroupColor) || (dbSpace.color as TabGroupColor) || 'grey',
+      windowId: activeGroup?.windowId ?? -1,
+      timestamp: dbSpace.updatedAt.getTime(),
+    });
+
+    snapshot.uuid = dbSpace.uuid;
+    if (dbSpace.id !== undefined) {
+      snapshot.pinnedItems = await getPinnedItemsFromDb(dbSpace.id);
+    }
+
+    ctx.snapshots.push(snapshot);
+
+    if (snapshotId !== TAB_GROUP_ID_NONE) {
+      ctx.groupMap.set(snapshotId, snapshot);
+      ctx.seenGroupIds.add(snapshotId);
+    }
+
+    // Sync tabGroupId back to DB if it changed
+    if (dbSpace.id !== undefined && dbSpace.tabGroupId !== activeGroup?.id) {
+      await db.spaces.update(dbSpace.id, { tabGroupId: activeGroup?.id });
+    }
+  }
+}
+
+function addGhostGroupSnapshots(
+  tabGroups: chrome.tabGroups.TabGroup[],
+  ctx: SnapshotBuildContext
+): void {
+  for (const group of tabGroups) {
+    if (ctx.seenGroupIds.has(group.id)) continue;
+
+    const snapshot = createEmptySpaceSnapshot({
+      id: group.id,
+      name: group.title || 'Untitled',
+      color: (group.color ?? 'grey') as TabGroupColor,
+      windowId: group.windowId ?? -1,
+      timestamp: ctx.timestamp,
+    });
+
+    snapshot.uuid = `ghost-group-${group.id}`;
+    ctx.snapshots.push(snapshot);
+    ctx.groupMap.set(group.id, snapshot);
+  }
+}
+
+function linkAllPinnedItemsToTabs(finalSnapshots: SpaceSnapshot[]): void {
+  for (const snapshot of finalSnapshots) {
+    if (snapshot.pinnedItems.length > 0) {
+      linkPinnedItemsToOpenTabs(snapshot.pinnedItems, [
+        ...snapshot.temporaryTabs,
+        ...snapshot.tabs,
+      ]);
+    }
+  }
+}
+
 export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
   try {
     if (cachedSnapshot) {
       return cachedSnapshot;
     }
 
-    // 1. Get managed spaces from Dexie
+    // 1. Get data from Dexie and Chrome
     const dbSpaces = await db.spaces.orderBy('sortOrder').toArray();
-
-    // 2. Get active state from Chrome
     const { tabGroups, allTabs } = await queryChromeState();
     const timestamp = Date.now();
 
+    // Build active group lookup
     const activeGroupMap = new Map<string, chrome.tabGroups.TabGroup>();
     for (const tg of tabGroups) {
       if (tg.title) {
@@ -205,59 +281,22 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       }
     }
 
-    const snapshots: SpaceSnapshot[] = [];
-    const groupMap = new Map<number, SpaceSnapshot>();
-    const seenGroupIds = new Set<number>();
-    const seenDbUuids = new Set<string>();
+    // Initialize context
+    const ctx: SnapshotBuildContext = {
+      snapshots: [],
+      groupMap: new Map(),
+      seenGroupIds: new Set(),
+      activeGroupMap,
+      timestamp,
+    };
 
-    // 3. Build snapshots from DB spaces
-    for (const dbSpace of dbSpaces) {
-      const activeGroup = activeGroupMap.get(dbSpace.name);
-      const snapshotId = activeGroup?.id ?? TAB_GROUP_ID_NONE;
+    // 2. Build snapshots from DB spaces
+    await buildSnapshotsFromDbSpaces(dbSpaces, ctx);
 
-      const snapshot = createEmptySpaceSnapshot({
-        id: snapshotId,
-        name: dbSpace.name,
-        color: (activeGroup?.color as TabGroupColor) || (dbSpace.color as TabGroupColor) || 'grey',
-        windowId: activeGroup?.windowId ?? -1,
-        timestamp: dbSpace.updatedAt.getTime(),
-      });
+    // 3. Handle ghost groups (active in Chrome but not in DB)
+    addGhostGroupSnapshots(tabGroups, ctx);
 
-      snapshot.uuid = dbSpace.uuid;
-      snapshot.pinnedItems = await getPinnedItemsFromDb(dbSpace.id!);
-
-      snapshots.push(snapshot);
-      seenDbUuids.add(dbSpace.uuid);
-
-      if (snapshotId !== TAB_GROUP_ID_NONE) {
-        groupMap.set(snapshotId, snapshot);
-        seenGroupIds.add(snapshotId);
-      }
-
-      // Sync tabGroupId back to DB if it changed
-      if (dbSpace.tabGroupId !== activeGroup?.id) {
-        await db.spaces.update(dbSpace.id!, { tabGroupId: activeGroup?.id });
-      }
-    }
-
-    // 4. Handle "Ghost" groups (active in Chrome but not in DB)
-    // These might be temporary groups created by the user or from other extensions
-    for (const group of tabGroups) {
-      if (seenGroupIds.has(group.id)) continue;
-
-      const snapshot = createEmptySpaceSnapshot({
-        id: group.id,
-        name: group.title || 'Untitled',
-        color: (group.color ?? 'grey') as TabGroupColor,
-        windowId: group.windowId ?? -1,
-        timestamp,
-      });
-
-      snapshots.push(snapshot);
-      groupMap.set(group.id, snapshot);
-    }
-
-    // 5. Add Ungrouped snapshot
+    // 4. Create ungrouped snapshot
     const ungrouped = createEmptySpaceSnapshot({
       id: TAB_GROUP_ID_NONE,
       name: 'Ungrouped',
@@ -265,29 +304,21 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       windowId: -1,
       timestamp,
     });
+    ungrouped.uuid = 'ungrouped-space';
 
+    // 5. Distribute tabs
     const globalPinned: GlobalPinnedMap = new Map();
+    distributeTabs(allTabs, ctx.groupMap, ungrouped, globalPinned);
 
-    // 6. Distribute tabs
-    distributeTabs(allTabs, groupMap, ungrouped, globalPinned);
-
-    // 7. Finalize list
-    const finalSnapshots = [...snapshots];
+    // 6. Finalize list
+    const finalSnapshots = [...ctx.snapshots];
     if (hasUngroupedContent(ungrouped)) {
       finalSnapshots.push(ungrouped);
     }
-
     mergeGlobalPinnedTabs(finalSnapshots, globalPinned);
 
-    // 8. Link pinned items to open tabs
-    for (const snapshot of finalSnapshots) {
-      if (snapshot.pinnedItems.length > 0) {
-        linkPinnedItemsToOpenTabs(snapshot.pinnedItems, [
-          ...snapshot.temporaryTabs,
-          ...snapshot.tabs,
-        ]);
-      }
-    }
+    // 7. Link pinned items to open tabs
+    linkAllPinnedItemsToTabs(finalSnapshots);
 
     cachedSnapshot = finalSnapshots;
     return finalSnapshots;

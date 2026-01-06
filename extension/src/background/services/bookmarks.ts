@@ -136,7 +136,7 @@ export async function syncSpaceToBookmarks(spaceName: string, tabs: TabEntry[]):
 
     // 既存ブックマークを削除
     for (const bookmark of existingBookmarks) {
-      await chrome.bookmarks.remove(bookmark.id);
+      await chrome.bookmarks.removeTree(bookmark.id);
     }
 
     // 新しいブックマークを作成

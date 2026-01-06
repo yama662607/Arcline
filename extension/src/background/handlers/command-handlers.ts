@@ -58,9 +58,11 @@ export type CommandHandlersDeps = {
   reorderTab: BrowserFns['reorderTab'];
   navigateSpace: typeof import('../services/space-navigation')['navigateSpace'];
   activateSpace: typeof import('../services/space-navigation')['activateSpace'];
+  activateSpaceByIndex: typeof import('../services/space-navigation')['activateSpaceByIndex'];
   countBookmarks: BrowserFns['countBookmarks'];
   getInactiveSpaces: BrowserFns['getInactiveSpaces'];
   restoreSpaceByFolderName: BrowserFns['restoreSpaceByFolderName'];
+  searchLocal: typeof import('../services/search')['searchLocal'];
 };
 
 function isTabEntry(value: unknown): value is TabEntry {
@@ -711,20 +713,44 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
       });
     },
     activateSpace: (message, sendResponse) => {
-      const { spaceId, transition, perfId, t0 } = message as {
+      const { spaceId, spaceUuid, transition, perfId, t0 } = message as {
         spaceId?: number;
+        spaceUuid?: string;
         transition?: SpaceTransitionHandoff | null;
         perfId?: string;
         t0?: number;
       };
-      if (typeof spaceId !== 'number') {
-        sendResponse({ ok: false, error: 'spaceId is required' });
+      if (typeof spaceId !== 'number' && typeof spaceUuid !== 'string') {
+        sendResponse({ ok: false, error: 'spaceId or spaceUuid is required' });
         return false;
       }
 
       return respondAsync(async () => {
         try {
-          const success = await deps.activateSpace(spaceId, { transition, perfId, t0 });
+          const success = await deps.activateSpace(spaceUuid || spaceId!, {
+            transition,
+            perfId,
+            t0,
+          });
+          sendResponse({ ok: true, data: success });
+        } catch (error) {
+          sendResponse({ ok: false, error: String(error) });
+        }
+      });
+    },
+    activateSpaceByIndex: (message, sendResponse) => {
+      const { index, perfId, t0 } = message as {
+        index: number;
+        perfId?: string;
+        t0?: number;
+      };
+      if (typeof index !== 'number' || index < 0) {
+        sendResponse({ ok: false, error: 'Valid index required' });
+        return false;
+      }
+      return respondAsync(async () => {
+        try {
+          const success = await deps.activateSpaceByIndex(index, { perfId, t0 });
           sendResponse({ ok: true, data: success });
         } catch (error) {
           sendResponse({ ok: false, error: String(error) });
@@ -758,6 +784,17 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
           const spaceId = await deps.restoreSpaceByFolderName(folderName);
           await deps.broadcastSpacesSnapshot();
           sendResponse({ ok: true, data: spaceId });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+      });
+    },
+    searchLocal: (message, sendResponse) => {
+      const { query, limit } = message as { query: string; limit?: number };
+      return respondAsync(async () => {
+        try {
+          const results = await deps.searchLocal(query, limit);
+          sendResponse({ ok: true, data: results });
         } catch (e) {
           sendResponse({ ok: false, error: String(e) });
         }
