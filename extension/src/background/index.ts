@@ -152,24 +152,24 @@ async function closeSidePanel(): Promise<void> {
     const windowId =
       typeof chrome.windows?.getCurrent === 'function'
         ? await new Promise<number | undefined>((resolve) => {
-            let resolved = false;
-            const maybePromise = chrome.windows.getCurrent((window) => {
-              resolved = true;
-              resolve(typeof window?.id === 'number' ? window.id : undefined);
-            }) as unknown;
+          let resolved = false;
+          const maybePromise = chrome.windows.getCurrent((window) => {
+            resolved = true;
+            resolve(typeof window?.id === 'number' ? window.id : undefined);
+          }) as unknown;
 
-            if (
-              !resolved &&
-              maybePromise &&
-              typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
-            ) {
-              (maybePromise as Promise<chrome.windows.Window>)
-                .then((window) => {
-                  resolve(typeof window?.id === 'number' ? window.id : undefined);
-                })
-                .catch(() => resolve(undefined));
-            }
-          })
+          if (
+            !resolved &&
+            maybePromise &&
+            typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
+          ) {
+            (maybePromise as Promise<chrome.windows.Window>)
+              .then((window) => {
+                resolve(typeof window?.id === 'number' ? window.id : undefined);
+              })
+              .catch(() => resolve(undefined));
+          }
+        })
         : undefined;
 
     if (typeof windowId === 'number') {
@@ -604,8 +604,51 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
-if (import.meta.env.MODE === 'test') {
-  setInterval(() => {
-    chrome.runtime.getPlatformInfo(() => undefined);
-  }, 20000);
-}
+// --- Auto-Grouping Logic ---
+
+let lastActiveGroupId = -1;
+
+// Track the last active group
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab.groupId !== -1) {
+      lastActiveGroupId = tab.groupId;
+    }
+  } catch (error) {
+    // Ignore errors for closed tabs
+  }
+});
+
+// Auto-group new tabs into the active space
+chrome.tabs.onCreated.addListener(async (tab) => {
+  // If the tab is already grouped, or if we don't have a valid active group, do nothing
+  if (tab.groupId !== -1 || lastActiveGroupId === -1) {
+    return;
+  }
+
+  // Check if the last active group still exists
+  try {
+    await chrome.tabGroups.get(lastActiveGroupId);
+  } catch {
+    // Group no longer exists, reset tracker
+    lastActiveGroupId = -1;
+    return;
+  }
+
+  // Move the new tab into the group
+  try {
+    if (tab.id) {
+      await chrome.tabs.group({ tabIds: [tab.id], groupId: lastActiveGroupId });
+    }
+  } catch (error) {
+    console.warn('[Arcline] Failed to auto-group new tab', error);
+  }
+});
+
+// Initialize lastActiveGroupId
+chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([tab]) => {
+  if (tab?.groupId !== -1 && tab?.groupId !== undefined) {
+    lastActiveGroupId = tab.groupId;
+  }
+});
