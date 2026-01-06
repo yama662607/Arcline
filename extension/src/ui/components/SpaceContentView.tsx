@@ -130,7 +130,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
   };
 
   return (
-    <div id="arcline-space-content-viewport" className="h-full w-full overflow-hidden relative bg-inherit">
+    <div id="arcline-space-content-viewport" data-arcline-space-transition="true" className="h-full w-full overflow-hidden relative bg-inherit">
       {previewSpaceId ? (
         renderPreviewTrack()
       ) : (
