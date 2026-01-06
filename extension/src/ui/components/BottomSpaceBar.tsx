@@ -25,7 +25,7 @@ function SpaceBadge({ space, isActive, onClick }: SpaceBadgeProps) {
     <button
       type="button"
       onClick={onClick}
-      className={`group relative flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+      className={`group relative flex h-7 w-7 items-center justify-center rounded-lg transition-all ${
         isActive
           ? 'scale-110 ring-2 ring-white/50'
           : 'hover:scale-105 hover:ring-2 hover:ring-white/30'
@@ -36,11 +36,11 @@ function SpaceBadge({ space, isActive, onClick }: SpaceBadgeProps) {
       title={space.name}
       aria-label={`Switch to ${space.name}`}
     >
-      <span className="text-sm">{icon}</span>
+      <span className="text-xs">{icon}</span>
       {isActive && (
         <motion.div
           layoutId="activeSpaceIndicator"
-          className="absolute -bottom-1 h-0.5 w-6 rounded-full bg-white"
+          className="absolute -bottom-1 h-0.5 w-5 rounded-full bg-white"
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         />
       )}
@@ -79,7 +79,7 @@ function AllSpacesPopup({
           return (
             <button
               type="button"
-              key={space.id}
+              key={space.uuid || space.id}
               onClick={() => onSelectSpace(space.id)}
               className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors ${
                 isActive
@@ -169,9 +169,9 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
   }, [swipeProgress, currentSpaceIndex, spaces.length]);
 
   return (
-    <div className="relative flex items-center gap-2" role="group" aria-label="Space navigation">
+    <div className="relative flex items-center gap-1.5" role="group" aria-label="Space navigation">
       {/* Favorite space badges */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         {displaySpaces.map((space, _index) => {
           const isActive = space.id === activeSpaceId;
           const spaceIndex = spaces.findIndex((s) => s.id === space.id);
@@ -179,7 +179,7 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
           const shouldShowProgress = Math.abs(swipeProgress) > 0.1 && (isActive || isTarget);
 
           return (
-            <div key={space.id} className="relative">
+            <div key={space.uuid || space.id} className="relative">
               <SpaceBadge
                 space={space}
                 isActive={isActive}
@@ -192,7 +192,11 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
                   if (isFloatingVariant) {
                     window.dispatchEvent(
                       new CustomEvent('arcline-space-bar-switch', {
-                        detail: { spaceId: space.id, direction },
+                        detail: {
+                          spaceId: space.id,
+                          spaceUuid: space.uuid,
+                          direction,
+                        },
                       })
                     );
                     return;
@@ -219,7 +223,7 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
       <button
         type="button"
         onClick={() => setIsPopupOpen(!isPopupOpen)}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-white/50 hover:text-white/80 hover:bg-white/10 transition-all"
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-white/50 hover:text-white/80 hover:bg-white/10 transition-all"
         aria-label="Show all spaces"
       >
         <MoreVertical className="h-4 w-4" />
@@ -233,6 +237,8 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
             activeSpaceId={activeSpaceId}
             onSelectSpace={(spaceId) => {
               if (spaceId !== activeSpaceId) {
+                const targetSpace = spaces.find((s) => s.id === spaceId);
+                const targetUuid = targetSpace?.uuid;
                 const targetIndex = spaces.findIndex((s) => s.id === spaceId);
                 const direction =
                   targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'left' : 'right';
@@ -240,7 +246,11 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
                 if (isFloatingVariant) {
                   window.dispatchEvent(
                     new CustomEvent('arcline-space-bar-switch', {
-                      detail: { spaceId, direction },
+                      detail: {
+                        spaceId,
+                        spaceUuid: targetUuid,
+                        direction,
+                      },
                     })
                   );
                 } else {

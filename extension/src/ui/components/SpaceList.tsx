@@ -18,6 +18,7 @@ export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
       return [
         {
           id: -1,
+          uuid: 'sample-space-uuid',
           name: 'サンプルスペース',
           color: '#3b82f6',
           description: 'Chrome 拡張のイベントからタブ群を読み込みます。',
@@ -27,6 +28,7 @@ export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
 
     return spaces.map((space, _index) => ({
       id: space.id,
+      uuid: space.uuid,
       name: space.name,
       color: space.color,
       description: `${space.pinnedTabs.length} pinned / ${space.temporaryTabs.length} tabs`,
@@ -37,7 +39,7 @@ export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
     return (
       <ul className="flex flex-col gap-1">
         {items.map((item) => (
-          <li key={item.id}>
+          <li key={item.uuid || item.id}>
             <button
               type="button"
               className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition focus:outline-none focus:ring-1 focus:ring-white/60 ${
@@ -74,7 +76,7 @@ export function SpaceList({ variant = 'standalone' }: SpaceListProps) {
     <div className="grid gap-3">
       {items.map((item) => (
         <button
-          key={item.id}
+          key={item.uuid || item.id}
           type="button"
           className="group flex items-center justify-between rounded-xl border border-white/5 p-4 text-left transition hover:border-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
           style={{
