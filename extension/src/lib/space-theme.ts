@@ -152,3 +152,31 @@ export function getAnimatedGradientStyle(color?: SpaceColor): React.CSSPropertie
     transition: `background ${THEME_TRANSITION.duration}s cubic-bezier(${THEME_TRANSITION.ease.join(',')})`,
   };
 }
+
+// Default RGB values for each color name (matching Arcify's color system)
+export const SPACE_COLOR_RGB: Record<SpaceColor, string> = {
+  grey: '204, 204, 204',
+  blue: '139, 179, 243',
+  red: '255, 158, 151',
+  yellow: '255, 226, 159',
+  green: '139, 218, 153',
+  pink: '251, 170, 215',
+  purple: '214, 166, 255',
+  cyan: '165, 226, 234',
+  orange: '255, 183, 130',
+};
+
+/**
+ * Get accent color CSS variables for a given space color
+ * (Merged from accent-colors.ts)
+ */
+export function getSpaceAccentVariants(spaceColor?: SpaceColor) {
+  // Default to purple if undefined, to match Arcify spotlight default
+  const rgb = spaceColor ? SPACE_COLOR_RGB[spaceColor] : SPACE_COLOR_RGB.purple;
+  return {
+    accent: `rgb(${rgb})`,
+    accent15: `rgba(${rgb}, 0.15)`,
+    accent20: `rgba(${rgb}, 0.2)`,
+    accent80: `rgba(${rgb}, 0.8)`,
+  };
+}
