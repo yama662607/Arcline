@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
+import { Folder, FolderOpen } from 'lucide-react';
 import { memo, useState } from 'react';
 
 import { useActivateTab, useOpenUrlInTab } from '@/hooks/use-spaces-query';
@@ -46,10 +46,10 @@ export const PinnedFolderRow = memo(function PinnedFolderRow({
 
       <PinnedItemContextMenu item={folder}>
         <div
-          className={`group relative flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-white/10 cursor-pointer text-slate-200 transition-colors ${
+          className={`group relative flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 cursor-pointer text-slate-200 transition-colors ${
             isDragging ? 'opacity-50' : ''
           } ${isOver && dropPosition === 'inside' ? 'bg-blue-500/20 ring-1 ring-blue-500' : ''}`}
-          style={{ paddingLeft: `${level * 12 + 12}px` }}
+          style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={toggleOpen}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -67,9 +67,6 @@ export const PinnedFolderRow = memo(function PinnedFolderRow({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <div className="flex-shrink-0 text-white/70 group-hover:text-white transition-colors">
-            {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-          </div>
           <div className="flex-shrink-0 text-white/70 group-hover:text-white transition-colors">
             {isOpen ? <FolderOpen className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
           </div>
@@ -132,12 +129,12 @@ export const PinnedTabRow = memo(function PinnedTabRow({
 
       <PinnedItemContextMenu item={tab}>
         <div
-          className={`group flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-white/10 cursor-pointer transition-colors ${
+          className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 cursor-pointer transition-colors ${
             isDragging ? 'opacity-50' : ''
           } ${tab.tabId ? 'text-white font-medium' : 'text-slate-300'} ${
             isOver && dropPosition === 'inside' ? 'bg-blue-500/20' : ''
           }`}
-          style={{ paddingLeft: `${level * 12 + 22}px` }}
+          style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={handleClick}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {

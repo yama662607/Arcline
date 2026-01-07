@@ -23,7 +23,7 @@ export function PinnedItemList({ items, spaceName, level = 0 }: PinnedItemsProps
     if (level === 0) {
       return (
         <div
-          className={`px-3 py-4 text-center text-xs text-slate-500 border-2 border-dashed rounded-lg transition-colors ${
+          className={`px-1 py-4 text-center text-xs text-slate-500 border-2 border-dashed rounded-lg transition-colors ${
             isOver ? 'border-blue-500 bg-blue-500/10' : 'border-slate-600'
           }`}
           onDragOver={handleDragOver}
