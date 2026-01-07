@@ -741,6 +741,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
             perfId,
             t0,
           });
+          await deps.broadcastSpacesSnapshot();
           sendResponse({ ok: true, data: success });
         } catch (error) {
           sendResponse({ ok: false, error: String(error) });

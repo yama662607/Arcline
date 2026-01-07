@@ -32,8 +32,10 @@ export async function initializeSync(): Promise<void> {
       // Already wrapped
       throw err;
     }
+    // biome-ignore lint/suspicious/noExplicitAny: error handling
     const details = (err as any).failures
-      ? JSON.stringify((err as any).failures)
+      ? // biome-ignore lint/suspicious/noExplicitAny: error handling
+        JSON.stringify((err as any).failures)
       : typeof err === 'object'
         ? JSON.stringify(err)
         : String(err);
@@ -77,8 +79,11 @@ async function syncBookmarksToDb(): Promise<void> {
     }
     return count;
   };
-  const totalSpaces = children.filter(c => !c.url).length;
-  const totalItems = children.reduce((sum, c) => sum + (c.children ? countItems(c.children) : 0), 0);
+  const totalSpaces = children.filter((c) => !c.url).length;
+  const totalItems = children.reduce(
+    (sum, c) => sum + (c.children ? countItems(c.children) : 0),
+    0
+  );
   console.log(`[Arcline] 📊 Starting sync: ${totalSpaces} spaces, ~${totalItems} items to process`);
 
   // Clear existing data (full sync)
@@ -97,18 +102,31 @@ async function syncBookmarksToDb(): Promise<void> {
           const spaceId = await syncSpaceFolder(child);
           processedSpaces++;
           const spaceItems = child.children ? countItems(child.children) : 0;
-          console.log(`[Arcline] 📁 [${processedSpaces}/${totalSpaces}] Processing space "${child.title}" (~${spaceItems} items)`);
+          console.log(
+            `[Arcline] 📁 [${processedSpaces}/${totalSpaces}] Processing space "${child.title}" (~${spaceItems} items)`
+          );
 
           if (spaceId && child.children) {
-            const itemsProcessed = await syncSpaceItemsFromNode(child.children, spaceId, undefined, 0, spaceItems);
+            const itemsProcessed = await syncSpaceItemsFromNode(
+              child.children,
+              spaceId,
+              undefined,
+              0,
+              spaceItems
+            );
             processedItems += itemsProcessed;
-            console.log(`[Arcline] ✅ Space "${child.title}" complete: ${itemsProcessed} items synced`);
+            console.log(
+              `[Arcline] ✅ Space "${child.title}" complete: ${itemsProcessed} items synced`
+            );
           }
         }
       }
 
-      console.log(`[Arcline] 📊 Sync progress: ${processedSpaces}/${totalSpaces} spaces, ${processedItems} items processed`);
+      console.log(
+        `[Arcline] 📊 Sync progress: ${processedSpaces}/${totalSpaces} spaces, ${processedItems} items processed`
+      );
     } catch (e: unknown) {
+      // biome-ignore lint/suspicious/noExplicitAny: fallback error handling
       const err = e as Error & { failures?: any };
       // Enhance error with bulk failure details if available
       if (err.failures) {
@@ -122,7 +140,9 @@ async function syncBookmarksToDb(): Promise<void> {
 
   const spaceCount = await db.spaces.count();
   const itemCount = await db.items.count();
-  console.log(`[Arcline] ✅ Sync complete: ${spaceCount} spaces and ${itemCount} items in IndexedDB.`);
+  console.log(
+    `[Arcline] ✅ Sync complete: ${spaceCount} spaces and ${itemCount} items in IndexedDB.`
+  );
 }
 
 /**
@@ -180,7 +200,9 @@ async function syncSpaceItemsFromNode(
     const currentTotal = processedSoFar + processed;
     if (currentTotal % 100 === 0 && totalExpected > 0) {
       const percentage = Math.round((currentTotal / totalExpected) * 100);
-      console.log(`[Arcline]   📦 Progress: ${currentTotal}/${totalExpected} items (${percentage}%)`);
+      console.log(
+        `[Arcline]   📦 Progress: ${currentTotal}/${totalExpected} items (${percentage}%)`
+      );
     }
 
     // Recursively sync folder contents

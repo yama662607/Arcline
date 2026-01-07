@@ -155,24 +155,24 @@ async function closeSidePanel(): Promise<void> {
     const windowId =
       typeof chrome.windows?.getCurrent === 'function'
         ? await new Promise<number | undefined>((resolve) => {
-          let resolved = false;
-          const maybePromise = chrome.windows.getCurrent((window) => {
-            resolved = true;
-            resolve(typeof window?.id === 'number' ? window.id : undefined);
-          }) as unknown;
+            let resolved = false;
+            const maybePromise = chrome.windows.getCurrent((window) => {
+              resolved = true;
+              resolve(typeof window?.id === 'number' ? window.id : undefined);
+            }) as unknown;
 
-          if (
-            !resolved &&
-            maybePromise &&
-            typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
-          ) {
-            (maybePromise as Promise<chrome.windows.Window>)
-              .then((window) => {
-                resolve(typeof window?.id === 'number' ? window.id : undefined);
-              })
-              .catch(() => resolve(undefined));
-          }
-        })
+            if (
+              !resolved &&
+              maybePromise &&
+              typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
+            ) {
+              (maybePromise as Promise<chrome.windows.Window>)
+                .then((window) => {
+                  resolve(typeof window?.id === 'number' ? window.id : undefined);
+                })
+                .catch(() => resolve(undefined));
+            }
+          })
         : undefined;
 
     if (typeof windowId === 'number') {
@@ -493,7 +493,12 @@ chrome.commands.onCommand.addListener(async (command) => {
 });
 
 chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
-  console.log('[Arcline] 📥 Background received message:', rawMessage, 'from', sender?.tab?.url || 'unknown');
+  console.log(
+    '[Arcline] 📥 Background received message:',
+    rawMessage,
+    'from',
+    sender?.tab?.url || 'unknown'
+  );
   if (typeof rawMessage !== 'object' || rawMessage === null) {
     return false;
   }
@@ -570,7 +575,6 @@ chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
 
   return handler(message, sendResponse, sender);
 });
-
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;

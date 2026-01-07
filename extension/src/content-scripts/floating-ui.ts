@@ -608,7 +608,7 @@ function setupEdgeDetection() {
     void import('./edge-detection-debug')
       .then((module) => {
         updateDebugInfoFn = module.updateDebugInfo;
-        module.enableEdgeDetectionDebug();
+        // module.enableEdgeDetectionDebug(); // Disabled by default, use Ctrl+Shift+D to toggle
       })
       .catch((error) => {
         console.warn('[Arcline] Failed to load edge detection debug', error);

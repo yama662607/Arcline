@@ -17,6 +17,7 @@ import {
   movePinnedItem,
   removePinnedItem,
   updatePinnedItem,
+  getOrCreateSpaceFolder,
 } from './bookmarks';
 import { openFloatingUiOnTab } from './ui-messaging';
 import type {
@@ -197,7 +198,9 @@ async function buildSnapshotsFromDbSpaces(
     snapshot.uuid = dbSpace.uuid;
     if (dbSpace.id !== undefined) {
       snapshot.pinnedItems = await getPinnedItemsFromDb(dbSpace.id);
-      console.log(`[Arcline]   📌 DB Space "${dbSpace.name}" (dbId=${dbSpace.id}) -> ${snapshot.pinnedItems.length} pinnedItems fetched`);
+      console.log(
+        `[Arcline]   📌 DB Space "${dbSpace.name}" (dbId=${dbSpace.id}) -> ${snapshot.pinnedItems.length} pinnedItems fetched`
+      );
     }
 
     ctx.snapshots.push(snapshot);
@@ -264,7 +267,9 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       dbSpacesPromise,
       chromeStatePromise,
     ]);
-    console.log(`[Arcline] ✓ getSpacesSnapshot: finished DB (count=${dbSpaces.length}) and Chrome (tabs=${allTabs.length}, groups=${tabGroups.length})`);
+    console.log(
+      `[Arcline] ✓ getSpacesSnapshot: finished DB (count=${dbSpaces.length}) and Chrome (tabs=${allTabs.length}, groups=${tabGroups.length})`
+    );
 
     const timestamp = Date.now();
 
@@ -306,9 +311,13 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
 
     // TRY to fetch pinned items for ungrouped from DB if a space named "Ungrouped" exists,
     // or just generally handle it. Many users might expect "Main" to be the ungrouped space.
-    const dbUngrouped = dbSpaces.find(s => s.name === 'Ungrouped' || s.name === 'Main' || s.name === 'Home');
+    const dbUngrouped = dbSpaces.find(
+      (s) => s.name === 'Ungrouped' || s.name === 'Main' || s.name === 'Home'
+    );
     if (dbUngrouped?.id !== undefined) {
-      console.log(`[Arcline] 📎 Found potential ungrouped DB space "${dbUngrouped.name}" (id=${dbUngrouped.id}), etching pinned items...`);
+      console.log(
+        `[Arcline] 📎 Found potential ungrouped DB space "${dbUngrouped.name}" (id=${dbUngrouped.id}), etching pinned items...`
+      );
       ungrouped.pinnedItems = await getPinnedItemsFromDb(dbUngrouped.id);
       console.log(`[Arcline] ✓ Ungrouped pinned items count: ${ungrouped.pinnedItems.length}`);
     }
@@ -334,7 +343,9 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
 
     console.log(`[Arcline] ✓ getSpacesSnapshot COMPLETE: ${finalSnapshots.length} spaces resolved`);
     for (const s of finalSnapshots) {
-      console.log(`[Arcline]   - Space: "${s.name}" (id=${s.id}) -> pinnedItems=${s.pinnedItems.length}, tabs=${s.tabs.length}, temporaryTabs=${s.temporaryTabs.length}`);
+      console.log(
+        `[Arcline]   - Space: "${s.name}" (id=${s.id}) -> pinnedItems=${s.pinnedItems.length}, tabs=${s.tabs.length}, temporaryTabs=${s.temporaryTabs.length}`
+      );
     }
 
     return finalSnapshots;
@@ -430,10 +441,23 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
   }
 
   // Sync new space to bookmarks
+  // Safeguard: Check if a folder with this name already exists and has items
   try {
-    await syncSpaceToBookmarks(name, []);
+    const existingFolder = await getOrCreateSpaceFolder(name);
+    const children = await chrome.bookmarks.getChildren(existingFolder.id);
+
+    if (children.length > 0) {
+      console.warn(
+        `[Arcline] ⚠️ Space folder "${name}" already exists with ${children.length} items. SKIPPING initial empty sync to prevent data loss.`
+      );
+      // Ideally we might want to populate the space from these bookmarks, but for now
+      // SAFETY FIRST: Do not overwrite with empty list.
+    } else {
+      // Folder is empty or new, safe to initialize
+      await syncSpaceToBookmarks(name, []);
+    }
   } catch (error) {
-    console.warn(`[Arcline] Failed to sync new space "${name}" to bookmarks:`, error);
+    console.warn(`[Arcline] Failed to handle bookmark sync for new space "${name}":`, error);
   }
 
   await broadcastSpacesSnapshot();
@@ -1067,7 +1091,9 @@ async function cleanupEmptySpaceTab(groupId: number): Promise<void> {
 async function getPinnedItemsFromDb(spaceId: number): Promise<PinnedItem[]> {
   console.log(`[Arcline] 🔄 getPinnedItemsFromDb for spaceId=${spaceId}`);
   const allItems = await db.items.where('spaceId').equals(spaceId).toArray();
-  console.log(`[Arcline] ✓ getPinnedItemsFromDb: found ${allItems.length} raw items for spaceId=${spaceId}`);
+  console.log(
+    `[Arcline] ✓ getPinnedItemsFromDb: found ${allItems.length} raw items for spaceId=${spaceId}`
+  );
 
   // Create lookup map for parent-child relationship
   const itemsByParent = new Map<number | undefined, any[]>();

@@ -591,6 +591,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     reportSwipeDebug(context, 'locked-vertical', false, totalDeltaX);
   };
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex gesture logic required
   const handleWheel = (e: WheelEvent) => {
     // Optimization: Early return for common cases to avoid heavy debug context generation
     if (!gesturesEnabled) return;

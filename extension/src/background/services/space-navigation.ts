@@ -399,11 +399,16 @@ export async function navigateSpace(
       ...options,
       perfId,
       t0,
-    }).then(() => {
-      console.log(`[Arcline] ✓ openFloatingUiOnTab message SENT to tabId=${finalTargetTabId}`);
-    }).catch((err) => {
-      console.error(`[Arcline] ❌ openFloatingUiOnTab message FAILED for tabId=${finalTargetTabId}:`, err);
-    });
+    })
+      .then(() => {
+        console.log(`[Arcline] ✓ openFloatingUiOnTab message SENT to tabId=${finalTargetTabId}`);
+      })
+      .catch((err) => {
+        console.error(
+          `[Arcline] ❌ openFloatingUiOnTab message FAILED for tabId=${finalTargetTabId}:`,
+          err
+        );
+      });
 
     await Promise.all([activationPromise, openUiPromise]);
     console.log(`[Arcline] ✓ Tab activation and UI opening promises resolved (or failed)`);
@@ -432,7 +437,7 @@ export async function navigateSpace(
   await notifyActiveSpaceChange(finalTargetSpaceId);
 
   console.log(
-    `[Arcline] ✅ navigateSpace COMPLETE: direction=${direction}, spaceId=${finalTargetSpaceId}`
+    `[Arcline] ✅ navigateSpace COMPLETE: direction=${direction}, spaceId=${finalTargetSpaceId}, targetTabId=${finalTargetTabId}`
   );
   return true;
 }
@@ -457,27 +462,34 @@ export async function activateSpace(
     );
   }
 
+  console.log(`[Arcline] 🚀 activateSpace START: spaceIdOrUuid=${spaceIdOrUuid}`);
   const spaces = await getSpacesSnapshot();
   const targetSpace = findTargetSpace(spaces, spaceIdOrUuid);
 
   if (!targetSpace) {
+    console.warn(`[Arcline] ❌ activateSpace FAILED: Target space not found for ${spaceIdOrUuid}`);
     return false;
   }
 
+  console.log(`[Arcline] 🎯 Target resolved: "${targetSpace.name}" (id=${targetSpace.id})`);
   const activeTab = await resolveActiveTab();
   const activeTabId = typeof activeTab?.id === 'number' ? activeTab.id : undefined;
   const targetTab = selectTargetTab(targetSpace, activeTabId);
 
   if (targetTab) {
+    console.log(`[Arcline] 🔄 Activating existing tab: ${targetTab.id} in space ${targetSpace.id}`);
     const activated = await activateTargetTab(targetTab);
     if (!activated) {
+      console.warn(`[Arcline] ❌ Tab activation FAILED for tabId=${targetTab.id}`);
       return false;
     }
     await focusWindowIfNeeded(targetTab.windowId);
 
     const refreshed = await getSpacesSnapshot();
+    console.log(`[Arcline] 📡 Sending openFloatingUiOnTab to tabId=${targetTab.id}`);
     await openFloatingUiOnTab(targetTab.id, refreshed, targetSpace.id, options);
   } else {
+    console.log(`[Arcline] ⚙️ Target space "${targetSpace.name}" is empty/virtual. Handling...`);
     // Empty space or Virtual Space
     await handleEmptyOrVirtualSpace(targetSpace, options);
     return true;
@@ -486,6 +498,7 @@ export async function activateSpace(
   await broadcastSpacesSafely();
   await notifyActiveSpaceChange(targetSpace.id);
 
+  console.log(`[Arcline] ✅ activateSpace COMPLETE for spaceId=${targetSpace.id}`);
   return true;
 }
 
