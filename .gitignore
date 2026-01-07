@@ -77,3 +77,4 @@ extension/lint_all.txt
 apps/
 
 scripts/arc-investigation/
+test_output.txt
