@@ -10,28 +10,38 @@ export async function openFloatingUiOnTab(
   activeSpaceId: number,
   options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
 ): Promise<void> {
-  try {
-    const transition = options?.transition;
+  return new Promise((resolve, reject) => {
+    try {
+      const transition = options?.transition;
 
-    // Send a single unified message to update data and open UI instantly.
-    chrome.tabs.sendMessage(
-      tabId,
-      {
-        command: 'openFloatingUiWithData',
-        spaces,
-        activeSpaceId,
-        transition,
-        instant: true,
-        perfId: options?.perfId,
-        t0: options?.t0,
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          // Silent fail
+      // Send a single unified message to update data and open UI instantly.
+      chrome.tabs.sendMessage(
+        tabId,
+        {
+          command: 'openFloatingUiWithData',
+          spaces,
+          activeSpaceId,
+          transition,
+          instant: true,
+          perfId: options?.perfId,
+          t0: options?.t0,
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            console.warn(
+              '[Arcline] ❌ openFloatingUiOnTab failed:',
+              chrome.runtime.lastError.message
+            );
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            console.log('[Arcline] ✅ openFloatingUiOnTab message sent successfully');
+            resolve();
+          }
         }
-      }
-    );
-  } catch {
-    // Silent fail
-  }
+      );
+    } catch (error) {
+      console.warn('[Arcline] Failed to request floating UI open', error);
+      reject(error);
+    }
+  });
 }

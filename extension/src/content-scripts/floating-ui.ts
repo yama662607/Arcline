@@ -869,15 +869,23 @@ function handleOpenFloatingUiWithData(payload: {
     );
   }
 
+  console.log('[Arcline] 📥 handleOpenFloatingUiWithData received', {
+    activeSpaceId: payload.activeSpaceId,
+    spacesCount: payload.spaces?.length,
+    perfId: payload.perfId,
+  });
+
   if (payload.spaces) {
     // Pre-populate both caches directly to avoid query delay and stale UI flash
     getServiceWorkerBridge().updateSpacesCache(payload.spaces);
     // Also update Zustand store which mount.tsx uses for rendering (synchronous)
     useSpacesStore.getState().setSpaces(payload.spaces);
+    console.log('[Arcline] Zustand store updated with spaces');
   }
 
   if (payload.activeSpaceId !== undefined) {
     useSpacesStore.getState().setActiveSpace(payload.activeSpaceId);
+    console.log(`[Arcline] Zustand store activeSpaceId set to ${payload.activeSpaceId}`);
   }
 
   if (payload.transition) {
@@ -892,6 +900,7 @@ function handleOpenFloatingUiWithData(payload: {
   // This ensures the new space data is rendered, not stale data
   queueMicrotask(() => {
     requestAnimationFrame(() => {
+      console.log('[Arcline] 🚀 Calling startFloatingUi from message handler');
       void startFloatingUi({
         instant: payload.instant,
         perfId: perfId,

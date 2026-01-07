@@ -393,6 +393,7 @@ export async function mountFloatingUi(options: MountOptions): Promise<FloatingUi
       rootRef.current?.openFromHover();
     },
     openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }) {
+      console.log('[Arcline] 🔓 openInstantly called on FloatingUiHandle');
       rootRef.current?.openInstantly(data);
     },
     openCommandPalette() {

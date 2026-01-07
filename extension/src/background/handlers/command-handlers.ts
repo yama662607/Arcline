@@ -1,6 +1,8 @@
 import { type ChromeApi, chromeApi as defaultChromeApi } from '@/adapters/chrome-api';
 import type { UiMode } from '@/lib/ui-mode';
 import type { SwipeDirection } from '@/shared/gestures';
+
+console.log('[Arcline] 🚀 Background command-handlers.ts is LOADING...');
 import type {
   ArchivedTab,
   Settings,
@@ -98,7 +100,14 @@ function isFavoriteTabArray(value: unknown): value is FavoriteTab[] {
 }
 
 const respondAsync = (handler: () => Promise<void>): boolean => {
-  void handler();
+  const start = Date.now();
+  handler()
+    .then(() => {
+      console.log(`[Arcline] ✅ respondAsync handler finished in ${Date.now() - start}ms`);
+    })
+    .catch((err) => {
+      console.error(`[Arcline] ❌ respondAsync handler ERROR after ${Date.now() - start}ms:`, err);
+    });
   return true;
 };
 

@@ -137,13 +137,19 @@ export class ServiceWorkerBridge {
       } catch (error) {
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
+        const errorDetail =
+          error instanceof Error
+            ? error.message
+            : typeof error === 'object'
+              ? JSON.stringify(error)
+              : String(error);
         console.error('[Arcline] ❌ Bridge send exception:', {
-          error: error instanceof Error ? error.message : String(error),
+          error: errorDetail,
           method: message.method,
           id,
           isAtlas,
         });
-        reject(error instanceof Error ? error : new Error(String(error)));
+        reject(error instanceof Error ? error : new Error(errorDetail));
       }
     });
   }

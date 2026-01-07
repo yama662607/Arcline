@@ -2,13 +2,16 @@
 import type { UiMode } from '@/lib/ui-mode';
 import { SETTINGS_STORAGE_KEY } from '@/shared/settings';
 import type { Settings } from '@/shared/types';
+import { broadcastSpacesSnapshot } from './services/browser';
+
+console.log('[Arcline] 🚀 Background script index.ts is LOADING...');
 import { type CommandHandler, createCommandHandlers } from './handlers/command-handlers';
 import { registerSpacesSnapshotListeners } from './listeners/spaces-snapshot-listeners';
+import { initializeAutoGrouping } from './services/auto-group';
 import { initializeAutoArchive, setupAutoArchiveAlarm } from './services/auto-archive';
 import {
   activateTab,
   archiveTab,
-  broadcastSpacesSnapshot,
   closeTab,
   countBookmarks,
   createPinnedFolder,
@@ -152,24 +155,24 @@ async function closeSidePanel(): Promise<void> {
     const windowId =
       typeof chrome.windows?.getCurrent === 'function'
         ? await new Promise<number | undefined>((resolve) => {
-            let resolved = false;
-            const maybePromise = chrome.windows.getCurrent((window) => {
-              resolved = true;
-              resolve(typeof window?.id === 'number' ? window.id : undefined);
-            }) as unknown;
+          let resolved = false;
+          const maybePromise = chrome.windows.getCurrent((window) => {
+            resolved = true;
+            resolve(typeof window?.id === 'number' ? window.id : undefined);
+          }) as unknown;
 
-            if (
-              !resolved &&
-              maybePromise &&
-              typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
-            ) {
-              (maybePromise as Promise<chrome.windows.Window>)
-                .then((window) => {
-                  resolve(typeof window?.id === 'number' ? window.id : undefined);
-                })
-                .catch(() => resolve(undefined));
-            }
-          })
+          if (
+            !resolved &&
+            maybePromise &&
+            typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
+          ) {
+            (maybePromise as Promise<chrome.windows.Window>)
+              .then((window) => {
+                resolve(typeof window?.id === 'number' ? window.id : undefined);
+              })
+              .catch(() => resolve(undefined));
+          }
+        })
         : undefined;
 
     if (typeof windowId === 'number') {
@@ -490,6 +493,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 });
 
 chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
+  console.log('[Arcline] 📥 Background received message:', rawMessage, 'from', sender?.tab?.url || 'unknown');
   if (typeof rawMessage !== 'object' || rawMessage === null) {
     return false;
   }
@@ -567,7 +571,6 @@ chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
   return handler(message, sendResponse, sender);
 });
 
-registerSpacesSnapshotListeners({ broadcastSpacesSnapshot });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
@@ -604,75 +607,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
-// --- Auto-Grouping Logic ---
-
-let lastActiveGroupId = -1;
-let skipNextAutoGroup = false;
-
-/**
- * Set flag to skip auto-grouping for the next tab creation.
- * Used by handleEmptyOrVirtualSpace to prevent empty-space.html from being
- * auto-grouped into the previous space.
- */
-export function setSkipNextAutoGroup(skip: boolean): void {
-  skipNextAutoGroup = skip;
-}
-
-/**
- * Update the last active group ID.
- * Used when navigating to a new space BEFORE creating tabs.
- */
-export function updateLastActiveGroupId(groupId: number): void {
-  lastActiveGroupId = groupId;
-}
-
-// Track the last active group
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  try {
-    const tab = await chrome.tabs.get(activeInfo.tabId);
-    if (tab.groupId !== -1) {
-      lastActiveGroupId = tab.groupId;
-    }
-  } catch (_error) {
-    // Ignore errors for closed tabs
-  }
-});
-
-// Auto-group new tabs into the active space
-chrome.tabs.onCreated.addListener(async (tab) => {
-  // Skip if flagged (system-created tabs like empty-space.html)
-  if (skipNextAutoGroup) {
-    skipNextAutoGroup = false;
-    return;
-  }
-
-  // If the tab is already grouped, or if we don't have a valid active group, do nothing
-  if (tab.groupId !== -1 || lastActiveGroupId === -1) {
-    return;
-  }
-
-  // Check if the last active group still exists
-  try {
-    await chrome.tabGroups.get(lastActiveGroupId);
-  } catch {
-    // Group no longer exists, reset tracker
-    lastActiveGroupId = -1;
-    return;
-  }
-
-  // Move the new tab into the group
-  try {
-    if (tab.id) {
-      await chrome.tabs.group({ tabIds: [tab.id], groupId: lastActiveGroupId });
-    }
-  } catch (error) {
-    console.warn('[Arcline] Failed to auto-group new tab', error);
-  }
-});
-
-// Initialize lastActiveGroupId
-chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([tab]) => {
-  if (tab?.groupId !== -1 && tab?.groupId !== undefined) {
-    lastActiveGroupId = tab.groupId;
-  }
-});
+// Initialize services
+initializeAutoGrouping();
+registerSpacesSnapshotListeners({ broadcastSpacesSnapshot });

@@ -30,6 +30,7 @@ import type {
 } from '@/shared/types';
 import { db } from '@/db';
 import type { SpaceRecord } from '@/db/schema';
+import { setSkipNextAutoGroup } from './auto-group';
 
 const TAB_GROUP_ID_NONE = -1;
 const isTabGroupsSupported = () =>
@@ -196,6 +197,7 @@ async function buildSnapshotsFromDbSpaces(
     snapshot.uuid = dbSpace.uuid;
     if (dbSpace.id !== undefined) {
       snapshot.pinnedItems = await getPinnedItemsFromDb(dbSpace.id);
+      console.log(`[Arcline]   📌 DB Space "${dbSpace.name}" (dbId=${dbSpace.id}) -> ${snapshot.pinnedItems.length} pinnedItems fetched`);
     }
 
     ctx.snapshots.push(snapshot);
@@ -250,9 +252,20 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       return cachedSnapshot;
     }
 
+    console.log('[Arcline] 🔄 getSpacesSnapshot START');
+
     // 1. Get data from Dexie and Chrome
-    const dbSpaces = await db.spaces.orderBy('sortOrder').toArray();
-    const { tabGroups, allTabs } = await queryChromeState();
+    console.log('[Arcline] 🔍 getSpacesSnapshot: Fetching DB spaces...');
+    const dbSpacesPromise = db.spaces.orderBy('sortOrder').toArray();
+    console.log('[Arcline] 🔍 getSpacesSnapshot: Fetching Chrome state...');
+    const chromeStatePromise = queryChromeState();
+
+    const [dbSpaces, { tabGroups, allTabs }] = await Promise.all([
+      dbSpacesPromise,
+      chromeStatePromise,
+    ]);
+    console.log(`[Arcline] ✓ getSpacesSnapshot: finished DB (count=${dbSpaces.length}) and Chrome (tabs=${allTabs.length}, groups=${tabGroups.length})`);
+
     const timestamp = Date.now();
 
     // Build active group lookup
@@ -273,6 +286,10 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
     };
 
     // 2. Build snapshots from DB spaces
+    console.log(`[Arcline] 📁 Building snapshots from ${dbSpaces.length} DB spaces...`);
+    for (const dbs of dbSpaces) {
+      console.log(`[Arcline]   - DB Space: "${dbs.name}" (id=${dbs.id}, uuid=${dbs.uuid})`);
+    }
     await buildSnapshotsFromDbSpaces(dbSpaces, ctx);
 
     // 3. Handle ghost groups (active in Chrome but not in DB)
@@ -286,6 +303,15 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
       windowId: -1,
       timestamp,
     });
+
+    // TRY to fetch pinned items for ungrouped from DB if a space named "Ungrouped" exists,
+    // or just generally handle it. Many users might expect "Main" to be the ungrouped space.
+    const dbUngrouped = dbSpaces.find(s => s.name === 'Ungrouped' || s.name === 'Main' || s.name === 'Home');
+    if (dbUngrouped?.id !== undefined) {
+      console.log(`[Arcline] 📎 Found potential ungrouped DB space "${dbUngrouped.name}" (id=${dbUngrouped.id}), etching pinned items...`);
+      ungrouped.pinnedItems = await getPinnedItemsFromDb(dbUngrouped.id);
+      console.log(`[Arcline] ✓ Ungrouped pinned items count: ${ungrouped.pinnedItems.length}`);
+    }
     ungrouped.uuid = 'ungrouped-space';
 
     // 5. Distribute tabs
@@ -305,6 +331,12 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
     linkAllPinnedItemsToTabs(finalSnapshots);
 
     cachedSnapshot = finalSnapshots;
+
+    console.log(`[Arcline] ✓ getSpacesSnapshot COMPLETE: ${finalSnapshots.length} spaces resolved`);
+    for (const s of finalSnapshots) {
+      console.log(`[Arcline]   - Space: "${s.name}" (id=${s.id}) -> pinnedItems=${s.pinnedItems.length}, tabs=${s.tabs.length}, temporaryTabs=${s.temporaryTabs.length}`);
+    }
+
     return finalSnapshots;
   } catch (error) {
     console.warn('[Arcline] Failed to load spaces snapshot from Dexie', error);
@@ -346,7 +378,10 @@ export async function moveTabToSpace(tabId: number, spaceId: number): Promise<nu
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: space creation flow has multiple branches
 export async function createSpace(name: string, color?: TabGroupColor): Promise<number> {
+  console.log(`[Arcline] 🏗️ createSpace START: name="${name}", color=${color}`);
+
   if (!isTabGroupsSupported()) {
+    console.error('[Arcline] ❌ Tab groups not supported');
     throw new Error('Tab groups are not supported in this browser');
   }
 
@@ -354,20 +389,45 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
 
   // Create empty-space.html for the new space to act as a placeholder
   const url = chrome.runtime.getURL(`empty-space.html?color=${encodeURIComponent(finalColor)}`);
+  console.log(`[Arcline] 📄 Creating tab with URL: ${url}`);
+
   const emptyTab = await chrome.tabs.create({ url, active: true });
 
   if (!emptyTab.id) {
+    console.error('[Arcline] ❌ Failed to create tab: no tab ID');
     throw new Error('Failed to create empty space tab');
   }
+  console.log(`[Arcline] ✓ Tab created: ${emptyTab.id}`);
 
   // Group the empty tab to create a new tab group
-  const groupId = await chrome.tabs.group({ tabIds: [emptyTab.id] });
+  console.log(`[Arcline] 🔗 Grouping tab ${emptyTab.id}...`);
+  let groupId: number;
+  try {
+    groupId = await chrome.tabs.group({ tabIds: [emptyTab.id] });
+    console.log(`[Arcline] ✓ Tab grouped: groupId=${groupId}`);
+
+    // Wait for Chrome to fully create the group by verifying its existence
+    // This prevents "No group with id" errors on the subsequent update call
+    console.log(`[Arcline] 🔍 Verifying group ${groupId} exists...`);
+    await chrome.tabGroups.get(groupId);
+    console.log(`[Arcline] ✓ Group verified and ready`);
+  } catch (error) {
+    console.error('[Arcline] ❌ Failed to group tab:', error);
+    throw error;
+  }
 
   // Set the group title and color
-  await chrome.tabGroups.update(groupId, {
-    title: name,
-    color: finalColor,
-  });
+  console.log(`[Arcline] 🎨 Updating group ${groupId}: title="${name}", color=${finalColor}`);
+  try {
+    await chrome.tabGroups.update(groupId, {
+      title: name,
+      color: finalColor,
+    });
+    console.log(`[Arcline] ✓ Group updated successfully`);
+  } catch (error) {
+    console.error(`[Arcline] ❌ Failed to update group ${groupId}:`, error);
+    throw error;
+  }
 
   // Sync new space to bookmarks
   try {
@@ -378,6 +438,7 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
 
   await broadcastSpacesSnapshot();
 
+  console.log(`[Arcline] ✅ createSpace COMPLETE: groupId=${groupId}`);
   return groupId;
 }
 
@@ -957,12 +1018,23 @@ export async function getInactiveSpaces(): Promise<string[]> {
  * ブックマークフォルダからスペースを復元する
  */
 export async function restoreSpaceByFolderName(folderName: string): Promise<number> {
+  console.log(`[Arcline] 🏛️ restoreSpaceByFolderName START: "${folderName}"`);
+
+  // Prevent auto-grouping from interfering with the new tab
+  setSkipNextAutoGroup(true);
+
   // 新しいスペースを作成（名前をフォルダ名に合わせる）
   const groupId = await createSpace(folderName);
+  console.log(`[Arcline] ✓ createSpace completed: groupId=${groupId}`);
+
   // 作成したスペースに対してブックマークを同期
   // createSpace内部で既に getPinnedItemsForSpace が呼ばれるはずなので、
   // Snapshotを再取得してブロードキャストするだけでよい
-  await broadcastSpacesSnapshot();
+  // Make this non-blocking to avoid navigation hang
+  broadcastSpacesSnapshot().catch((err) =>
+    console.warn('[Arcline] Failed to broadcast after restore:', err)
+  );
+  console.log(`[Arcline] ✓ restoreSpaceByFolderName COMPLETE: groupId=${groupId}`);
   return groupId;
 }
 
@@ -974,7 +1046,7 @@ async function ensureSpaceStaysAlive(groupId: number, currentTabId: number): Pro
     const spaces = await getSpacesSnapshot();
     const space = spaces.find((s) => s.id === groupId);
     const color = space?.color || 'grey';
-    const url = chrome.runtime.getURL(`empty - space.html ? color = ${encodeURIComponent(color)} `);
+    const url = chrome.runtime.getURL(`empty-space.html?color=${encodeURIComponent(color)}`);
     const newTab = await chrome.tabs.create({ url, active: true });
     if (newTab.id) {
       await chrome.tabs.group({ tabIds: [newTab.id], groupId });
@@ -993,7 +1065,9 @@ async function cleanupEmptySpaceTab(groupId: number): Promise<void> {
 }
 
 async function getPinnedItemsFromDb(spaceId: number): Promise<PinnedItem[]> {
+  console.log(`[Arcline] 🔄 getPinnedItemsFromDb for spaceId=${spaceId}`);
   const allItems = await db.items.where('spaceId').equals(spaceId).toArray();
+  console.log(`[Arcline] ✓ getPinnedItemsFromDb: found ${allItems.length} raw items for spaceId=${spaceId}`);
 
   // Create lookup map for parent-child relationship
   const itemsByParent = new Map<number | undefined, any[]>();

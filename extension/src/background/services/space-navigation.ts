@@ -2,7 +2,7 @@ import type { SwipeDirection } from '@/shared/gestures';
 import type { SpaceSnapshot, TabEntry } from '@/shared/types';
 import type { TabGroupColor } from '@/shared/chrome-types';
 import { broadcastSpacesSnapshot, getSpacesSnapshot, restoreSpaceByFolderName } from './browser';
-import { setSkipNextAutoGroup, updateLastActiveGroupId } from '@/background/index';
+import { setSkipNextAutoGroup, updateLastActiveGroupId } from './auto-group';
 
 import { openFloatingUiOnTab, type SpaceTransitionOptions } from './ui-messaging';
 
@@ -130,11 +130,13 @@ async function resolveNavigationTarget(
 }
 
 async function activateTargetTab(tab: TabEntry): Promise<boolean> {
+  console.log(`[Arcline] 🔄 activateTargetTab calling chrome.tabs.update for tabId=${tab.id}`);
   try {
     await chrome.tabs.update(tab.id, { active: true });
+    console.log(`[Arcline] ✓ chrome.tabs.update SUCCESS for tabId=${tab.id}`);
     return true;
   } catch (error) {
-    console.warn('[Arcline] Failed to activate tab during swipe navigation:', error);
+    console.warn('[Arcline] ❌ Failed to activate tab during swipe navigation:', error);
     return false;
   }
 }
@@ -171,14 +173,55 @@ async function handleEmptyOrVirtualSpace(
 ): Promise<EmptySpaceHandleResult> {
   // Virtual space (inactive folder) -> Restore it
   if (targetSpace.id < 0) {
-    console.log(`[Arcline] Restoring virtual space: "${targetSpace.name}"`);
-    const newGroupId = await restoreSpaceByFolderName(targetSpace.name);
+    console.log(`[Arcline] 🔄 Restoring virtual space: "${targetSpace.name}"`);
+    let newGroupId: number;
+    try {
+      newGroupId = await restoreSpaceByFolderName(targetSpace.name);
+      console.log(`[Arcline] ✓ restoreSpaceByFolderName completed: newGroupId=${newGroupId}`);
+    } catch (error) {
+      console.error('[Arcline] ❌ restoreSpaceByFolderName FAILED:', error);
+      return { handled: false };
+    }
+
+    console.log(`[Arcline] 🔍 Querying tabs for group ${newGroupId}...`);
     const tabs = await chrome.tabs.query({ groupId: newGroupId });
+    console.log(`[Arcline] ✓ Found ${tabs.length} tabs in group ${newGroupId}`);
+
     const activeTab = tabs.find((t) => t.active) || tabs[0];
     if (activeTab?.id) {
+      console.log(
+        `[Arcline] ✓ Virtual space restored. New ID: ${newGroupId}, Tab: ${activeTab.id}. Opening UI.`
+      );
       const refreshedSpaces = await getSpacesSnapshot();
-      await openFloatingUiOnTab(activeTab.id, refreshedSpaces, newGroupId, options);
-      await notifyActiveSpaceChange(newGroupId);
+
+      // Robustly wait for the tab and retry sending the message
+      let attempts = 0;
+      while (attempts < 20) {
+        try {
+          const tab = await chrome.tabs.get(activeTab.id!);
+          if (tab.status === 'complete') {
+            try {
+              await openFloatingUiOnTab(activeTab.id, refreshedSpaces, newGroupId, options);
+              console.log(
+                `[Arcline] ✅ Floating UI opened successfully on attempt ${attempts + 1}`
+              );
+              break;
+            } catch (_error) {
+              console.log(
+                `[Arcline] ⏳ Message send failed (attempt ${attempts + 1}), retrying...`
+              );
+            }
+          }
+        } catch (_e) {
+          // Tab might not be ready yet
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        attempts++;
+      }
+    } else {
+      console.warn(
+        `[Arcline] ⚠️ Virtual space restored but no active tab found in new group ${newGroupId}`
+      );
     }
     return { handled: true, tabId: activeTab?.id, spaceId: newGroupId };
   }
@@ -223,7 +266,28 @@ async function handleEmptyOrVirtualSpace(
       }
     }
     const refreshed = await getSpacesSnapshot();
-    await openFloatingUiOnTab(newTab.id, refreshed, finalGroupId, options);
+
+    // Robustly wait for the tab and retry sending the message
+    let attempts = 0;
+    while (attempts < 20) {
+      try {
+        const tab = await chrome.tabs.get(newTab.id);
+        if (tab.status === 'complete') {
+          try {
+            await openFloatingUiOnTab(newTab.id, refreshed, finalGroupId, options);
+            console.log(`[Arcline] ✅ Floating UI opened successfully on attempt ${attempts + 1}`);
+            break;
+          } catch (_error) {
+            console.log(`[Arcline] ⏳ Message send failed (attempt ${attempts + 1}), retrying...`);
+          }
+        }
+      } catch (_e) {
+        // Tab might not be ready yet
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      attempts++;
+    }
+
     return { handled: true, tabId: newTab.id, spaceId: finalGroupId };
   }
 
@@ -283,6 +347,10 @@ async function notifyActiveSpaceChange(spaceId: number): Promise<void> {
   }
 }
 
+// Debounce state for navigation
+let lastNavigationTime = 0;
+const NAVIGATION_DEBOUNCE_MS = 100;
+
 export async function navigateSpace(
   direction: SwipeDirection,
   options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
@@ -295,42 +363,77 @@ export async function navigateSpace(
     );
   }
 
-  console.log(`[Arcline] navigateSpace called: direction=${direction}`);
+  console.log(`[Arcline] 🚀 navigateSpace START: direction=${direction}, perfId=${perfId}`);
   const target = await resolveNavigationTarget(direction);
   if (!target) {
+    console.warn('[Arcline] ❌ navigateSpace FAILED: No navigation target resolved');
     return false;
   }
 
+  console.log(
+    `[Arcline] ✓ Target resolved: space="${target.space.name}" (id=${target.space.id}), hasTab=${!!target.tab}`
+  );
   const spaces = target.allSpaces;
-  const targetTabId = target.tab?.id;
+  let finalTargetTabId = target.tab?.id;
+  const finalTargetTab = target.tab;
+  let finalTargetSpaceId = target.space.id;
 
   // Optimistically update active state for UI responsiveness
-  optimisticallyUpdateActiveStates(spaces, targetTabId);
+  optimisticallyUpdateActiveStates(spaces, finalTargetTabId);
 
-  if (targetTabId && target.tab) {
+  if (finalTargetTabId && finalTargetTab) {
+    console.log(
+      `[Arcline] ✓ Navigating to existing tab: tabId=${finalTargetTabId}, spaceId=${finalTargetSpaceId}`
+    );
     // Parallelize tab activation, window focus, and UI data delivery
-    const activationPromise = activateTargetTab(target.tab).then(async (activated) => {
+    const activationPromise = activateTargetTab(finalTargetTab).then(async (activated) => {
       if (activated) {
-        await focusWindowIfNeeded(target.tab?.windowId);
+        console.log(`[Arcline] ✓ Tab activated successfully`);
+        await focusWindowIfNeeded(finalTargetTab?.windowId);
+      } else {
+        console.warn(`[Arcline] ⚠️ Tab activation failed`);
       }
     });
 
-    const openUiPromise = openFloatingUiOnTab(targetTabId, spaces, target.space.id, {
+    const openUiPromise = openFloatingUiOnTab(finalTargetTabId, spaces, finalTargetSpaceId, {
       ...options,
       perfId,
       t0,
+    }).then(() => {
+      console.log(`[Arcline] ✓ openFloatingUiOnTab message SENT to tabId=${finalTargetTabId}`);
+    }).catch((err) => {
+      console.error(`[Arcline] ❌ openFloatingUiOnTab message FAILED for tabId=${finalTargetTabId}:`, err);
     });
 
     await Promise.all([activationPromise, openUiPromise]);
+    console.log(`[Arcline] ✓ Tab activation and UI opening promises resolved (or failed)`);
   } else {
+    console.log(
+      `[Arcline] ⚙️ Handling empty/virtual space: "${target.space.name}" (id=${target.space.id})`
+    );
     // Empty space or Virtual Space
-    await handleEmptyOrVirtualSpace(target.space, { ...options, perfId, t0 });
-    return true;
+    const result = await handleEmptyOrVirtualSpace(target.space, { ...options, perfId, t0 });
+    if (!result.handled) {
+      console.error('[Arcline] ❌ handleEmptyOrVirtualSpace FAILED');
+      return false;
+    }
+    console.log(
+      `[Arcline] ✓ Empty/virtual space handled: newSpaceId=${result.spaceId}, newTabId=${result.tabId}`
+    );
+    // Update tracking variables with results from restoration/creation
+    finalTargetSpaceId = result.spaceId ?? finalTargetSpaceId;
+    finalTargetTabId = result.tabId;
   }
 
+  console.log(
+    `[Arcline] 📡 Broadcasting state and notifying UI: finalSpaceId=${finalTargetSpaceId}`
+  );
   await broadcastSpacesSafely();
-  await notifyActiveSpaceChange(target.space.id);
+  await notifyActiveSpaceChange(finalTargetSpaceId);
 
+  console.log(
+    `[Arcline] ✅ navigateSpace COMPLETE: direction=${direction}, spaceId=${finalTargetSpaceId}`
+  );
   return true;
 }
 
@@ -339,6 +442,14 @@ export async function activateSpace(
   options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
 ): Promise<boolean> {
   const t2 = Date.now();
+
+  // Debounce rapid consecutive navigations (gesture inertia)
+  if (t2 - lastNavigationTime < NAVIGATION_DEBOUNCE_MS) {
+    console.log(`[Arcline] ⏭️ Navigation debounced (too soon: ${t2 - lastNavigationTime}ms)`);
+    return false;
+  }
+  lastNavigationTime = t2;
+
   const { perfId, t0 } = options || {};
   if (perfId) {
     console.log(

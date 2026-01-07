@@ -142,10 +142,16 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
   const portalContainer = usePortalContainer();
   const spaces = useSpacesStore((state) => state.spaces);
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
-  const activeSpace = useMemo(
-    () => spaces.find((space) => space.id === activeSpaceId) ?? null,
-    [spaces, activeSpaceId]
-  );
+  const activeSpace = useMemo(() => {
+    const space = spaces.find((space) => space.id === activeSpaceId) ?? null;
+    console.log(`[Arcline] [UI] SpacesWorkspace Render: activeSpaceId=${activeSpaceId}, spacesCount=${spaces.length}`);
+    if (space) {
+      console.log(`[Arcline] [UI] ActiveSpace Found: "${space.name}" (id=${space.id}) -> pinnedItems=${space.pinnedItems?.length}, tabs=${space.tabs?.length}`);
+    } else {
+      console.log('[Arcline] [UI] ActiveSpace NOT FOUND in spaces list');
+    }
+    return space;
+  }, [spaces, activeSpaceId]);
 
   const getSpaceById = useCallback(
     (spaceId: number | null): SpaceSnapshot | null =>

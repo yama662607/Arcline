@@ -66,21 +66,48 @@ async function syncBookmarksToDb(): Promise<void> {
   }
   const children = rootNode.children ?? [];
 
+  // Count total items for progress reporting
+  const countItems = (nodes: chrome.bookmarks.BookmarkTreeNode[]): number => {
+    let count = 0;
+    for (const node of nodes) {
+      count++;
+      if (node.children) {
+        count += countItems(node.children);
+      }
+    }
+    return count;
+  };
+  const totalSpaces = children.filter(c => !c.url).length;
+  const totalItems = children.reduce((sum, c) => sum + (c.children ? countItems(c.children) : 0), 0);
+  console.log(`[Arcline] 📊 Starting sync: ${totalSpaces} spaces, ~${totalItems} items to process`);
+
   // Clear existing data (full sync)
   await db.transaction('rw', [db.spaces, db.items], async () => {
     try {
       await db.spaces.clear();
       await db.items.clear();
+      console.log('[Arcline] 🗑️ Cleared existing IndexedDB data');
+
+      let processedSpaces = 0;
+      let processedItems = 0;
 
       for (const child of children) {
         if (!child.url) {
           // This is a space folder
           const spaceId = await syncSpaceFolder(child);
+          processedSpaces++;
+          const spaceItems = child.children ? countItems(child.children) : 0;
+          console.log(`[Arcline] 📁 [${processedSpaces}/${totalSpaces}] Processing space "${child.title}" (~${spaceItems} items)`);
+
           if (spaceId && child.children) {
-            await syncSpaceItemsFromNode(child.children, spaceId);
+            const itemsProcessed = await syncSpaceItemsFromNode(child.children, spaceId, undefined, 0, spaceItems);
+            processedItems += itemsProcessed;
+            console.log(`[Arcline] ✅ Space "${child.title}" complete: ${itemsProcessed} items synced`);
           }
         }
       }
+
+      console.log(`[Arcline] 📊 Sync progress: ${processedSpaces}/${totalSpaces} spaces, ${processedItems} items processed`);
     } catch (e: unknown) {
       const err = e as Error & { failures?: any };
       // Enhance error with bulk failure details if available
@@ -95,7 +122,7 @@ async function syncBookmarksToDb(): Promise<void> {
 
   const spaceCount = await db.spaces.count();
   const itemCount = await db.items.count();
-  console.log(`[Arcline] Synced ${spaceCount} spaces and ${itemCount} items to IndexedDB.`);
+  console.log(`[Arcline] ✅ Sync complete: ${spaceCount} spaces and ${itemCount} items in IndexedDB.`);
 }
 
 /**
@@ -120,13 +147,17 @@ async function syncSpaceFolder(
 
 /**
  * Sync items (bookmarks/folders) within a space to IndexedDB from pre-fetched nodes.
+ * Returns the number of items processed.
  */
 async function syncSpaceItemsFromNode(
   nodes: chrome.bookmarks.BookmarkTreeNode[],
   spaceId: number,
-  parentId?: number
-): Promise<void> {
+  parentId?: number,
+  processedSoFar: number = 0,
+  totalExpected: number = 0
+): Promise<number> {
   let sortOrder = 0;
+  let processed = 0;
 
   for (const child of nodes) {
     const now = new Date();
@@ -143,12 +174,29 @@ async function syncSpaceItemsFromNode(
     };
 
     const itemId = await db.items.add(item);
+    processed++;
+
+    // Log progress every 100 items
+    const currentTotal = processedSoFar + processed;
+    if (currentTotal % 100 === 0 && totalExpected > 0) {
+      const percentage = Math.round((currentTotal / totalExpected) * 100);
+      console.log(`[Arcline]   📦 Progress: ${currentTotal}/${totalExpected} items (${percentage}%)`);
+    }
 
     // Recursively sync folder contents
     if (!child.url && itemId && child.children) {
-      await syncSpaceItemsFromNode(child.children, spaceId, itemId as number);
+      const childProcessed = await syncSpaceItemsFromNode(
+        child.children,
+        spaceId,
+        itemId as number,
+        processedSoFar + processed,
+        totalExpected
+      );
+      processed += childProcessed;
     }
   }
+
+  return processed;
 }
 
 /**
