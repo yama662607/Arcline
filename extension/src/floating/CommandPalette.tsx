@@ -14,7 +14,7 @@ import {
   Settings,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDebounce } from '@/hooks/use-debounce';
 import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
@@ -132,8 +132,14 @@ export function CommandPalette({
   useEffect(() => {
     if (isOpen) {
       setQuery('');
+      // Force focus after a short delay to ensure visibility
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
     }
   }, [isOpen]);
+
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSelectResult = useCallback(
     async (item: SearchResult) => {
@@ -211,6 +217,7 @@ export function CommandPalette({
           >
             <Search className="mr-3 h-5 w-5 shrink-0 opacity-60 text-white" />
             <Command.Input
+              ref={inputRef}
               autoFocus
               value={query}
               onValueChange={setQuery}

@@ -404,6 +404,7 @@ function ensureHost() {
   element.style.width = `${HOTZONE_WIDTH_PX}px`;
   element.style.transition = 'none'; // Disable CSS transitions to avoid animation conflicts
   element.style.zIndex = '2147483646';
+  // Initially auto to allow edge detection on the 8px strip
   element.style.pointerEvents = 'auto';
   document.documentElement.append(element);
 
@@ -573,6 +574,13 @@ async function startFloatingUi(options?: {
       onOpenStateChange: (isOpen: boolean) => {
         if (hostElement) {
           hostElement.setAttribute('aria-hidden', (!isOpen).toString());
+          if (isOpen) {
+            hostElement.style.width = '100%';
+            hostElement.style.pointerEvents = 'none';
+          } else {
+            hostElement.style.width = `${HOTZONE_WIDTH_PX}px`;
+            hostElement.style.pointerEvents = 'auto';
+          }
         }
       },
     })
