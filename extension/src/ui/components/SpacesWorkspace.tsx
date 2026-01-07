@@ -288,13 +288,21 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
         }}
       >
         {/* Search Bar - Always visible at top */}
-        <div className="flex-shrink-0 px-3 pt-3">
+        <div className="flex-shrink-0 px-2 pt-3">
           <SearchBar variant={componentVariant} onOpenCommandPalette={handleOpenCommandPalette} />
         </div>
 
         {/* Favorites Grid */}
         <div className="flex-shrink-0">
           <FavoritesBar pinnedTabs={favoriteTabs} />
+        </div>
+
+        {/* Space Name - Between Favorites and Pinned */}
+        <div className="flex-shrink-0 px-4 py-2 flex items-center gap-2">
+          {activeSpace?.icon && <span className="text-lg drop-shadow-md">{activeSpace.icon}</span>}
+          <h2 className="text-sm font-bold text-white tracking-wide drop-shadow-md">
+            {activeSpace?.name || 'Spaces'}
+          </h2>
         </div>
 
         {/* Main Content Area */}
@@ -310,7 +318,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                       const space = getSpaceById(spaceId);
                       const temporaryTabs = buildTemporaryTabs(space);
                       return space ? (
-                        <div className="space-y-4 px-4 pb-4 pt-4">
+                        <div className="space-y-4 px-2 pb-4 pt-4">
                           {/* Space component - Simplified for Floating UI */}
 
                           {/* We don't need the Space Header here as FloatingApp has it.
@@ -369,6 +377,22 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                             )}
                           </div>
 
+                          {/* New Tab button - now inside space content for swipe */}
+                          <button
+                            type="button"
+                            data-testid="new-tab-button"
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent('arcline-open-command-palette'));
+                            }}
+                            disabled={!isActive}
+                            className="group flex items-center gap-3 w-full text-left text-white/60 hover:text-white transition-colors py-1 disabled:opacity-30 disabled:cursor-default"
+                          >
+                            <div className="flex h-4 w-4 items-center justify-center rounded bg-white/10 group-hover:bg-white/20 transition-colors">
+                              <Plus className="h-3 w-3" />
+                            </div>
+                            <span className="text-[13px] font-medium">+ New Tab</span>
+                          </button>
+
                           <EnhancedTabList
                             tabs={temporaryTabs}
                             title=""
@@ -387,32 +411,6 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                     [componentVariant, getSpaceById, buildTemporaryTabs, variant]
                   )}
                 />
-
-                <div className="px-5 pb-6 pt-2">
-                  <button
-                    type="button"
-                    data-testid="new-tab-button"
-                    onClick={() => {
-                      window.dispatchEvent(
-                        new KeyboardEvent('keydown', {
-                          key: 't',
-                          code: 'KeyT',
-                          metaKey: true,
-                          bubbles: true,
-                        })
-                      );
-                      // Fallback if event dispatch doesn't trigger the shortcut handler
-                      // This logic should ideally be passed in or handled via bridge
-                      chrome.tabs.create({});
-                    }}
-                    className="group flex items-center gap-3 w-full text-left text-white/60 hover:text-white transition-colors"
-                  >
-                    <div className="flex h-4 w-4 items-center justify-center rounded bg-white/10 group-hover:bg-white/20 transition-colors">
-                      <Plus className="h-3 w-3" />
-                    </div>
-                    <span className="text-[13px] font-medium">+ New Tab</span>
-                  </button>
-                </div>
               </div>
             </div>
           </div>

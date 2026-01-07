@@ -102,7 +102,7 @@ export function SearchBar({ onOpenCommandPalette, variant = 'standalone' }: Sear
           isFocused
             ? 'bg-white/15 ring-1 ring-white/20 border-white/20'
             : 'bg-white/10 hover:bg-white/15 border-transparent'
-        } ${isFloating ? 'px-3 py-2.5 h-[42px]' : 'px-4 py-2.5'}`}
+        } ${isFloating ? 'px-3 py-1.5 h-[36px]' : 'px-4 py-2.5'}`}
       >
         <Search className={`flex-shrink-0 text-white/50 ${isFloating ? 'h-4 w-4' : 'h-5 w-5'}`} />
 

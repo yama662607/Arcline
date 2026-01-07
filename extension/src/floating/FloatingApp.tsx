@@ -53,22 +53,12 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
         boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.5)',
       }}
     >
-      {/* Header with minimal simplified look */}
-      <header className="flex-shrink-0 flex items-center justify-between px-4 pt-4 pb-2">
-        <div className="flex items-center gap-2">
-          {activeSpace?.icon && <span className="text-lg drop-shadow-md">{activeSpace.icon}</span>}
-          <div>
-            <h1 className="text-sm font-bold text-white tracking-wide drop-shadow-md">
-              {activeSpace?.name || 'Spaces'}
-            </h1>
-          </div>
-        </div>
+      {/* Minimal header with actions only */}
+      <header className="flex-shrink-0 flex items-center justify-end px-4 pt-3 pb-1">
         <div
           className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
           id="header-actions"
         >
-          {/* Actions visible on hover (managed by CSS or state in future, currently just layout) */}
-          {/* For now we keep them visible but subtle */}
           <HeaderMenu
             onOpenSettings={() => setShowSettings(true)}
             onOpenArchive={() => setShowArchive(true)}
