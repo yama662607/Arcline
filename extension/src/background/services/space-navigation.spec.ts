@@ -7,7 +7,15 @@ import * as spaceNavigation from './space-navigation';
 vi.mock('./browser', () => ({
   getSpacesSnapshot: vi.fn(),
   broadcastSpacesSnapshot: vi.fn(),
+  getActiveTabEntry: vi.fn(),
+  restoreSpaceByFolderName: vi.fn(),
   // We mock these but the test focuses on space-navigation logic
+}));
+
+// Mock the index module for auto-grouping control
+vi.mock('@/background/index', () => ({
+  setSkipNextAutoGroup: vi.fn(),
+  updateLastActiveGroupId: vi.fn(),
 }));
 
 // Mock chrome API
@@ -18,6 +26,10 @@ const mockChrome = {
     sendMessage: vi.fn().mockResolvedValue(undefined),
     create: vi.fn().mockResolvedValue({ id: 999, active: true, windowId: 1 } as chrome.tabs.Tab),
     group: vi.fn().mockResolvedValue(1),
+  },
+  tabGroups: {
+    get: vi.fn().mockResolvedValue({ id: 1, title: 'Test', color: 'blue' }),
+    update: vi.fn().mockResolvedValue(undefined),
   },
   windows: {
     update: vi.fn(),

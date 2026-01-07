@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSpacesStore } from '@/store/spacesSlice';
 
@@ -119,10 +120,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
     return (
       <div className="absolute inset-0 h-full w-full overflow-hidden">
         <div className="absolute inset-0">{renderPanel(activeSpaceId, true, 0)}</div>
-        <div
-          className="absolute inset-0"
-          style={{ transform: `translateX(${previewOffset}%)` }}
-        >
+        <div className="absolute inset-0" style={{ transform: `translateX(${previewOffset}%)` }}>
           {renderPanel(previewSpaceId, false, 0)}
         </div>
       </div>
@@ -130,7 +128,11 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
   };
 
   return (
-    <div id="arcline-space-content-viewport" data-arcline-space-transition="true" className="h-full w-full overflow-hidden relative bg-inherit">
+    <div
+      id="arcline-space-content-viewport"
+      data-arcline-space-transition="true"
+      className="h-full w-full overflow-hidden relative bg-inherit"
+    >
       {previewSpaceId ? (
         renderPreviewTrack()
       ) : (

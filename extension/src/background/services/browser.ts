@@ -159,27 +159,9 @@ function hasUngroupedContent(ungrouped: SpaceSnapshot): boolean {
   return ungrouped.pinnedTabs.length > 0 || ungrouped.temporaryTabs.length > 0;
 }
 
-function mergeGlobalPinnedTabs(spaces: SpaceSnapshot[], globalPinned: GlobalPinnedMap) {
-  if (globalPinned.size === 0) {
-    return;
-  }
-
-  const globalPinnedEntries = Array.from(globalPinned.values());
-
-  for (const space of spaces) {
-    const dedupe = new Map<number, TabEntry>();
-
-    for (const entry of globalPinnedEntries) {
-      dedupe.set(entry.id, { ...entry, pinned: true });
-    }
-
-    for (const entry of space.pinnedTabs) {
-      dedupe.set(entry.id, { ...entry, pinned: true });
-    }
-
-    space.pinnedTabs = Array.from(dedupe.values());
-  }
-}
+// NOTE: mergeGlobalPinnedTabs was removed because it incorrectly added all Chrome
+// pinned tabs to every space's pinnedTabs array, preventing any space from being
+// truly "empty". Chrome pinned tabs now stay in the ungrouped space.
 
 export async function getActiveTabEntry(): Promise<TabEntry | null> {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -315,7 +297,9 @@ export async function getSpacesSnapshot(): Promise<SpaceSnapshot[]> {
     if (hasUngroupedContent(ungrouped)) {
       finalSnapshots.push(ungrouped);
     }
-    mergeGlobalPinnedTabs(finalSnapshots, globalPinned);
+    // NOTE: We no longer merge global pinned tabs into all spaces.
+    // Chrome pinned tabs stay in ungrouped space, allowing proper "empty space" detection.
+    // mergeGlobalPinnedTabs(finalSnapshots, globalPinned);
 
     // 7. Link pinned items to open tabs
     linkAllPinnedItemsToTabs(finalSnapshots);
@@ -366,25 +350,23 @@ export async function createSpace(name: string, color?: TabGroupColor): Promise<
     throw new Error('Tab groups are not supported in this browser');
   }
 
-  let groupId: number;
+  const finalColor = (color ?? 'blue') as TabGroupColor;
 
-  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (activeTab?.id) {
-    groupId = await chrome.tabs.group({ tabIds: [activeTab.id] });
-  } else {
-    // Create empty group by grouping a dummy tab and then ungrouping it
-    const tempTab = await chrome.tabs.create({ url: 'about:blank', active: false });
-    if (tempTab.id) {
-      groupId = await chrome.tabs.group({ tabIds: [tempTab.id] });
-      await chrome.tabs.remove(tempTab.id);
-    } else {
-      throw new Error('Failed to create temporary tab for group creation');
-    }
+  // Create empty-space.html for the new space to act as a placeholder
+  const url = chrome.runtime.getURL(`empty-space.html?color=${encodeURIComponent(finalColor)}`);
+  const emptyTab = await chrome.tabs.create({ url, active: true });
+
+  if (!emptyTab.id) {
+    throw new Error('Failed to create empty space tab');
   }
 
+  // Group the empty tab to create a new tab group
+  const groupId = await chrome.tabs.group({ tabIds: [emptyTab.id] });
+
+  // Set the group title and color
   await chrome.tabGroups.update(groupId, {
     title: name,
-    color: (color ?? 'blue') as TabGroupColor,
+    color: finalColor,
   });
 
   // Sync new space to bookmarks
@@ -715,7 +697,6 @@ export async function updateSettings(settings: Partial<Settings>): Promise<void>
 
 // Archive functionality
 
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -749,11 +730,7 @@ function parseTabNameOverrides(
   return out;
 }
 
-import {
-  addToArchive,
-  fetchArchivedBookmarks,
-  removeFromArchive,
-} from './bookmarks';
+import { addToArchive, fetchArchivedBookmarks, removeFromArchive } from './bookmarks';
 
 // ... (keep earlier code)
 
@@ -782,8 +759,8 @@ export async function archiveTab(tabId: number): Promise<void> {
     // Find space name if possible
     let spaceName = 'Ungrouped';
     const spaces = await getSpacesSnapshot();
-    const space = spaces.find(s =>
-      s.tabs.some(t => t.id === tabId) || s.temporaryTabs.some(t => t.id === tabId)
+    const space = spaces.find(
+      (s) => s.tabs.some((t) => t.id === tabId) || s.temporaryTabs.some((t) => t.id === tabId)
     );
     if (space) spaceName = space.name;
 
@@ -811,7 +788,6 @@ export async function restoreArchivedTab(archivedTab: ArchivedTab): Promise<void
     console.warn('[Arcline] Failed to restore archived tab:', error);
   }
 }
-
 
 // Import bookmark functionality from dedicated service
 import {

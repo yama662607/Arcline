@@ -2,6 +2,7 @@ import type { SwipeDirection } from '@/shared/gestures';
 import type { SpaceSnapshot, TabEntry } from '@/shared/types';
 import type { TabGroupColor } from '@/shared/chrome-types';
 import { broadcastSpacesSnapshot, getSpacesSnapshot, restoreSpaceByFolderName } from './browser';
+import { setSkipNextAutoGroup, updateLastActiveGroupId } from '@/background/index';
 
 import { openFloatingUiOnTab, type SpaceTransitionOptions } from './ui-messaging';
 
@@ -183,7 +184,17 @@ async function handleEmptyOrVirtualSpace(
   }
 
   // Existing space but empty -> Create placeholder tab
-  console.log(`[Arcline] Creating empty-space.html for empty space: "${targetSpace.name}" (id: ${targetSpace.id})`);
+  console.log(
+    `[Arcline] Creating empty-space.html for empty space: "${targetSpace.name}" (id: ${targetSpace.id})`
+  );
+
+  // Prevent auto-grouping from putting this tab in the previous space
+  setSkipNextAutoGroup(true);
+  // Update lastActiveGroupId to the target space (if it exists)
+  if (targetSpace.id > 0) {
+    updateLastActiveGroupId(targetSpace.id);
+  }
+
   const url = chrome.runtime.getURL(
     `empty-space.html?color=${encodeURIComponent(targetSpace.color)}`
   );
@@ -200,7 +211,9 @@ async function handleEmptyOrVirtualSpace(
         await chrome.tabs.group({ tabIds: [newTab.id], groupId: targetSpace.id });
       } catch {
         // Tab group doesn't exist anymore - create a new group
-        console.log(`[Arcline] Tab group ${targetSpace.id} doesn't exist, creating new group for "${targetSpace.name}"`);
+        console.log(
+          `[Arcline] Tab group ${targetSpace.id} doesn't exist, creating new group for "${targetSpace.name}"`
+        );
         finalGroupId = await chrome.tabs.group({ tabIds: [newTab.id] });
         // Update the group title and color
         await chrome.tabGroups.update(finalGroupId, {

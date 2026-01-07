@@ -152,24 +152,24 @@ async function closeSidePanel(): Promise<void> {
     const windowId =
       typeof chrome.windows?.getCurrent === 'function'
         ? await new Promise<number | undefined>((resolve) => {
-          let resolved = false;
-          const maybePromise = chrome.windows.getCurrent((window) => {
-            resolved = true;
-            resolve(typeof window?.id === 'number' ? window.id : undefined);
-          }) as unknown;
+            let resolved = false;
+            const maybePromise = chrome.windows.getCurrent((window) => {
+              resolved = true;
+              resolve(typeof window?.id === 'number' ? window.id : undefined);
+            }) as unknown;
 
-          if (
-            !resolved &&
-            maybePromise &&
-            typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
-          ) {
-            (maybePromise as Promise<chrome.windows.Window>)
-              .then((window) => {
-                resolve(typeof window?.id === 'number' ? window.id : undefined);
-              })
-              .catch(() => resolve(undefined));
-          }
-        })
+            if (
+              !resolved &&
+              maybePromise &&
+              typeof (maybePromise as Promise<chrome.windows.Window>).then === 'function'
+            ) {
+              (maybePromise as Promise<chrome.windows.Window>)
+                .then((window) => {
+                  resolve(typeof window?.id === 'number' ? window.id : undefined);
+                })
+                .catch(() => resolve(undefined));
+            }
+          })
         : undefined;
 
     if (typeof windowId === 'number') {
@@ -607,6 +607,24 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 // --- Auto-Grouping Logic ---
 
 let lastActiveGroupId = -1;
+let skipNextAutoGroup = false;
+
+/**
+ * Set flag to skip auto-grouping for the next tab creation.
+ * Used by handleEmptyOrVirtualSpace to prevent empty-space.html from being
+ * auto-grouped into the previous space.
+ */
+export function setSkipNextAutoGroup(skip: boolean): void {
+  skipNextAutoGroup = skip;
+}
+
+/**
+ * Update the last active group ID.
+ * Used when navigating to a new space BEFORE creating tabs.
+ */
+export function updateLastActiveGroupId(groupId: number): void {
+  lastActiveGroupId = groupId;
+}
 
 // Track the last active group
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
@@ -615,13 +633,19 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     if (tab.groupId !== -1) {
       lastActiveGroupId = tab.groupId;
     }
-  } catch (error) {
+  } catch (_error) {
     // Ignore errors for closed tabs
   }
 });
 
 // Auto-group new tabs into the active space
 chrome.tabs.onCreated.addListener(async (tab) => {
+  // Skip if flagged (system-created tabs like empty-space.html)
+  if (skipNextAutoGroup) {
+    skipNextAutoGroup = false;
+    return;
+  }
+
   // If the tab is already grouped, or if we don't have a valid active group, do nothing
   if (tab.groupId !== -1 || lastActiveGroupId === -1) {
     return;

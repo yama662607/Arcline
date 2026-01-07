@@ -3,7 +3,8 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
 } from 'react';
-import React, { forwardRef, useCallback, useRef, useState } from 'react';
+import type React from 'react';
+import { forwardRef, useCallback, useRef, useState } from 'react';
 
 import type { TabEntry } from '@/shared/types';
 import { TabPeekPreview } from './TabPeekPreview';
@@ -143,7 +144,10 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
   );
 
   const [showPeek, setShowPeek] = useState(false);
-  const [peekPosition, setPeekPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [peekPosition, setPeekPosition] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
 
