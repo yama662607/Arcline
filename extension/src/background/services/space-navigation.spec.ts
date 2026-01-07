@@ -22,8 +22,14 @@ vi.mock('@/background/index', () => ({
 const mockChrome = {
   tabs: {
     query: vi.fn(),
+    get: vi.fn().mockResolvedValue({ status: 'complete' }),
     update: vi.fn(),
-    sendMessage: vi.fn().mockResolvedValue(undefined),
+    sendMessage: vi.fn().mockImplementation((_tabId, _message, callback) => {
+      if (callback) {
+        callback();
+      }
+      return Promise.resolve();
+    }),
     create: vi.fn().mockResolvedValue({ id: 999, active: true, windowId: 1 } as chrome.tabs.Tab),
     group: vi.fn().mockResolvedValue(1),
   },

@@ -8,6 +8,8 @@ vi.mock('./browser', () => ({
 
 import { getSpacesSnapshot } from './browser';
 
+import type { SpaceSnapshot } from '@/shared/types';
+
 describe('Search Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -43,7 +45,7 @@ describe('Search Service', () => {
   ];
 
   it('should initialize index and return results', async () => {
-    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as any);
+    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as unknown as SpaceSnapshot[]);
 
     await initializeSearch();
 
@@ -54,7 +56,7 @@ describe('Search Service', () => {
   });
 
   it('should find pinned items', async () => {
-    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as any);
+    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as unknown as SpaceSnapshot[]);
 
     await initializeSearch();
 
@@ -64,7 +66,7 @@ describe('Search Service', () => {
   });
 
   it('should find items by URL', async () => {
-    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as any);
+    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as unknown as SpaceSnapshot[]);
     await initializeSearch();
 
     const results = await searchLocal('atlassian');
@@ -73,7 +75,7 @@ describe('Search Service', () => {
   });
 
   it('should find spaces by name', async () => {
-    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as any);
+    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as unknown as SpaceSnapshot[]);
     await initializeSearch();
 
     // "Personal" matches "Personal Space" (the space) AND "YouTube" (tab described as "Personal Space")
@@ -86,7 +88,7 @@ describe('Search Service', () => {
   });
 
   it('should return empty array when no matches', async () => {
-    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as any);
+    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as unknown as SpaceSnapshot[]);
     await initializeSearch();
 
     const results = await searchLocal('NonExistentTerm');
@@ -94,7 +96,7 @@ describe('Search Service', () => {
   });
 
   it('should auto-initialize if search called before init', async () => {
-    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as any);
+    vi.mocked(getSpacesSnapshot).mockResolvedValue(mockSpaces as unknown as SpaceSnapshot[]);
     // Note: we don't call initializeSearch explicitely
 
     const results = await searchLocal('YouTube');

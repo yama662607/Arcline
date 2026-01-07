@@ -53,7 +53,7 @@ describe('FavoritesBar', () => {
   it('should render empty state when no favorites', () => {
     renderWithQueryClient(<FavoritesBar pinnedTabs={[]} />);
 
-    expect(screen.getByText('Drag to add Favorites')).toBeInTheDocument();
+    expect(screen.getByText('Drag frequently used tabs here')).toBeInTheDocument();
   });
 
   it('should render favorite tabs', () => {
