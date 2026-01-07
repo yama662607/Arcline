@@ -9,7 +9,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useCallback, useMemo, useState, useEffect } from 'react';
 
 import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
@@ -30,8 +30,7 @@ import { BookmarkImportPreview } from '@/ui/components/BookmarkImportPreview';
 import { BottomSpaceBar } from '@/ui/components/BottomSpaceBar';
 import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
 import { FavoritesBar } from '@/ui/components/FavoritesBar';
-import { MoreMenu } from '@/ui/components/MoreMenu';
-import { NewTabButton } from '@/ui/components/NewTabButton';
+
 import { PinnedItemList } from '@/ui/components/PinnedItems';
 import { SearchBar } from '@/ui/components/SearchBar';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
@@ -144,9 +143,13 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
   const activeSpace = useMemo(() => {
     const space = spaces.find((space) => space.id === activeSpaceId) ?? null;
-    console.log(`[Arcline] [UI] SpacesWorkspace Render: activeSpaceId=${activeSpaceId}, spacesCount=${spaces.length}`);
+    console.log(
+      `[Arcline] [UI] SpacesWorkspace Render: activeSpaceId=${activeSpaceId}, spacesCount=${spaces.length}`
+    );
     if (space) {
-      console.log(`[Arcline] [UI] ActiveSpace Found: "${space.name}" (id=${space.id}) -> pinnedItems=${space.pinnedItems?.length}, tabs=${space.tabs?.length}`);
+      console.log(
+        `[Arcline] [UI] ActiveSpace Found: "${space.name}" (id=${space.id}) -> pinnedItems=${space.pinnedItems?.length}, tabs=${space.tabs?.length}`
+      );
     } else {
       console.log('[Arcline] [UI] ActiveSpace NOT FOUND in spaces list');
     }
@@ -297,8 +300,8 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
         {/* Main Content Area */}
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="flex h-full flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-              <div className="h-full">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pointer-events-auto">
+              <div className="min-h-full">
                 {/* Content with slide animation */}
                 <SpaceContentView
                   activeSpaceId={activeSpaceId}
@@ -307,22 +310,24 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                       const space = getSpaceById(spaceId);
                       const temporaryTabs = buildTemporaryTabs(space);
                       return space ? (
-                        <div className="space-y-3 px-3 pb-4 pt-4">
-                          {/* Space Header */}
-                          <div className="flex items-center gap-2">
-                            {space.icon && <span className="text-xl">{space.icon}</span>}
-                            <h2 className="text-sm font-medium text-white/70">
-                              {space.name || 'No Space'}
-                            </h2>
-                            <div className="ml-auto">
-                              <MoreMenu
-                                variant={componentVariant}
-                                onOpenSettings={() => setShowSettings(true)}
-                                onOpenArchive={() => setShowArchive(true)}
-                                onOpenBookmarkImport={() => setShowBookmarkImport(true)}
-                              />
+                        <div className="space-y-4 px-4 pb-4 pt-4">
+                          {/* Space component - Simplified for Floating UI */}
+
+                          {/* We don't need the Space Header here as FloatingApp has it.
+                              However, MoreMenu provides space-specific actions.
+                              Let's hide the header and just show lists. */}
+
+                          {/* Pinned Items Section Header */}
+                          {(space.pinnedItems?.length > 0 || space.pinnedTabs?.length > 0) && (
+                            <div className="px-1 mt-2 mb-2 flex items-center justify-between">
+                              <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider pl-2">
+                                Pinned
+                              </h3>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                {/* Keeps MoreMenu accessible if needed, or rely on FloatingApp header */}
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Pinned Items from Bookmarks */}
                           {space.pinnedItems && space.pinnedItems.length > 0 && (
@@ -379,22 +384,36 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                         </div>
                       );
                     },
-                    [
-                      componentVariant,
-                      getSpaceById,
-                      buildTemporaryTabs,
-                      variant,
-                      setShowSettings,
-                      setShowArchive,
-                      setShowBookmarkImport,
-                    ]
+                    [componentVariant, getSpaceById, buildTemporaryTabs, variant]
                   )}
                 />
-              </div>
-            </div>
 
-            <div className="flex-shrink-0 px-3 pb-3 pt-2">
-              <NewTabButton variant={componentVariant} />
+                <div className="px-5 pb-6 pt-2">
+                  <button
+                    type="button"
+                    data-testid="new-tab-button"
+                    onClick={() => {
+                      window.dispatchEvent(
+                        new KeyboardEvent('keydown', {
+                          key: 't',
+                          code: 'KeyT',
+                          metaKey: true,
+                          bubbles: true,
+                        })
+                      );
+                      // Fallback if event dispatch doesn't trigger the shortcut handler
+                      // This logic should ideally be passed in or handled via bridge
+                      chrome.tabs.create({});
+                    }}
+                    className="group flex items-center gap-3 w-full text-left text-white/60 hover:text-white transition-colors"
+                  >
+                    <div className="flex h-4 w-4 items-center justify-center rounded bg-white/10 group-hover:bg-white/20 transition-colors">
+                      <Plus className="h-3 w-3" />
+                    </div>
+                    <span className="text-[13px] font-medium">+ New Tab</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

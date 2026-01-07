@@ -14,12 +14,6 @@ import { setDragData } from '@/ui/hooks/use-tab-drag-drop';
  * Calculate optimal icon size based on number of favorites
  * Max grid: 4 columns × 3 rows = 12 items
  */
-function calculateIconSize(count: number): { size: number; cols: number; rows: number } {
-  if (count === 0) return { size: 40, cols: 0, rows: 0 };
-  if (count <= 4) return { size: 48, cols: count, rows: 1 }; // 1 row
-  if (count <= 8) return { size: 44, cols: 4, rows: 2 }; // 2 rows
-  return { size: 40, cols: 4, rows: 3 }; // 3 rows (max 12 items)
-}
 
 interface FavoritesBarProps {
   pinnedTabs: TabEntry[];
@@ -59,15 +53,15 @@ const FaviconItem = React.forwardRef<
     [onTabSelect, tab]
   );
 
-  const iconSize = Math.floor(size * 0.5); // Icon is 50% of container
+  const iconSize = 24; // Larger for Arc-like feel
 
   return (
     <div
       ref={ref}
-      className={`group relative flex flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/5 bg-white/5 shadow-sm transition-all hover:bg-white/10 hover:shadow-md hover:ring-1 hover:ring-white/20 ${
-        isDragging ? 'opacity-50 ring-2 ring-primary/50' : ''
-      }`}
-      style={{ width: `${size}px`, height: `${size}px` }}
+      className={`group relative flex flex-shrink-0 cursor-pointer items-center justify-center rounded-[20px] transition-all duration-200 ${
+        isDragging ? 'opacity-50 scale-95' : 'hover:scale-105 hover:bg-white/20 hover:shadow-lg'
+      } bg-white/10 shadow-sm ring-1 ring-white/5 active:scale-95`}
+      style={{ width: '100%', aspectRatio: '1/1' }} // Use grid strictness
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -80,61 +74,55 @@ const FaviconItem = React.forwardRef<
     >
       {/* Favicon */}
       {tab.favIconUrl ? (
-        <img
-          src={tab.favIconUrl}
-          alt=""
-          className="rounded-sm transition-transform group-hover:scale-110"
-          style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.style.display = 'none';
-          }}
-        />
+        <div className="relative flex items-center justify-center w-full h-full">
+          <img
+            src={tab.favIconUrl}
+            alt=""
+            className="rounded-sm object-contain drop-shadow-md"
+            style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+        </div>
       ) : (
         <Star
           style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
-          className="text-muted-foreground group-hover:text-primary"
+          className="text-white/60 group-hover:text-white"
         />
       )}
 
       {/* Remove button (visible on hover) */}
       <button
         type="button"
-        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 scale-90 items-center justify-center rounded-full bg-background shadow-md opacity-0 transition-all hover:bg-destructive hover:text-white group-hover:scale-100 group-hover:opacity-100 ring-1 ring-border"
+        className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-800 text-slate-400 shadow opacity-0 transition-opacity hover:bg-red-500 hover:text-white group-hover:opacity-100 z-10"
         onClick={(e) => {
           e.stopPropagation();
           onRemove(tab, e);
         }}
         title="Remove from favorites"
       >
-        <X className="h-3 w-3" />
+        <X className="h-2.5 w-2.5" />
       </button>
     </div>
   );
 });
 
-function Placeholder({ onClose }: { onClose?: () => void }) {
+function Placeholder({ onClose: _onClose }: { onClose?: () => void }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0 }}
-      className="relative flex flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 p-4 text-center backdrop-blur-sm"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="col-span-4 py-8 flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/5 text-center"
     >
-      {onClose && (
-        <button
-          type="button"
-          className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-          onClick={onClose}
-          title="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      )}
-      <Star className="mb-2 h-6 w-6 text-muted-foreground/50" />
-      <div className="text-sm font-medium text-foreground">Drag to add Favorites</div>
-      <div className="mt-1 text-xs text-muted-foreground">
-        Keep your top sites handy across spaces
+      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-3">
+        <Star className="h-5 w-5 text-white/40" />
+      </div>
+      <div className="text-xs font-medium text-white/80">Favorites</div>
+      <div className="text-[10px] text-white/40 mt-1 max-w-[150px]">
+        Drag frequently used tabs here
       </div>
     </motion.div>
   );
@@ -150,13 +138,6 @@ export function FavoritesBar({ pinnedTabs }: FavoritesBarProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: 'favorites-zone',
   });
-
-  // Calculate optimal icon size based on number of favorites
-  const {
-    size: iconSize,
-    cols,
-    rows,
-  } = useMemo(() => calculateIconSize(pinnedTabs.length), [pinnedTabs.length]);
 
   const handleSelectTab = useCallback(
     async (tab: TabEntry) => {
@@ -184,39 +165,33 @@ export function FavoritesBar({ pinnedTabs }: FavoritesBarProps) {
   const showPlaceholderUI = pinnedTabs.length === 0 && showPlaceholder;
 
   return (
-    <div className="border-b border-border bg-card/50 px-3 py-3 backdrop-blur-md transition-colors hover:bg-card/80">
+    <div className="px-4 py-4 backdrop-blur-sm">
       {/* Content */}
       <div
         ref={setNodeRef}
-        className={`min-h-[3rem] rounded-xl transition-all duration-300 ${
-          isOver
-            ? 'bg-primary/10 ring-2 ring-primary/50 shadow-[0_0_15px_rgba(var(--color-primary),0.3)]'
-            : ''
+        className={`rounded-2xl transition-all duration-300 ${
+          isOver ? 'bg-blue-500/10 ring-2 ring-blue-500/30' : ''
         }`}
         role="region"
         aria-label="Favorites drop zone"
       >
         <AnimatePresence mode="popLayout">
           {showPlaceholderUI ? (
-            <Placeholder key="placeholder" onClose={handleClosePlaceholder} />
+            <div className="grid grid-cols-4 gap-3">
+              <Placeholder key="placeholder" onClose={handleClosePlaceholder} />
+            </div>
           ) : pinnedTabs.length === 0 ? (
-            <motion.div className="flex h-12 items-center justify-center text-xs text-muted-foreground/50 italic">
-              Start dragging here...
+            <motion.div className="flex h-12 items-center justify-center text-xs text-white/30 italic">
+              Drop to favorite
             </motion.div>
           ) : (
-            <div
-              className="grid gap-2 mx-auto justify-center"
-              style={{
-                gridTemplateColumns: `repeat(${cols}, ${iconSize}px)`,
-                gridTemplateRows: `repeat(${rows}, ${iconSize}px)`,
-              }}
-            >
+            <div className="grid grid-cols-4 gap-3">
               <AnimatePresence mode="popLayout">
                 {pinnedTabs.map((tab) => (
                   <TabContextMenu key={tab.url} tab={tab}>
                     <FaviconItem
                       tab={tab}
-                      size={iconSize}
+                      size={0} // Size controlled by grid now
                       onTabSelect={handleSelectTab}
                       onRemove={handleRemoveTab}
                     />
@@ -227,6 +202,9 @@ export function FavoritesBar({ pinnedTabs }: FavoritesBarProps) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Divider */}
+      {pinnedTabs.length > 0 && <div className="mt-4 h-px bg-white/5 w-full mx-auto" />}
     </div>
   );
 }

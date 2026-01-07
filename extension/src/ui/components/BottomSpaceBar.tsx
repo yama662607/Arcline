@@ -26,10 +26,10 @@ function SpaceBadge({ space, isActive, onClick }: SpaceBadgeProps) {
     <button
       type="button"
       onClick={onClick}
-      className={`group relative flex h-7 w-7 items-center justify-center rounded-lg transition-all ${
+      className={`group relative flex h-[34px] w-[34px] items-center justify-center rounded-[10px] transition-all ${
         isActive
-          ? 'scale-110 ring-2 ring-white/50'
-          : 'hover:scale-105 hover:ring-2 hover:ring-white/30'
+          ? 'scale-110 ring-2 ring-white/50 shadow-lg'
+          : 'hover:scale-105 hover:ring-2 hover:ring-white/30 opacity-80 hover:opacity-100'
       }`}
       style={{
         background: isActive ? theme.gradient : theme.gradientSubtle,
@@ -68,7 +68,7 @@ function AllSpacesPopup({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10, scale: 0.95 }}
       transition={{ duration: 0.15 }}
-      className="absolute bottom-full left-0 mb-2 rounded-lg border border-white/10 bg-black/40 p-2 shadow-xl backdrop-blur-md"
+      className="absolute bottom-full left-0 mb-2 rounded-xl border border-white/10 bg-slate-900 p-2 shadow-2xl backdrop-blur-xl z-50"
       style={{ minWidth: '200px' }}
     >
       <div className="mb-2 max-h-64 space-y-1 overflow-y-auto">
@@ -192,6 +192,9 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
                     targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'left' : 'right';
 
                   if (isFloatingVariant) {
+                    console.log(
+                      `[Arcline] 🔘 Space badge clicked (floating): ${space.name} (id=${space.id})`
+                    );
                     window.dispatchEvent(
                       new CustomEvent('arcline-space-bar-switch', {
                         detail: {
@@ -227,7 +230,7 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
       <button
         type="button"
         onClick={() => setIsPopupOpen(!isPopupOpen)}
-        className="flex h-7 w-7 items-center justify-center rounded-lg text-white/50 hover:text-white/80 hover:bg-white/10 transition-all"
+        className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] text-white/50 hover:text-white/80 hover:bg-white/10 transition-all"
         aria-label="Show all spaces"
       >
         <MoreVertical className="h-4 w-4" />
@@ -248,6 +251,7 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
                   targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'left' : 'right';
 
                 if (isFloatingVariant) {
+                  console.log(`[Arcline] 🔘 Popup space selected (floating): id=${spaceId}`);
                   window.dispatchEvent(
                     new CustomEvent('arcline-space-bar-switch', {
                       detail: {

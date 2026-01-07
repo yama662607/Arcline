@@ -131,7 +131,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
     <div
       id="arcline-space-content-viewport"
       data-arcline-space-transition="true"
-      className="h-full w-full overflow-hidden relative bg-inherit"
+      className="min-h-full w-full overflow-visible relative bg-inherit"
     >
       {previewSpaceId ? (
         renderPreviewTrack()
@@ -145,7 +145,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
             animate="center"
             exit="exit"
             transition={transition}
-            className="absolute inset-0 h-full w-full bg-inherit"
+            className="absolute inset-0 min-h-full w-full bg-inherit"
           >
             {renderContent(activeSpaceId, { isActive: true })}
           </motion.div>

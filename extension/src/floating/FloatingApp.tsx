@@ -18,7 +18,7 @@ interface FloatingAppProps {
   onRequestClose: () => void;
 }
 
-function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: FloatingAppProps) {
+function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: FloatingAppProps) {
   useSpacesSync();
 
   const spaces = useSpacesStore((state) => state.spaces);
@@ -43,51 +43,51 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
   return (
     <motion.div
       id="arcline-floating-ui-container"
+      // Use a constant dark background with the theme gradient as a subtle overlay or blend
+      // Arc's sidebar is usually a solid-ish blurred material.
+      // We'll use the theme gradient but maybe tint it.
       animate={{ background: spaceTheme.gradient }}
       transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-      className="flex h-full flex-col text-slate-100"
+      className="flex h-full flex-col text-slate-100 backdrop-blur-3xl bg-opacity-90 rounded-[20px] overflow-hidden shadow-2xl border border-white/10"
+      style={{
+        boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.5)',
+      }}
     >
-      {/* Header with glass effect for readability */}
-      <header className="flex items-center justify-between bg-black/30 backdrop-blur-md border-b border-white/10 px-4 py-2.5">
+      {/* Header with minimal simplified look */}
+      <header className="flex-shrink-0 flex items-center justify-between px-4 pt-4 pb-2">
         <div className="flex items-center gap-2">
-          {activeSpace?.icon && <span className="text-lg">{activeSpace.icon}</span>}
+          {activeSpace?.icon && <span className="text-lg drop-shadow-md">{activeSpace.icon}</span>}
           <div>
-            <p className="text-[9px] uppercase tracking-[0.3em] text-white/50 font-medium">
-              Arcline
-            </p>
-            <h1 className="text-sm font-semibold text-white drop-shadow-sm">
+            <h1 className="text-sm font-bold text-white tracking-wide drop-shadow-md">
               {activeSpace?.name || 'Spaces'}
             </h1>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            className={`rounded-md px-2 py-1 text-xs font-medium transition backdrop-blur-sm ${
-              pinned
-                ? 'bg-emerald-500/30 text-emerald-100 border border-emerald-400/30'
-                : 'bg-white/10 text-white/80 hover:bg-white/20 border border-white/10'
-            }`}
-            onClick={onTogglePinned}
-          >
-            {pinned ? '📌' : 'Pin'}
-          </button>
+        <div
+          className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          id="header-actions"
+        >
+          {/* Actions visible on hover (managed by CSS or state in future, currently just layout) */}
+          {/* For now we keep them visible but subtle */}
           <HeaderMenu
             onOpenSettings={() => setShowSettings(true)}
             onOpenArchive={() => setShowArchive(true)}
           />
           <button
             type="button"
-            className="rounded-md bg-white/10 hover:bg-white/20 px-2 py-1 text-xs text-white/80 transition border border-white/10 backdrop-blur-sm"
-            onClick={onRequestClose}
+            className={`rounded-md px-2 py-1 text-[10px] font-medium transition ${
+              pinned ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white hover:bg-white/10'
+            }`}
+            onClick={onTogglePinned}
+            title={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
           >
-            ×
+            {pinned ? 'PINNED' : 'PIN'}
           </button>
         </div>
       </header>
 
-      {/* Main content - SpacesWorkspace handles its own gradient */}
-      <div className="flex-1 overflow-hidden">
+      {/* Main content */}
+      <div className="flex-1 min-h-0 overflow-hidden relative">
         <SpacesWorkspace variant="floating" />
       </div>
 
@@ -96,7 +96,7 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
         <Dialog.Root open={showSettings} onOpenChange={setShowSettings}>
           <Dialog.Portal container={portalContainer}>
             <Dialog.Overlay className="fixed inset-0 bg-black/50" />
-            <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-xl">
+            <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur-xl shadow-2xl p-0">
               <SettingsPanel variant="floating" />
             </Dialog.Content>
           </Dialog.Portal>
@@ -108,7 +108,7 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose }: Floating
         <Dialog.Root open={showArchive} onOpenChange={setShowArchive}>
           <Dialog.Portal container={portalContainer}>
             <Dialog.Overlay className="fixed inset-0 bg-black/50" />
-            <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-xl">
+            <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur-xl shadow-2xl p-0">
               <ArchiveManager variant="floating" />
             </Dialog.Content>
           </Dialog.Portal>

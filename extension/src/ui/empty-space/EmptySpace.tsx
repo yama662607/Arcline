@@ -9,6 +9,7 @@ export function EmptySpace() {
     // Parse query params
     const params = new URLSearchParams(window.location.search);
     const color = params.get('color') as TabGroupColor;
+    console.log(`[Arcline] 🎨 EmptySpace mounting with color: ${color}`);
     if (color) {
       setThemeColor(color);
     }

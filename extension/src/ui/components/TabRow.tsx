@@ -185,11 +185,18 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
 
   const containerClasses = [
     variant === 'floating'
-      ? `group relative flex items-center gap-0 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded-lg hover:bg-white/10 transition-colors`
-      : `group relative flex items-center gap-0 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light border-b border-surface-light/50`,
-    tab.active ? (variant === 'floating' ? 'bg-white/15' : 'bg-surface-light') : '',
+      ? `group relative flex items-center gap-2 px-3 ${compact ? 'py-1.5' : 'py-2'} rounded-xl transition-colors duration-200`
+      : `group relative flex items-center gap-2 px-4 ${compact ? 'py-1.5' : 'py-2'} hover:bg-surface-light border-b border-surface-light/50`,
+    // Active state
+    tab.active
+      ? variant === 'floating'
+        ? 'bg-white/15 shadow-sm'
+        : 'bg-surface-light'
+      : variant === 'floating'
+        ? 'hover:bg-white/5'
+        : '',
     isDragged ? 'opacity-50' : '',
-    className, // Merge external className if provided
+    className,
   ]
     .filter(Boolean)
     .join(' ');
@@ -220,44 +227,47 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
     >
       <TabPeekPreview tab={tab} isVisible={showPeek} position={peekPosition} />
       <div
-        className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface pr-2"
+        className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 rounded-lg py-0.5"
         onClick={() => onTabSelect?.(tab)}
         onKeyDown={handleKeyDown}
         {...dragHandleProps}
         tabIndex={0}
         role="button"
       >
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 flex items-center justify-center">
           {showFavicons && tab.favIconUrl ? (
             <img
               src={tab.favIconUrl}
               alt=""
-              className="w-4 h-4 rounded"
+              className="w-4 h-4 rounded-sm object-contain opacity-90 group-hover:opacity-100"
               onError={(event) => {
                 const target = event.target as HTMLImageElement;
                 target.style.display = 'none';
               }}
             />
           ) : (
-            <div className="w-4 h-4 bg-surface-light rounded flex items-center justify-center">
-              <span className="text-xs text-slate-400">🌐</span>
+            <div className="w-4 h-4 rounded-sm bg-white/10 flex items-center justify-center">
+              <span className="text-[10px] text-white/50">🌐</span>
             </div>
           )}
         </div>
 
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col justify-center">
           <div
-            className={`text-sm truncate ${variant === 'floating' ? 'text-white font-medium drop-shadow-sm' : 'text-slate-200'}`}
+            className={`text-[13px] leading-tight truncate ${variant === 'floating' ? 'text-slate-100 font-medium' : 'text-slate-200'}`}
             title={tab.title}
           >
             {tab.title}
           </div>
-          <div
-            className={`text-xs truncate ${variant === 'floating' ? 'text-white/50' : 'text-slate-500'}`}
-            title={tab.url ? safeHostname(tab.url) : ''}
-          >
-            {tab.url ? safeHostname(tab.url) : ''}
-          </div>
+          {/* Only show URL/hostname if not compact, or maybe show it very subtly */}
+          {!compact && (
+            <div
+              className={`text-[10px] leading-tight truncate mt-0.5 ${variant === 'floating' ? 'text-slate-400 group-hover:text-slate-300' : 'text-slate-500'}`}
+              title={tab.url ? safeHostname(tab.url) : ''}
+            >
+              {tab.url ? safeHostname(tab.url) : ''}
+            </div>
+          )}
         </div>
       </div>
 
