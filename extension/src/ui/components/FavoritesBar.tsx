@@ -53,15 +53,18 @@ const FaviconItem = React.forwardRef<
     [onTabSelect, tab]
   );
 
-  const iconSize = 24; // Larger for Arc-like feel
+  const iconSize = 15; // Slightly smaller icons like Arc
 
   return (
     <div
+      {...props}
       ref={ref}
-      className={`group relative flex flex-shrink-0 cursor-pointer items-center justify-center rounded-[20px] transition-all duration-200 ${
-        isDragging ? 'opacity-50 scale-95' : 'hover:scale-105 hover:bg-white/20 hover:shadow-lg'
-      } bg-white/10 shadow-sm ring-1 ring-white/5 active:scale-95`}
-      style={{ width: '100%', aspectRatio: '1/1' }} // Use grid strictness
+      className={`group relative flex flex-shrink-0 cursor-pointer items-center justify-center transition-all duration-200 ${isDragging ? 'opacity-50 scale-95' : 'hover:scale-[1.02] hover:brightness-110'} bg-[rgba(45,55,80,0.2)] border border-white/10 active:scale-95`}
+      style={{
+        aspectRatio: '1.35',
+        borderRadius: '11px',
+        ...props.style,
+      }}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -70,15 +73,13 @@ const FaviconItem = React.forwardRef<
       title={`${tab.title}\n${tab.url}`}
       role="button"
       tabIndex={0}
-      {...props}
     >
-      {/* Favicon */}
       {tab.favIconUrl ? (
-        <div className="relative flex items-center justify-center w-full h-full">
+        <div className="relative flex items-center justify-center w-full h-full pointer-events-none">
           <img
             src={tab.favIconUrl}
             alt=""
-            className="rounded-sm object-contain drop-shadow-md"
+            className="rounded-sm object-contain"
             style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -96,14 +97,14 @@ const FaviconItem = React.forwardRef<
       {/* Remove button (visible on hover) */}
       <button
         type="button"
-        className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-800 text-slate-400 shadow opacity-0 transition-opacity hover:bg-red-500 hover:text-white group-hover:opacity-100 z-10"
+        className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-slate-400 shadow opacity-0 transition-opacity hover:bg-red-500 hover:text-white group-hover:opacity-100 z-10 border border-white/10"
         onClick={(e) => {
           e.stopPropagation();
           onRemove(tab, e);
         }}
         title="Remove from favorites"
       >
-        <X className="h-2.5 w-2.5" />
+        <X className="h-3 w-3" />
       </button>
     </div>
   );
@@ -165,7 +166,7 @@ export function FavoritesBar({ pinnedTabs }: FavoritesBarProps) {
   const showPlaceholderUI = pinnedTabs.length === 0 && showPlaceholder;
 
   return (
-    <div className="px-4 py-4 backdrop-blur-sm">
+    <div className="px-2 py-4 backdrop-blur-sm">
       {/* Content */}
       <div
         ref={setNodeRef}
@@ -177,7 +178,7 @@ export function FavoritesBar({ pinnedTabs }: FavoritesBarProps) {
       >
         <AnimatePresence mode="popLayout">
           {showPlaceholderUI ? (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-1.5">
               <Placeholder key="placeholder" onClose={handleClosePlaceholder} />
             </div>
           ) : pinnedTabs.length === 0 ? (
@@ -185,7 +186,7 @@ export function FavoritesBar({ pinnedTabs }: FavoritesBarProps) {
               Drop to favorite
             </motion.div>
           ) : (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-1.5">
               <AnimatePresence mode="popLayout">
                 {pinnedTabs.map((tab) => (
                   <TabContextMenu key={tab.url} tab={tab}>
