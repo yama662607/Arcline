@@ -200,6 +200,17 @@ const FloatingUiRoot = forwardRef<
 
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
+  // Listen for Command Palette open event from NewTabButton
+  useEffect(() => {
+    const handleOpenCommandPalette = () => {
+      setShowPalette(true);
+    };
+    window.addEventListener('arcline-open-command-palette', handleOpenCommandPalette);
+    return () => {
+      window.removeEventListener('arcline-open-command-palette', handleOpenCommandPalette);
+    };
+  }, []);
+
   useEffect(() => {
     // We do NOT set host styles here anymore to avoid conflicting with zoom correction.
     // The host element is styled by floating-ui.ts content script.

@@ -32,6 +32,7 @@ import { EnhancedTabList } from '@/ui/components/EnhancedTabList';
 import { FavoritesBar } from '@/ui/components/FavoritesBar';
 import { MoreMenu } from '@/ui/components/MoreMenu';
 import { NewTabButton } from '@/ui/components/NewTabButton';
+import { PinnedItemList } from '@/ui/components/PinnedItems';
 import { SearchBar } from '@/ui/components/SearchBar';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpaceContentView } from '@/ui/components/SpaceContentView';
@@ -317,14 +318,26 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                             </div>
                           </div>
 
-                          <EnhancedTabList
-                            tabs={space.pinnedTabs}
-                            title=""
-                            emptyMessage="No pinned tabs"
-                            variant={componentVariant}
-                            floatingContext={variant === 'floating' ? 'pinned' : undefined}
-                            interactive={isActive}
-                          />
+                          {/* Pinned Items from Bookmarks */}
+                          {space.pinnedItems && space.pinnedItems.length > 0 && (
+                            <PinnedItemList
+                              items={space.pinnedItems}
+                              spaceName={space.name}
+                              level={0}
+                            />
+                          )}
+
+                          {/* Chrome Pinned Tabs (only if no pinnedItems from bookmarks) */}
+                          {(!space.pinnedItems || space.pinnedItems.length === 0) && (
+                            <EnhancedTabList
+                              tabs={space.pinnedTabs}
+                              title=""
+                              emptyMessage="No pinned tabs"
+                              variant={componentVariant}
+                              floatingContext={variant === 'floating' ? 'pinned' : undefined}
+                              interactive={isActive}
+                            />
+                          )}
 
                           {/* Divider with Clear button */}
                           <div className="relative flex items-center gap-2 py-2">

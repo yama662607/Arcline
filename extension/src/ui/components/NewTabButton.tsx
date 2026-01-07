@@ -1,24 +1,25 @@
 /**
  * NewTabButton Component
- * Arc-style new tab button at the bottom
+ * Arc-style new tab button at the bottom - triggers Command Palette
  */
 
 import { Plus } from 'lucide-react';
 import { useCallback } from 'react';
-
-import { useOpenUrlInTab } from '@/hooks/use-spaces-query';
 
 interface NewTabButtonProps {
   variant?: 'standalone' | 'floating';
 }
 
 export function NewTabButton({ variant = 'standalone' }: NewTabButtonProps) {
-  const { mutate: openUrlInTab } = useOpenUrlInTab();
-
   const handleClick = useCallback(() => {
-    // Open a new tab with the new tab page
-    openUrlInTab('chrome://newtab');
-  }, [openUrlInTab]);
+    if (variant === 'floating') {
+      // In floating mode, dispatch event to open Command Palette
+      window.dispatchEvent(new CustomEvent('arcline-open-command-palette'));
+    } else {
+      // In standalone mode (side panel), send message to background to open Command Palette
+      chrome.runtime.sendMessage({ command: 'toggleSpotlight' });
+    }
+  }, [variant]);
 
   const isFloating = variant === 'floating';
 

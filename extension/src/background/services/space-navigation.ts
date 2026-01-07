@@ -1,5 +1,6 @@
 import type { SwipeDirection } from '@/shared/gestures';
 import type { SpaceSnapshot, TabEntry } from '@/shared/types';
+import type { TabGroupColor } from '@/shared/chrome-types';
 import { broadcastSpacesSnapshot, getSpacesSnapshot, restoreSpaceByFolderName } from './browser';
 
 import { openFloatingUiOnTab, type SpaceTransitionOptions } from './ui-messaging';
@@ -169,6 +170,7 @@ async function handleEmptyOrVirtualSpace(
 ): Promise<EmptySpaceHandleResult> {
   // Virtual space (inactive folder) -> Restore it
   if (targetSpace.id < 0) {
+    console.log(`[Arcline] Restoring virtual space: "${targetSpace.name}"`);
     const newGroupId = await restoreSpaceByFolderName(targetSpace.name);
     const tabs = await chrome.tabs.query({ groupId: newGroupId });
     const activeTab = tabs.find((t) => t.active) || tabs[0];
@@ -181,18 +183,35 @@ async function handleEmptyOrVirtualSpace(
   }
 
   // Existing space but empty -> Create placeholder tab
+  console.log(`[Arcline] Creating empty-space.html for empty space: "${targetSpace.name}" (id: ${targetSpace.id})`);
   const url = chrome.runtime.getURL(
     `empty-space.html?color=${encodeURIComponent(targetSpace.color)}`
   );
   const newTab = await chrome.tabs.create({ url, active: true });
 
   if (newTab.id) {
+    // Check if the tab group still exists
+    let finalGroupId = targetSpace.id;
     if (targetSpace.id !== -1) {
-      await chrome.tabs.group({ tabIds: [newTab.id], groupId: targetSpace.id });
+      try {
+        // Try to get the existing tab group to verify it exists
+        await chrome.tabGroups.get(targetSpace.id);
+        // Group exists, add the new tab to it
+        await chrome.tabs.group({ tabIds: [newTab.id], groupId: targetSpace.id });
+      } catch {
+        // Tab group doesn't exist anymore - create a new group
+        console.log(`[Arcline] Tab group ${targetSpace.id} doesn't exist, creating new group for "${targetSpace.name}"`);
+        finalGroupId = await chrome.tabs.group({ tabIds: [newTab.id] });
+        // Update the group title and color
+        await chrome.tabGroups.update(finalGroupId, {
+          title: targetSpace.name,
+          color: targetSpace.color as TabGroupColor,
+        });
+      }
     }
     const refreshed = await getSpacesSnapshot();
-    await openFloatingUiOnTab(newTab.id, refreshed, targetSpace.id, options);
-    return { handled: true, tabId: newTab.id, spaceId: targetSpace.id };
+    await openFloatingUiOnTab(newTab.id, refreshed, finalGroupId, options);
+    return { handled: true, tabId: newTab.id, spaceId: finalGroupId };
   }
 
   return { handled: true };

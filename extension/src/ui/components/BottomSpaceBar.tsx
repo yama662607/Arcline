@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check, MoreVertical, Settings } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { useServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
 import { getSpaceDisplayIcon, getSpaceTheme } from '@/lib/space-theme';
 import type { SpaceSnapshot } from '@/shared/types';
 import { useSpacesStore } from '@/store/spacesSlice';
@@ -114,6 +115,7 @@ function AllSpacesPopup({
 }
 
 export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: BottomSpaceBarProps) {
+  const bridge = useServiceWorkerBridge();
   const spaces = useSpacesStore((state) => state.spaces);
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
   const favoriteSpaceIds = useSpacesStore((state) => state.favoriteSpaceIds);
@@ -202,7 +204,9 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
                     return;
                   }
 
+                  // Standalone mode: call RPC to activate space and update UI
                   setActiveSpace(space.id);
+                  bridge.setActiveSpace(space.id);
                 }}
               />
               {/* Progress indicator on target space */}
