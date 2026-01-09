@@ -49,14 +49,14 @@ const STOPPED_RELEASE_WINDOW_MS = 50;
 const RELEASE_IDLE_MS = 100;
 const SCROLLEND_IDLE_MS = 180;
 const VELOCITY_EMA_ALPHA = 0.4;
-const FLICK_ANIMATION_MS = 100;
-const RESET_ANIMATION_MS = 140;
-const HANDOFF_ANIMATION_MS = 160;
-const COOLDOWN_MS = 220;
+const FLICK_ANIMATION_MS = 80; // Reduced from 100ms for snappier response
+const RESET_ANIMATION_MS = 120; // Reduced from 140ms for faster cancel feedback
+const HANDOFF_ANIMATION_MS = 140; // Reduced from 160ms for quicker handoff
+const COOLDOWN_MS = 180; // Reduced from 220ms to allow faster consecutive gestures
 
 // Early flick detection: commit immediately when high velocity is detected
-const EARLY_FLICK_VELOCITY_THRESHOLD = 1.5; // widths per second
-const EARLY_FLICK_MIN_PROGRESS = 0.15; // minimum 15% progress before committing
+const EARLY_FLICK_VELOCITY_THRESHOLD = 1.2; // Reduced from 1.5 for more sensitive detection
+const EARLY_FLICK_MIN_PROGRESS = 0.12; // Reduced from 0.15 for earlier commit
 
 const SUPPORTS_SCROLLEND =
   typeof document !== 'undefined' &&
@@ -142,7 +142,8 @@ function applyTransitionOffset(
 ) {
   if (options.animate) {
     const duration = options.durationMs ?? 200;
-    target.style.transition = `transform ${duration}ms cubic-bezier(0.4, 0.0, 0.2, 1)`;
+    // More natural easing: faster start, smooth deceleration (Arc-like feel)
+    target.style.transition = `transform ${duration}ms cubic-bezier(0.22, 0.61, 0.36, 1)`;
   } else {
     target.style.transition = 'none';
   }
@@ -402,8 +403,13 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       durationMs: FLICK_ANIMATION_MS,
     });
 
-    // Wait for animation to complete, then trigger navigation
-    window.setTimeout(() => {
+    // Track if navigation has been triggered to prevent double execution
+    let navigationTriggered = false;
+
+    const executeNavigation = () => {
+      if (navigationTriggered) return;
+      navigationTriggered = true;
+
       // Navigate AFTER animation completes for smooth visual experience
       deps.onNavigateSpace(spaceDirection, { mode: 'flick', perfId, t0 });
 
@@ -411,11 +417,28 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       dispatchSwipeProgress(0);
       resetGesture();
       enterCooldown();
-    }, FLICK_ANIMATION_MS);
+    };
+
+    // Use transitionend event for accurate animation completion detection
+    const handleTransitionEnd = (e: TransitionEvent) => {
+      // Only respond to our transform transition, not other properties
+      if (e.propertyName !== 'transform') return;
+      target.removeEventListener('transitionend', handleTransitionEnd);
+      executeNavigation();
+    };
+
+    target.addEventListener('transitionend', handleTransitionEnd);
+
+    // Fallback timeout in case transitionend doesn't fire (e.g., element removed from DOM)
+    window.setTimeout(() => {
+      target.removeEventListener('transitionend', handleTransitionEnd);
+      executeNavigation();
+    }, FLICK_ANIMATION_MS + 50);
   };
 
   const commitHandoff = (
     target: HTMLElement,
+    width: number,
     context: SwipeDebugContext,
     uiDirection: SwipeDirection,
     spaceDirection: SwipeDirection,
@@ -440,14 +463,46 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       `[Arcline][Perf][${perfId}] T0: Handoff Committed at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
     );
 
+    // Show page transition mask while animating
     deps.onPageTransition?.();
-    deps.onNavigateSpace(spaceDirection, { mode: 'handoff', transition, perfId, t0 });
-    enterCooldown();
-    window.setTimeout(() => {
+
+    // Animate to completion position (like Flick)
+    const endOffset = uiDirection === 'left' ? -width : width;
+    applyTransitionOffset(target, endOffset, {
+      animate: true,
+      durationMs: HANDOFF_ANIMATION_MS,
+    });
+
+    // Track if navigation has been triggered to prevent double execution
+    let navigationTriggered = false;
+
+    const executeNavigation = () => {
+      if (navigationTriggered) return;
+      navigationTriggered = true;
+
+      // Navigate AFTER animation completes for smooth visual experience
+      deps.onNavigateSpace(spaceDirection, { mode: 'handoff', transition, perfId, t0 });
+
       applyTransitionOffset(target, 0, { animate: false });
       dispatchSwipeProgress(0);
       resetGesture();
-    }, COOLDOWN_MS);
+      enterCooldown();
+    };
+
+    // Use transitionend event for accurate animation completion detection
+    const handleTransitionEnd = (e: TransitionEvent) => {
+      if (e.propertyName !== 'transform') return;
+      target.removeEventListener('transitionend', handleTransitionEnd);
+      executeNavigation();
+    };
+
+    target.addEventListener('transitionend', handleTransitionEnd);
+
+    // Fallback timeout in case transitionend doesn't fire
+    window.setTimeout(() => {
+      target.removeEventListener('transitionend', handleTransitionEnd);
+      executeNavigation();
+    }, HANDOFF_ANIMATION_MS + 50);
   };
 
   const commitGesture = (
@@ -487,7 +542,7 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       return;
     }
 
-    commitHandoff(target, context, uiDirection, spaceDirection, progress);
+    commitHandoff(target, width, context, uiDirection, spaceDirection, progress);
   };
 
   const handleHorizontalSwipe = (
@@ -720,13 +775,34 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       durationMs: FLICK_ANIMATION_MS,
     });
 
-    window.setTimeout(() => {
+    // Track if completion has been triggered to prevent double execution
+    let completionTriggered = false;
+
+    const executeCompletion = () => {
+      if (completionTriggered) return;
+      completionTriggered = true;
+
       applyTransitionOffset(target, 0, { animate: false });
       dispatchSwipeProgress(0);
       resetGesture();
       enterCooldown();
       onComplete?.();
-    }, FLICK_ANIMATION_MS);
+    };
+
+    // Use transitionend for accurate completion detection
+    const handleTransitionEnd = (e: TransitionEvent) => {
+      if (e.propertyName !== 'transform') return;
+      target.removeEventListener('transitionend', handleTransitionEnd);
+      executeCompletion();
+    };
+
+    target.addEventListener('transitionend', handleTransitionEnd);
+
+    // Fallback timeout in case transitionend doesn't fire
+    window.setTimeout(() => {
+      target.removeEventListener('transitionend', handleTransitionEnd);
+      executeCompletion();
+    }, FLICK_ANIMATION_MS + 50);
 
     return true;
   };

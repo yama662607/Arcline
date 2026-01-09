@@ -27,9 +27,10 @@ const variants = {
   }),
 };
 
+// Optimized transition for snappier, more responsive space switching
 const transition = {
-  x: { type: 'spring' as const, stiffness: 300, damping: 30 },
-  opacity: { duration: 0.2 },
+  x: { type: 'spring' as const, stiffness: 400, damping: 35, mass: 0.8 },
+  opacity: { duration: 0.15 },
 };
 
 export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentViewProps) {
@@ -118,7 +119,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
     const isForward = lastSwipeDirectionRef.current > 0;
     const previewOffset = isForward ? 100 : -100;
     return (
-      <div className="absolute inset-0 h-full w-full overflow-hidden">
+      <div className="absolute inset-0 h-full w-full">
         <div className="absolute inset-0">{renderPanel(activeSpaceId, true, 0)}</div>
         <div className="absolute inset-0" style={{ transform: `translateX(${previewOffset}%)` }}>
           {renderPanel(previewSpaceId, false, 0)}
@@ -131,7 +132,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
     <div
       id="arcline-space-content-viewport"
       data-arcline-space-transition="true"
-      className="min-h-full w-full overflow-visible relative bg-inherit"
+      className="min-h-full w-full overflow-visible relative"
     >
       {previewSpaceId ? (
         renderPreviewTrack()
@@ -145,7 +146,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
             animate="center"
             exit="exit"
             transition={transition}
-            className="absolute inset-0 min-h-full w-full bg-inherit"
+            className="absolute inset-0 min-h-full w-full"
           >
             {renderContent(activeSpaceId, { isActive: true })}
           </motion.div>
