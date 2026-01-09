@@ -390,6 +390,9 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     reportSwipeDebug(context, 'commit-flick', true, totalDeltaX);
     phase = 'committing';
 
+    // Reset velocity immediately to prevent residual inertia from triggering another space navigation
+    lastVelocityX = 0;
+
     // Show page transition mask while animating
     deps.onPageTransition?.();
 
@@ -420,6 +423,10 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
   ) => {
     reportSwipeDebug(context, 'commit-handoff', true, totalDeltaX);
     phase = 'committing';
+
+    // Reset velocity to prevent residual inertia
+    lastVelocityX = 0;
+
     const transition: SpaceTransitionHandoff = {
       mode: 'handoff',
       direction: uiDirection,
@@ -511,7 +518,17 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       return;
     }
 
-    const progress = clamp(totalDeltaX / width, -1, 1);
+    // Dampen movement when exceeding UI width to prevent double-space navigation
+    const absTotal = Math.abs(totalDeltaX);
+    let effectiveOffset = totalDeltaX;
+    if (absTotal > width) {
+      const sign = totalDeltaX > 0 ? 1 : -1;
+      const excess = absTotal - width;
+      // Reduce excess movement by half
+      effectiveOffset = sign * (width + excess * 0.5);
+    }
+
+    const progress = clamp(effectiveOffset / width, -1, 1);
     const direction: SwipeDirection = progress < 0 ? 'left' : 'right';
     const offset = progress * width;
 

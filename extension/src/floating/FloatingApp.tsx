@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { queryClient } from '@/lib/query-client';
 import { getSpaceTheme } from '@/lib/space-theme';
 import { useSpacesSync } from '@/lib/useSpacesSync';
@@ -10,7 +10,9 @@ import { ArchiveManager } from '@/ui/components/ArchiveManager';
 import { HeaderMenu } from '@/ui/components/HeaderMenu';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpacesWorkspace } from '@/ui/components/SpacesWorkspace';
+import { TwoFingerMenu, type TwoFingerMenuContext } from '@/ui/components/TwoFingerMenu';
 import { usePortalContainer } from '@/ui/contexts/PortalContext';
+import { useTwoFingerTap, type TwoFingerTapEvent } from '@/hooks/use-two-finger-tap';
 
 interface FloatingAppProps {
   pinned: boolean;
@@ -33,6 +35,12 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
   const setIsModalOpen = useSpacesStore((state) => state.setIsModalOpen);
   const portalContainer = usePortalContainer();
 
+  // Two-finger tap menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [menuContext, setMenuContext] = useState<TwoFingerMenuContext | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useMemo(() => {
     // Sync modal state to store
     setIsModalOpen(showSettings || showArchive);
@@ -40,8 +48,81 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
 
   const spaceTheme = getSpaceTheme(activeSpace?.themeColor);
 
+  // Determine context from tap target
+  const determineContext = useCallback(
+    (target: Element | null): TwoFingerMenuContext | null => {
+      if (!target || !activeSpace) return null;
+
+      // Check if tapped on a tab row
+      const tabRow = target.closest('[data-tab-id]');
+      if (tabRow) {
+        const tabId = Number(tabRow.getAttribute('data-tab-id'));
+        const tabTitle = tabRow.getAttribute('data-tab-title') || 'Tab';
+        const tabUrl = tabRow.getAttribute('data-tab-url') || '';
+        return {
+          type: 'tab',
+          tab: { id: tabId, title: tabTitle, url: tabUrl },
+        };
+      }
+
+      // Check if tapped on a pinned item
+      const pinnedItem = target.closest('[data-pinned-item-id]');
+      if (pinnedItem) {
+        const itemUrl = pinnedItem.getAttribute('data-pinned-item-url') || '';
+        const itemTitle = pinnedItem.getAttribute('data-pinned-item-title') || 'Item';
+        return {
+          type: 'tab',
+          tab: { id: 0, title: itemTitle, url: itemUrl },
+        };
+      }
+
+      // Check if tapped on a space dot
+      const spaceDot = target.closest('[data-space-id]');
+      if (spaceDot) {
+        const spaceId = Number(spaceDot.getAttribute('data-space-id'));
+        const tappedSpace = spaces.find((s) => s.id === spaceId);
+        if (tappedSpace) {
+          return { type: 'space', space: tappedSpace };
+        }
+      }
+
+      // Default: empty area - show space menu for current space
+      return { type: 'empty', space: activeSpace };
+    },
+    [activeSpace, spaces]
+  );
+
+  // Handle two-finger tap
+  const handleTwoFingerTap = useCallback(
+    (event: TwoFingerTapEvent) => {
+      const context = determineContext(event.target);
+      if (!context) return;
+
+      setMenuPosition({ x: event.x, y: event.y });
+      setMenuContext(context);
+      setMenuOpen(true);
+    },
+    [determineContext]
+  );
+
+  // Set up two-finger tap detection on container
+  const twoFingerTapRef = useTwoFingerTap<HTMLDivElement>({
+    onTap: handleTwoFingerTap,
+    disabled: showSettings || showArchive,
+  });
+
+  // Merge refs
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      (twoFingerTapRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    },
+    [twoFingerTapRef]
+  );
+
   return (
     <motion.div
+      ref={setRefs}
       id="arcline-floating-ui-container"
       // Use a constant dark background with the theme gradient as a subtle overlay or blend
       // Arc's sidebar is usually a solid-ish blurred material.
@@ -80,6 +161,16 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <SpacesWorkspace variant="floating" />
       </div>
+
+      {/* Two-Finger Tap Menu */}
+      {menuContext && (
+        <TwoFingerMenu
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          position={menuPosition}
+          context={menuContext}
+        />
+      )}
 
       {/* Settings Modal */}
       {showSettings && (

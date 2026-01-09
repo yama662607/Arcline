@@ -43,6 +43,75 @@ export function getLastActiveGroupId(): number {
 }
 
 /**
+ * Get the first available tab group as a fallback.
+ * Returns the group ID or -1 if no groups exist.
+ */
+async function getFirstAvailableGroupId(): Promise<number> {
+  try {
+    const tabGroups = await chrome.tabGroups.query({});
+    if (tabGroups.length > 0 && tabGroups[0]) {
+      return tabGroups[0].id;
+    }
+  } catch (_error) {
+    // Ignore errors
+  }
+  return -1;
+}
+
+/**
+ * Assign all ungrouped tabs to the first available space.
+ * Called on browser startup to ensure all tabs belong to a space.
+ */
+async function assignUngroupedTabsToFirstSpace(): Promise<void> {
+  console.log('[Arcline] 🛡️ AutoGroup: checking for ungrouped tabs...');
+
+  try {
+    // Get the first available tab group
+    const tabGroups = await chrome.tabGroups.query({});
+    if (tabGroups.length === 0) {
+      console.log('[Arcline] 🛡️ AutoGroup: no tab groups exist, skipping ungrouped tab assignment');
+      return;
+    }
+
+    const firstGroup = tabGroups[0];
+    if (!firstGroup) {
+      return;
+    }
+
+    // Get all tabs and filter ungrouped ones (excluding pinned tabs)
+    const allTabs = await chrome.tabs.query({});
+    const ungroupedTabs = allTabs.filter(
+      (tab) => tab.groupId === -1 && !tab.pinned && tab.id !== undefined
+    );
+
+    if (ungroupedTabs.length === 0) {
+      console.log('[Arcline] 🛡️ AutoGroup: no ungrouped tabs found');
+      return;
+    }
+
+    console.log(
+      `[Arcline] 🛡️ AutoGroup: assigning ${ungroupedTabs.length} ungrouped tabs to first space (groupId=${firstGroup.id})`
+    );
+
+    // Move each ungrouped tab to the first group
+    for (const tab of ungroupedTabs) {
+      if (tab.id) {
+        try {
+          await chrome.tabs.group({ tabIds: [tab.id], groupId: firstGroup.id });
+          console.log(`[Arcline] 🛡️ AutoGroup: moved tab ${tab.id} to group ${firstGroup.id}`);
+        } catch (error) {
+          console.warn(`[Arcline] Failed to move tab ${tab.id} to group:`, error);
+        }
+      }
+    }
+
+    console.log('[Arcline] 🛡️ AutoGroup: ungrouped tabs assignment complete');
+  } catch (error) {
+    console.warn('[Arcline] Failed to assign ungrouped tabs:', error);
+  }
+}
+
+/**
  * Initialize listeners for auto-grouping.
  * This part is called from index.ts.
  */
@@ -68,38 +137,70 @@ export function initializeAutoGrouping() {
       return;
     }
 
-    // If the tab is already grouped, or if we don't have a valid active group, do nothing
-    if (tab.groupId !== -1 || lastActiveGroupId === -1) {
+    // If the tab is already grouped, do nothing
+    if (tab.groupId !== -1) {
       return;
     }
 
-    // Check if the last active group still exists
-    try {
-      await chrome.tabGroups.get(lastActiveGroupId);
-    } catch {
-      // Group no longer exists, reset tracker
-      lastActiveGroupId = -1;
+    // If we don't have a valid active group, try to get the first available one
+    let targetGroupId = lastActiveGroupId;
+    if (targetGroupId === -1) {
+      targetGroupId = await getFirstAvailableGroupId();
+      if (targetGroupId !== -1) {
+        console.log(
+          `[Arcline] 🛡️ AutoGroup: no active group, falling back to first space (groupId=${targetGroupId})`
+        );
+        lastActiveGroupId = targetGroupId;
+      }
+    }
+
+    // Still no valid group, skip auto-grouping
+    if (targetGroupId === -1) {
       return;
+    }
+
+    // Check if the target group still exists
+    try {
+      await chrome.tabGroups.get(targetGroupId);
+    } catch {
+      // Group no longer exists, try to get the first available one
+      targetGroupId = await getFirstAvailableGroupId();
+      if (targetGroupId === -1) {
+        lastActiveGroupId = -1;
+        return;
+      }
+      lastActiveGroupId = targetGroupId;
     }
 
     // Move the new tab into the group
     try {
       if (tab.id) {
-        console.log(
-          `[Arcline] 🛡️ AutoGroup: moving new tab ${tab.id} to group ${lastActiveGroupId}`
-        );
-        await chrome.tabs.group({ tabIds: [tab.id], groupId: lastActiveGroupId });
+        console.log(`[Arcline] 🛡️ AutoGroup: moving new tab ${tab.id} to group ${targetGroupId}`);
+        await chrome.tabs.group({ tabIds: [tab.id], groupId: targetGroupId });
       }
     } catch (error) {
       console.warn('[Arcline] Failed to auto-group new tab', error);
     }
   });
 
-  // Initialize lastActiveGroupId from current state
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([tab]) => {
+  // Initialize lastActiveGroupId from current state, with fallback to first space
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(async ([tab]) => {
     if (tab?.groupId !== -1 && tab?.groupId !== undefined) {
       lastActiveGroupId = tab.groupId;
       console.log('[Arcline] 🛡️ AutoGroup: initial lastActiveGroupId =', lastActiveGroupId);
+    } else {
+      // Fallback to first available group if active tab is not in a group
+      const firstGroupId = await getFirstAvailableGroupId();
+      if (firstGroupId !== -1) {
+        lastActiveGroupId = firstGroupId;
+        console.log(
+          '[Arcline] 🛡️ AutoGroup: active tab not in group, defaulting to first space:',
+          lastActiveGroupId
+        );
+      }
     }
+
+    // Assign any existing ungrouped tabs to the first space
+    await assignUngroupedTabsToFirstSpace();
   });
 }
