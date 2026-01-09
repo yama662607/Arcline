@@ -1,12 +1,13 @@
-import * as ContextMenu from '@radix-ui/react-context-menu';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ChevronRight, FolderPlus, Palette, Smile, Trash2, Type } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRemoveSpace, useUpdateSpace } from '@/hooks/use-spaces-query';
 import { SPACE_COLORS, SPACE_ICONS } from '@/lib/space-theme';
 import type { SpaceColor, SpaceSnapshot } from '@/shared/types';
 import { useSpacesStore } from '@/store';
+import { usePortalContainer } from '@/ui/contexts/PortalContext';
 
 interface SpaceContextMenuProps {
   children: React.ReactNode;
@@ -18,9 +19,26 @@ export function SpaceContextMenu({ children, space }: SpaceContextMenuProps) {
   const { mutate: updateSpace } = useUpdateSpace();
   const spaces = useSpacesStore((state) => state.spaces);
   const setActiveSpace = useSpacesStore((state) => state.setActiveSpace);
+  const setIsModalOpen = useSpacesStore((state) => state.setIsModalOpen);
+  const portalContainer = usePortalContainer();
 
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(space.name);
+
+  // Prevent sidebar from closing while context menu or rename dialog is open
+  useEffect(() => {
+    setIsModalOpen?.(isOpen || isRenaming);
+    return () => setIsModalOpen?.(false);
+  }, [isOpen, isRenaming, setIsModalOpen]);
+
+  const handleContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setMenuPosition({ x: event.clientX, y: event.clientY });
+    setIsOpen(true);
+  }, []);
 
   const handleRemove = async () => {
     if (spaces.length <= 1) return;
@@ -36,6 +54,7 @@ export function SpaceContextMenu({ children, space }: SpaceContextMenuProps) {
     } catch (e) {
       console.error(e);
     }
+    setIsOpen(false);
   };
 
   const handleRename = useCallback(() => {
@@ -48,6 +67,7 @@ export function SpaceContextMenu({ children, space }: SpaceContextMenuProps) {
   const handleColorChange = useCallback(
     (color: SpaceColor) => {
       updateSpace({ id: space.id, themeColor: color });
+      setIsOpen(false);
     },
     [space.id, updateSpace]
   );
@@ -55,6 +75,7 @@ export function SpaceContextMenu({ children, space }: SpaceContextMenuProps) {
   const handleIconChange = useCallback(
     (icon: string) => {
       updateSpace({ id: space.id, icon });
+      setIsOpen(false);
     },
     [space.id, updateSpace]
   );
@@ -63,107 +84,142 @@ export function SpaceContextMenu({ children, space }: SpaceContextMenuProps) {
     'flex cursor-pointer select-none items-center gap-2 rounded py-1.5 px-2 outline-none hover:bg-white/10 data-[highlighted]:bg-white/10';
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content className="min-w-[220px] rounded-lg border border-white/10 bg-slate-900/95 p-1.5 text-sm text-slate-200 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
-          {/* Change Space Icon */}
-          <ContextMenu.Sub>
-            <ContextMenu.SubTrigger className={menuItemClass}>
-              <Smile className="h-4 w-4 text-slate-400" />
-              <span className="flex-1">Change Space Icon...</span>
-              <ChevronRight className="h-4 w-4 text-slate-400" />
-            </ContextMenu.SubTrigger>
-            <ContextMenu.Portal>
-              <ContextMenu.SubContent className="min-w-[200px] rounded-lg border border-white/10 bg-slate-900/95 p-2 shadow-xl backdrop-blur-md">
-                <div className="grid grid-cols-5 gap-1">
-                  {SPACE_ICONS.map((icon) => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => handleIconChange(icon)}
-                      className={`flex h-8 w-8 items-center justify-center rounded text-lg hover:bg-white/10 ${
-                        space.icon === icon ? 'bg-white/20 ring-1 ring-white/30' : ''
-                      }`}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-2 pt-2 border-t border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => handleIconChange('')}
-                    className="w-full text-xs text-slate-400 hover:text-white py-1"
-                  >
-                    Remove Icon
-                  </button>
-                </div>
-              </ContextMenu.SubContent>
-            </ContextMenu.Portal>
-          </ContextMenu.Sub>
+    <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper for context menu */}
+      <div onContextMenu={handleContextMenu} style={{ display: 'contents' }}>
+        {children}
+      </div>
 
-          {/* Rename Space */}
-          <ContextMenu.Item className={menuItemClass} onSelect={() => setIsRenaming(true)}>
-            <Type className="h-4 w-4 text-slate-400" />
-            <span>Rename Space...</span>
-          </ContextMenu.Item>
-
-          {/* Edit Theme Color */}
-          <ContextMenu.Sub>
-            <ContextMenu.SubTrigger className={menuItemClass}>
-              <Palette className="h-4 w-4 text-slate-400" />
-              <span className="flex-1">Edit Theme Color...</span>
-              <ChevronRight className="h-4 w-4 text-slate-400" />
-            </ContextMenu.SubTrigger>
-            <ContextMenu.Portal>
-              <ContextMenu.SubContent className="min-w-[180px] rounded-lg border border-white/10 bg-slate-900/95 p-2 shadow-xl backdrop-blur-md">
-                <div className="grid grid-cols-4 gap-2">
-                  {(Object.keys(SPACE_COLORS) as SpaceColor[]).map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => handleColorChange(color)}
-                      className={`h-8 w-8 rounded-full transition-all hover:scale-110 ${
-                        space.themeColor === color
-                          ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900'
-                          : ''
-                      }`}
-                      style={{ backgroundColor: SPACE_COLORS[color].primary }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-              </ContextMenu.SubContent>
-            </ContextMenu.Portal>
-          </ContextMenu.Sub>
-
-          <ContextMenu.Separator className="my-1.5 h-px bg-white/10" />
-
-          {/* New Folder */}
-          <ContextMenu.Item className={menuItemClass}>
-            <FolderPlus className="h-4 w-4 text-slate-400" />
-            <span>New Folder</span>
-            <span className="ml-auto text-xs text-slate-500">⌘N</span>
-          </ContextMenu.Item>
-
-          <ContextMenu.Separator className="my-1.5 h-px bg-white/10" />
-
-          {/* Delete Space */}
-          <ContextMenu.Item
-            className="flex cursor-pointer select-none items-center gap-2 rounded py-1.5 px-2 outline-none hover:bg-red-500/20 text-red-400 data-[highlighted]:bg-red-500/20 data-[highlighted]:text-red-400 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
-            disabled={spaces.length <= 1}
-            onSelect={handleRemove}
+      <DropdownMenu.Root open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenu.Trigger asChild>
+          <div
+            style={{
+              position: 'fixed',
+              left: menuPosition.x,
+              top: menuPosition.y,
+              width: 1,
+              height: 1,
+              pointerEvents: 'none',
+            }}
+          />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal container={portalContainer}>
+          <DropdownMenu.Content
+            className="min-w-[220px] rounded-xl border border-white/20 bg-slate-900/98 p-1.5 text-sm text-slate-100 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+            style={{ zIndex: 99999 }}
+            sideOffset={5}
+            align="start"
           >
-            <Trash2 className="h-4 w-4" />
-            <span>Delete Space</span>
-          </ContextMenu.Item>
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
+            {/* Change Space Icon */}
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger className={menuItemClass}>
+                <Smile className="h-4 w-4 text-slate-400" />
+                <span className="flex-1">Change Space Icon...</span>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal container={portalContainer}>
+                <DropdownMenu.SubContent
+                  className="min-w-[200px] rounded-xl border border-white/20 bg-slate-900/98 p-2 shadow-2xl backdrop-blur-xl"
+                  style={{ zIndex: 99999 }}
+                >
+                  <div className="grid grid-cols-5 gap-1">
+                    {SPACE_ICONS.map((icon) => (
+                      <button
+                        key={icon}
+                        type="button"
+                        onClick={() => handleIconChange(icon)}
+                        className={`flex h-8 w-8 items-center justify-center rounded text-lg hover:bg-white/10 ${
+                          space.icon === icon ? 'bg-white/20 ring-1 ring-white/30' : ''
+                        }`}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => handleIconChange('')}
+                      className="w-full text-xs text-slate-400 hover:text-white py-1"
+                    >
+                      Remove Icon
+                    </button>
+                  </div>
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
 
-      {/* Rename Dialog (simple inline for now) */}
+            {/* Rename Space */}
+            <DropdownMenu.Item
+              className={menuItemClass}
+              onSelect={() => {
+                setIsRenaming(true);
+                setIsOpen(false);
+              }}
+            >
+              <Type className="h-4 w-4 text-slate-400" />
+              <span>Rename Space...</span>
+            </DropdownMenu.Item>
+
+            {/* Edit Theme Color */}
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger className={menuItemClass}>
+                <Palette className="h-4 w-4 text-slate-400" />
+                <span className="flex-1">Edit Theme Color...</span>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal container={portalContainer}>
+                <DropdownMenu.SubContent
+                  className="min-w-[180px] rounded-xl border border-white/20 bg-slate-900/98 p-2 shadow-2xl backdrop-blur-xl"
+                  style={{ zIndex: 99999 }}
+                >
+                  <div className="grid grid-cols-4 gap-2">
+                    {(Object.keys(SPACE_COLORS) as SpaceColor[]).map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => handleColorChange(color)}
+                        className={`h-8 w-8 rounded-full transition-all hover:scale-110 ${
+                          space.themeColor === color
+                            ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900'
+                            : ''
+                        }`}
+                        style={{ backgroundColor: SPACE_COLORS[color].primary }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
+
+            <DropdownMenu.Separator className="my-1.5 h-px bg-white/10" />
+
+            {/* New Folder */}
+            <DropdownMenu.Item className={menuItemClass}>
+              <FolderPlus className="h-4 w-4 text-slate-400" />
+              <span>New Folder</span>
+              <span className="ml-auto text-xs text-slate-500">⌘N</span>
+            </DropdownMenu.Item>
+
+            <DropdownMenu.Separator className="my-1.5 h-px bg-white/10" />
+
+            {/* Delete Space */}
+            <DropdownMenu.Item
+              className="flex cursor-pointer select-none items-center gap-2 rounded py-1.5 px-2 outline-none hover:bg-red-500/20 text-red-400 data-[highlighted]:bg-red-500/20 data-[highlighted]:text-red-400 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
+              disabled={spaces.length <= 1}
+              onSelect={handleRemove}
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Delete Space</span>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+
+      {/* Rename Dialog */}
       {isRenaming && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50">
           <div className="rounded-lg border border-white/10 bg-slate-900 p-4 shadow-xl">
             <h3 className="mb-3 text-sm font-medium text-white">Rename Space</h3>
             <input
@@ -197,6 +253,6 @@ export function SpaceContextMenu({ children, space }: SpaceContextMenuProps) {
           </div>
         </div>
       )}
-    </ContextMenu.Root>
+    </>
   );
 }

@@ -1,7 +1,7 @@
-import * as ContextMenu from '@radix-ui/react-context-menu';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ChevronRight, FolderInput, Trash2, Type } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   useMovePinnedItem,
@@ -10,6 +10,7 @@ import {
 } from '@/hooks/use-spaces-query';
 import type { PinnedItem } from '@/shared/types';
 import { useSpacesStore } from '@/store';
+import { usePortalContainer } from '@/ui/contexts/PortalContext';
 
 interface PinnedItemContextMenuProps {
   children: React.ReactNode;
@@ -22,9 +23,26 @@ export function PinnedItemContextMenu({ children, item }: PinnedItemContextMenuP
   const { mutate: moveItem } = useMovePinnedItem();
 
   const spaces = useSpacesStore((state) => state.spaces);
+  const setIsModalOpen = useSpacesStore((state) => state.setIsModalOpen);
+  const portalContainer = usePortalContainer();
 
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [isRenaming, setIsRenaming] = useState(false);
   const [newTitle, setNewTitle] = useState(item.title);
+
+  // Prevent sidebar from closing while context menu or rename dialog is open
+  useEffect(() => {
+    setIsModalOpen?.(isOpen || isRenaming);
+    return () => setIsModalOpen?.(false);
+  }, [isOpen, isRenaming, setIsModalOpen]);
+
+  const handleContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setMenuPosition({ x: event.clientX, y: event.clientY });
+    setIsOpen(true);
+  }, []);
 
   const handleRename = useCallback(() => {
     if (newTitle.trim() && newTitle !== item.title) {
@@ -42,6 +60,7 @@ export function PinnedItemContextMenu({ children, item }: PinnedItemContextMenuP
       return;
     }
     removeItem(item.id);
+    setIsOpen(false);
   }, [item, removeItem]);
 
   const handleMoveToSpace = useCallback(
@@ -49,9 +68,10 @@ export function PinnedItemContextMenu({ children, item }: PinnedItemContextMenuP
       moveItem({
         id: item.id,
         spaceName,
-        parentId: undefined, // Move to root of target space
-        index: undefined, // Add at the end
+        parentId: undefined,
+        index: undefined,
       });
+      setIsOpen(false);
     },
     [item.id, moveItem]
   );
@@ -61,56 +81,87 @@ export function PinnedItemContextMenu({ children, item }: PinnedItemContextMenuP
 
   return (
     <>
-      <ContextMenu.Root>
-        <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
-        <ContextMenu.Portal>
-          <ContextMenu.Content className="min-w-[220px] rounded-lg border border-white/10 bg-slate-900/95 p-1.5 text-sm text-slate-200 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper for context menu */}
+      <div onContextMenu={handleContextMenu} style={{ display: 'contents' }}>
+        {children}
+      </div>
+
+      {/* DropdownMenu triggered by right-click */}
+      <DropdownMenu.Root open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenu.Trigger asChild>
+          <div
+            style={{
+              position: 'fixed',
+              left: menuPosition.x,
+              top: menuPosition.y,
+              width: 1,
+              height: 1,
+              pointerEvents: 'none',
+            }}
+          />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal container={portalContainer}>
+          <DropdownMenu.Content
+            className="min-w-[220px] rounded-xl border border-white/20 bg-slate-900/98 p-1.5 text-sm text-slate-100 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+            style={{ zIndex: 99999 }}
+            sideOffset={5}
+            align="start"
+          >
             {/* Rename */}
-            <ContextMenu.Item className={menuItemClass} onSelect={() => setIsRenaming(true)}>
+            <DropdownMenu.Item
+              className={menuItemClass}
+              onSelect={() => {
+                setIsRenaming(true);
+                setIsOpen(false);
+              }}
+            >
               <Type className="h-4 w-4 text-slate-400" />
               <span>Rename...</span>
-            </ContextMenu.Item>
+            </DropdownMenu.Item>
 
             {/* Move to Space */}
-            <ContextMenu.Sub>
-              <ContextMenu.SubTrigger className={menuItemClass}>
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger className={menuItemClass}>
                 <FolderInput className="h-4 w-4 text-slate-400" />
                 <span className="flex-1">Move to Space...</span>
                 <ChevronRight className="h-4 w-4 text-slate-400" />
-              </ContextMenu.SubTrigger>
-              <ContextMenu.Portal>
-                <ContextMenu.SubContent className="min-w-[180px] rounded-lg border border-white/10 bg-slate-900/95 p-1.5 shadow-xl backdrop-blur-md">
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal container={portalContainer}>
+                <DropdownMenu.SubContent
+                  className="min-w-[180px] rounded-xl border border-white/20 bg-slate-900/98 p-1.5 shadow-2xl backdrop-blur-xl"
+                  style={{ zIndex: 99999 }}
+                >
                   {spaces.map((space) => (
-                    <ContextMenu.Item
+                    <DropdownMenu.Item
                       key={space.id}
                       className={menuItemClass}
                       onSelect={() => handleMoveToSpace(space.name)}
                     >
                       {space.icon && <span className="text-base">{space.icon}</span>}
                       <span>{space.name}</span>
-                    </ContextMenu.Item>
+                    </DropdownMenu.Item>
                   ))}
-                </ContextMenu.SubContent>
-              </ContextMenu.Portal>
-            </ContextMenu.Sub>
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
 
-            <ContextMenu.Separator className="my-1.5 h-px bg-white/10" />
+            <DropdownMenu.Separator className="my-1.5 h-px bg-white/10" />
 
             {/* Delete */}
-            <ContextMenu.Item
+            <DropdownMenu.Item
               className="flex cursor-pointer select-none items-center gap-2 rounded py-1.5 px-2 outline-none hover:bg-red-500/20 text-red-400 data-[highlighted]:bg-red-500/20 data-[highlighted]:text-red-400"
               onSelect={handleDelete}
             >
               <Trash2 className="h-4 w-4" />
               <span>{item.type === 'folder' ? 'Delete Folder' : 'Unpin'}</span>
-            </ContextMenu.Item>
-          </ContextMenu.Content>
-        </ContextMenu.Portal>
-      </ContextMenu.Root>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
 
       {/* Rename Dialog */}
       {isRenaming && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50">
           <div className="rounded-lg border border-white/10 bg-slate-900 p-4 shadow-xl">
             <h3 className="mb-3 text-sm font-medium text-white">
               Rename {item.type === 'folder' ? 'Folder' : 'Item'}

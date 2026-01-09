@@ -223,6 +223,9 @@ export const TabRow = forwardRef<HTMLDivElement, TabRowProps>(function TabRow(
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       role="group"
+      data-tab-id={tab.id}
+      data-tab-title={tab.title}
+      data-tab-url={tab.url || ''}
       {...props}
     >
       <TabPeekPreview tab={tab} isVisible={showPeek} position={peekPosition} />

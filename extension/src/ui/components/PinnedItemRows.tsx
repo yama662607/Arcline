@@ -155,6 +155,9 @@ export const PinnedTabRow = memo(function PinnedTabRow({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           title={tab.title}
+          data-pinned-item-id={tab.id}
+          data-pinned-item-title={tab.title}
+          data-pinned-item-url={tab.url}
         >
           <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
             {tab.favIconUrl ? (
