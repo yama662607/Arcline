@@ -33,4 +33,82 @@ test.describe('Context Menu', () => {
     // Verify it is gone
     await expect(page.getByText('Space to Remove')).not.toBeVisible();
   });
+
+  test('should show context menu on right-click of space', async ({ page, extensionId }) => {
+    await addServiceWorkerBridgeMock(page);
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await bypassOnboarding(page);
+
+    await page.getByRole('button', { name: /Spaces/i }).click();
+
+    // Default Space should be visible from mock
+    const defaultSpace = page.locator('div[role="button"]', { hasText: 'Default Space' });
+    await expect(defaultSpace).toBeVisible();
+
+    // Right click to open context menu
+    await defaultSpace.click({ button: 'right' });
+
+    // Verify context menu appears with expected options
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /Delete Space/i })).toBeVisible();
+  });
+});
+
+test.describe('Tab Context Menu in Index', () => {
+  test.beforeEach(async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+
+    await page.evaluate(async () => {
+      await chrome.storage.local.set({ 'arcline.hasSeenOnboarding': true });
+    });
+
+    await addServiceWorkerBridgeMock(page);
+    await page.reload();
+
+    await expect(page.getByRole('textbox').first()).toBeVisible();
+  });
+
+  test('should show pin/unpin options in tab context menu', async ({ page }) => {
+    // Find a tab to right-click
+    const exampleTab = page.getByRole('button', { name: 'Example Tab' });
+    await expect(exampleTab).toBeVisible();
+
+    // Right click to open context menu
+    await exampleTab.click({ button: 'right' });
+
+    // Verify Pin Tab option is visible
+    const pinOption = page.getByRole('menuitem', { name: /Pin Tab/i });
+    await expect(pinOption).toBeVisible();
+  });
+
+  test('should show unpin option for pinned tabs', async ({ page }) => {
+    // Find a pinned tab
+    const pinnedTab = page.getByRole('button', { name: 'Pinned Tab' });
+    await expect(pinnedTab).toBeVisible();
+
+    // Right click to open context menu
+    await pinnedTab.click({ button: 'right' });
+
+    // Verify Unpin Tab option is visible
+    const unpinOption = page.getByRole('menuitem', { name: /Unpin Tab/i });
+    await expect(unpinOption).toBeVisible();
+  });
+
+  test('should close context menu on escape', async ({ page }) => {
+    const exampleTab = page.getByRole('button', { name: 'Example Tab' });
+    await expect(exampleTab).toBeVisible();
+
+    // Open context menu
+    await exampleTab.click({ button: 'right' });
+
+    // Verify menu is open
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+
+    // Press Escape
+    await page.keyboard.press('Escape');
+
+    // Verify menu is closed
+    await expect(menu).not.toBeVisible();
+  });
 });

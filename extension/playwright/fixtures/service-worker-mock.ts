@@ -118,6 +118,31 @@ export async function addServiceWorkerBridgeMock(
             },
           ],
         },
+        {
+          id: 2,
+          name: 'Work Space',
+          color: 'green',
+          windowId: 1,
+          timestamp: Date.now(),
+          tabs: [
+            {
+              id: 401,
+              title: 'Work Tab',
+              url: 'https://work.example.com',
+              pinned: false,
+            },
+          ],
+          pinnedTabs: [],
+          pinnedItems: [],
+          temporaryTabs: [
+            {
+              id: 401,
+              title: 'Work Tab',
+              url: 'https://work.example.com',
+              pinned: false,
+            },
+          ],
+        },
       ];
 
       const mockArchivedTabs = [

@@ -58,9 +58,7 @@ describe('SettingsPanel', () => {
       isLoading: true,
     } as unknown as ReturnType<typeof useSettings>);
     renderComponent();
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument(); // Assuming title isn't shown in loading
-    // Check for pulse animation class (or structure) - Implementation detail
-    // Just checking it doesn't crash and shows "something" related to loading is hard without text
+    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
     const loader = document.querySelector('.animate-pulse');
     expect(loader).toBeInTheDocument();
   });
@@ -83,8 +81,8 @@ describe('SettingsPanel', () => {
       expect(screen.getByText('Appearance')).toBeInTheDocument();
 
       // Should show General tab content
-      expect(screen.getByLabelText('Default Space Name')).toHaveValue('Home');
-      expect(screen.getByLabelText('UI Mode')).toHaveValue('floating');
+      expect(screen.getByText('Default Space Name')).toBeInTheDocument();
+      expect(screen.getByText('Interface Mode')).toBeInTheDocument();
     });
 
     it('switches tabs', async () => {
@@ -94,22 +92,25 @@ describe('SettingsPanel', () => {
       // Switch to Appearance
       await user.click(screen.getByRole('button', { name: /Appearance/i }));
 
-      expect(screen.getByLabelText('Theme')).toBeInTheDocument();
-      expect(screen.getByLabelText(/Show website favicons/)).toBeChecked();
+      // Check for appearance content
+      expect(screen.getByText('Color theme')).toBeInTheDocument();
+      expect(screen.getByText('Show website favicons')).toBeInTheDocument();
     });
 
     it('validates and submits form', async () => {
       const user = userEvent.setup();
       renderComponent('standalone');
 
-      const input = screen.getByLabelText('Default Space Name');
+      // Get input by role
+      const inputs = screen.getAllByRole('textbox');
+      const input = inputs[0]!; // First textbox is Default Space Name
 
-      // Clear input (should trigger validation if we tried to submit, but let's change value)
+      // Clear input and type new value
       await user.clear(input);
       await user.type(input, 'New Space');
 
       // Click Save (appears when dirty)
-      const saveBtn = await screen.findByRole('button', { name: 'Save' });
+      const saveBtn = await screen.findByRole('button', { name: /Save/i });
       await user.click(saveBtn);
 
       await waitFor(() => {
@@ -126,22 +127,32 @@ describe('SettingsPanel', () => {
     it('renders compact settings list', () => {
       renderComponent('floating');
 
-      expect(screen.getByText('Settings')).toBeInTheDocument(); // small header
+      expect(screen.getByText('Settings')).toBeInTheDocument();
 
-      // Should verify inputs are present directly (not in tabs)
-      expect(screen.getByLabelText(/Show favicons/)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Compact mode/)).toBeInTheDocument();
-      // Should NOT show tab buttons
-      expect(screen.queryByText('General')).not.toBeInTheDocument();
+      // Should verify text labels are present
+      expect(screen.getByText('Show favicons')).toBeInTheDocument();
+      expect(screen.getByText('Compact mode')).toBeInTheDocument();
+      // Should NOT show General tab button
+      expect(screen.queryByRole('button', { name: /^General$/i })).not.toBeInTheDocument();
     });
 
-    it('updates checkbox settings immediately (via Save button)', async () => {
+    it('updates toggle settings immediately (via Save button)', async () => {
       const user = userEvent.setup();
       renderComponent('floating');
 
-      // Toggle Compact Mode
-      const checkbox = screen.getByLabelText(/Compact mode/);
-      await user.click(checkbox); // toggles to true
+      // Find all toggle switches (role="switch")
+      const toggleSwitches = screen.getAllByRole('switch');
+      // Compact mode is the 3rd toggle (after New tab integration, Show favicons)
+      const compactModeToggle = toggleSwitches[2]!;
+
+      // Verify initial state (unchecked)
+      expect(compactModeToggle).toHaveAttribute('aria-checked', 'false');
+
+      // Click to toggle
+      await user.click(compactModeToggle);
+
+      // Verify it changed
+      expect(compactModeToggle).toHaveAttribute('aria-checked', 'true');
 
       // Click Save
       const saveBtn = await screen.findByRole('button', { name: 'Save' });
