@@ -807,35 +807,10 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     return true;
   };
 
-  const playHandoffTransition = (transition: SpaceTransitionHandoff): boolean => {
-    const target = getTransitionTarget(deps.getShadowRoot());
-    const width = getTransitionWidth(target);
-    if (!target || !width) {
-      return false;
-    }
-
-    const progress = clamp(transition.progress, 0, 1);
-    const startOffset =
-      transition.direction === 'left' ? -(1 - progress) * width : (1 - progress) * width;
-
-    applyTransitionOffset(target, startOffset, { animate: false });
-    dispatchSwipeProgress(0);
-
-    window.setTimeout(() => {
-      applyTransitionOffset(target, 0, {
-        animate: true,
-        durationMs: HANDOFF_ANIMATION_MS,
-      });
-    }, 0);
-
-    return true;
-  };
-
   return {
     setup,
     teardown,
     updateSettings,
     triggerFlickTransition,
-    playHandoffTransition,
   };
 }

@@ -47,8 +47,7 @@ let lastPointerClientX: number | null = null;
 let lastPointerClientY: number | null = null;
 let config = getEdgeDetectionConfig();
 let lastInferenceTime = 0;
-let pendingTransition: SpaceTransitionHandoff | null = null;
-let transitionApplyTimer: number | null = null;
+
 subscribeEdgeDetectionConfig((next) => {
   config = next;
 });
@@ -201,43 +200,6 @@ function handleSpaceBarSwitch(event: Event) {
   if (!started) {
     sendActivateSpace(idOrUuid, { perfId, t0 });
   }
-}
-
-function clearTransitionApplyTimer() {
-  if (transitionApplyTimer !== null) {
-    window.clearTimeout(transitionApplyTimer);
-    transitionApplyTimer = null;
-  }
-}
-
-function scheduleTransitionApply() {
-  if (!pendingTransition) return;
-
-  const startedAt = Date.now();
-  const attempt = () => {
-    if (!pendingTransition) {
-      transitionApplyTimer = null;
-      return;
-    }
-
-    const applied = gestureController.playHandoffTransition(pendingTransition);
-    if (applied) {
-      pendingTransition = null;
-      transitionApplyTimer = null;
-      return;
-    }
-
-    if (Date.now() - startedAt > 600) {
-      pendingTransition = null;
-      transitionApplyTimer = null;
-      return;
-    }
-
-    transitionApplyTimer = window.setTimeout(attempt, 50);
-  };
-
-  clearTransitionApplyTimer();
-  attempt();
 }
 
 function queueDebugInfo(info: DebugInfo) {
@@ -597,7 +559,6 @@ async function startFloatingUi(options?: {
   } else {
     floatingInstance?.openFromHover();
   }
-  scheduleTransitionApply();
 }
 
 function setupEdgeDetection() {
@@ -823,9 +784,6 @@ function teardownFloatingUi() {
 
   window.__arclineFloatingReady = false;
 
-  pendingTransition = null;
-  clearTransitionApplyTimer();
-
   teardownEdgeDetection();
   gestureController.teardown();
 
@@ -888,11 +846,6 @@ function handleOpenFloatingUiWithData(payload: {
     console.log(`[Arcline] Zustand store activeSpaceId set to ${payload.activeSpaceId}`);
   }
 
-  if (payload.transition) {
-    pendingTransition = payload.transition;
-    scheduleTransitionApply();
-  }
-
   ensureHost();
   ensureBootstrapHotzone();
 
@@ -941,12 +894,6 @@ function handleRuntimeMessage(message: unknown) {
 
   if (payload.command === 'currentUiMode' && payload.mode) {
     applyUiMode(payload.mode);
-    return;
-  }
-
-  if (payload.command === 'spaceTransition' && payload.transition) {
-    pendingTransition = payload.transition;
-    scheduleTransitionApply();
     return;
   }
 
