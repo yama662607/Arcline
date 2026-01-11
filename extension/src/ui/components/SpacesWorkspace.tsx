@@ -297,14 +297,6 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
           <FavoritesBar pinnedTabs={favoriteTabs} />
         </div>
 
-        {/* Space Name - Between Favorites and Pinned */}
-        <div className="flex-shrink-0 px-4 py-2 flex items-center gap-2">
-          {activeSpace?.icon && <span className="text-lg drop-shadow-md">{activeSpace.icon}</span>}
-          <h2 className="text-sm font-bold text-white tracking-wide drop-shadow-md">
-            {activeSpace?.name || 'Spaces'}
-          </h2>
-        </div>
-
         {/* Main Content Area */}
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="flex h-full flex-col">
@@ -318,12 +310,16 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                       const space = getSpaceById(spaceId);
                       const temporaryTabs = buildTemporaryTabs(space);
                       return space ? (
-                        <div className="space-y-4 px-2 pb-4 pt-4">
-                          {/* Space component - Simplified for Floating UI */}
-
-                          {/* We don't need the Space Header here as FloatingApp has it.
-                              However, MoreMenu provides space-specific actions.
-                              Let's hide the header and just show lists. */}
+                        <div className="space-y-4 px-2 pb-4 pt-2">
+                          {/* Space Name - Moves with swipe */}
+                          <div className="px-2 py-1 flex items-center gap-2">
+                            {space.icon && (
+                              <span className="text-lg drop-shadow-md">{space.icon}</span>
+                            )}
+                            <h2 className="text-sm font-bold text-white tracking-wide drop-shadow-md">
+                              {space.name || 'Spaces'}
+                            </h2>
+                          </div>
 
                           {/* Pinned Items Section Header */}
                           {(space.pinnedItems?.length > 0 || space.pinnedTabs?.length > 0) && (

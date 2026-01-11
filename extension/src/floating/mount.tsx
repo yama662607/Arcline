@@ -278,7 +278,7 @@ const FloatingUiRoot = forwardRef<
         <AnimatePresence mode="wait">
           {(open || pinned) && (
             <motion.aside
-              key={`arcline-floating-panel-${activeSpaceId ?? 'none'}`}
+              key="arcline-floating-panel"
               data-testid="arcline-floating-panel"
               className="pointer-events-auto flex h-full flex-1"
               style={{ marginLeft: '-5px', marginTop: '3px', marginBottom: '3px' }}
