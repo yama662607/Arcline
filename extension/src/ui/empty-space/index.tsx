@@ -13,6 +13,11 @@ if (rootElement) {
     </React.StrictMode>
   );
   console.log('[Arcline] 🚀 EmptySpace page initialized');
+
+  // Auto-open Floating UI after page initialization
+  requestAnimationFrame(() => {
+    autoOpenFloatingUi();
+  });
 } else {
   console.error('[Arcline] ❌ Root element not found in empty-space.html');
 }
@@ -213,5 +218,53 @@ async function handleOpenFloatingUi(message: {
       spaces: message.spaces,
       activeSpaceId: message.activeSpaceId,
     });
+  }
+}
+
+// Auto-open Floating UI when the empty-space page loads
+// This runs on initial page load only - message handler takes over after that
+async function autoOpenFloatingUi() {
+  // Skip if UI is already open (message handler already triggered)
+  if (floatingInstance) {
+    console.log('[Arcline] ⏭️ Skipping auto-open: Floating UI already exists');
+    return;
+  }
+
+  console.log('[Arcline] 🚀 Auto-opening Floating UI on empty-space page');
+
+  try {
+    // Small delay to allow message listeners to be ready
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Skip if UI was opened by message handler during the delay
+    if (floatingInstance) {
+      console.log('[Arcline] ⏭️ Skipping auto-open: Floating UI created during delay');
+      return;
+    }
+
+    // Request spaces snapshot from background
+    const response = await chrome.runtime.sendMessage({
+      command: 'requestSpacesSnapshot',
+    });
+
+    if (response?.spaces && Array.isArray(response.spaces)) {
+      console.log(`[Arcline] 📦 Received ${response.spaces.length} spaces from background`);
+
+      // Get active space ID from current tab's group
+      const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const activeSpaceId = currentTab?.groupId ?? response.spaces[0]?.id ?? null;
+
+      // Open the floating UI
+      await handleOpenFloatingUi({
+        spaces: response.spaces,
+        activeSpaceId: activeSpaceId,
+      });
+
+      console.log('[Arcline] ✅ Floating UI auto-opened successfully');
+    } else {
+      console.warn('[Arcline] ⚠️ No spaces data received from background');
+    }
+  } catch (error) {
+    console.error('[Arcline] ❌ Failed to auto-open Floating UI:', error);
   }
 }
