@@ -2,25 +2,13 @@
 
 import '@/dev/reactPreamble';
 
-import type { SwipeDirection } from '@/lib/gestures';
-import type { SpaceSnapshot, SpaceTransitionHandoff } from '@/shared/types';
+import { SwipeDetector } from '@/lib/gestures';
+import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from './shared-utils';
 import {
   EdgeDetectionState,
   getEdgeDetectionConfig,
   subscribeEdgeDetectionConfig,
 } from './edge-detection-config';
-import { createFloatingGestureController } from './floating-gestures';
-import {
-  disableSwipeDebug,
-  enableSwipeDebug,
-  exportSwipeLogsToClipboard,
-  exportSwipeLogsToFile,
-  isSwipeDebugActive,
-  printSwipeLogsToConsole,
-  resetSwipeDebugStats,
-} from './floating-swipe-debug';
-import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from './shared-utils';
-import { useSpacesStore } from '@/store';
 
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
@@ -38,6 +26,9 @@ let edgeDetectionHandler: ((e: PointerEvent) => void) | null = null;
 let pointerMoveHandler: ((e: PointerEvent) => void) | null = null;
 let pointerRawUpdateHandler: ((e: Event) => void) | null = null;
 let pointerLeaveHandler: ((e: PointerEvent) => void) | null = null;
+let gestureHandler: ((e: WheelEvent) => void) | null = null;
+const swipeDetector = new SwipeDetector(); // Uses default config with cooldown
+let gesturesEnabled = true;
 let edgeDetectionState: EdgeDetectionState = EdgeDetectionState.IDLE;
 let lastVelocityX = 0;
 let lastVelocityY = 0;
@@ -47,7 +38,6 @@ let lastPointerClientX: number | null = null;
 let lastPointerClientY: number | null = null;
 let config = getEdgeDetectionConfig();
 let lastInferenceTime = 0;
-
 subscribeEdgeDetectionConfig((next) => {
   config = next;
 });
@@ -82,123 +72,6 @@ let pendingDebugInfo: DebugInfo | null = null;
 declare global {
   interface Window {
     __arclineFloatingReady?: boolean;
-  }
-}
-
-const gestureController = createFloatingGestureController({
-  getShadowRoot: () => shadowRoot,
-  getHostElement: () => hostElement,
-  ensureHost,
-  onNavigateSpace: (direction, options) => sendNavigateSpace(direction, options),
-  onPageTransition: () => {
-    floatingInstance?.showPageTransition();
-  },
-});
-
-function sendNavigateSpace(
-  direction: SwipeDirection,
-  options?: {
-    mode: 'handoff' | 'flick';
-    transition?: SpaceTransitionHandoff;
-    perfId?: string;
-    t0?: number;
-  }
-) {
-  if (typeof crypto.randomUUID !== 'function') return;
-
-  // If this window is already in a transition-out phase, the mask should already be visible.
-  // We don't necessarily need to call showPageTransition here if it was already called by onPageTransition.
-
-  const t1 = Date.now();
-  if (options?.perfId) {
-    console.log(
-      `[Arcline][Perf][${options.perfId}] T1: Sending navigateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (options.t0 || t1)}ms)`
-    );
-  }
-
-  chrome.runtime.sendMessage(
-    {
-      method: 'navigateSpace',
-      params: {
-        direction,
-        transition: options?.transition,
-        perfId: options?.perfId,
-        t0: options?.t0,
-      },
-      id: crypto.randomUUID(),
-    },
-    () => {
-      if (chrome.runtime.lastError) {
-        // Ignore
-      }
-    }
-  );
-}
-
-function sendActivateSpace(
-  spaceIdOrUuid: number | string,
-  options?: { perfId?: string; t0?: number }
-) {
-  if (typeof crypto.randomUUID !== 'function') return;
-
-  const perfId = options?.perfId || `activate-${Math.random().toString(36).slice(2, 6)}`;
-  const t0 = options?.t0 || Date.now();
-  const t1 = Date.now();
-
-  console.log(
-    `[Arcline][Perf][${perfId}] T1: Sending activateSpace message at ${new Date(t1).toISOString().split('T')[1]} (Delta T0-T1: ${t1 - (t0 || t1)}ms)`
-  );
-
-  const params: { spaceId?: number; spaceUuid?: string; perfId?: string; t0?: number } = {
-    perfId,
-    t0,
-  };
-
-  if (typeof spaceIdOrUuid === 'number') {
-    params.spaceId = spaceIdOrUuid;
-  } else {
-    params.spaceUuid = spaceIdOrUuid;
-  }
-
-  chrome.runtime.sendMessage(
-    {
-      method: 'activateSpace',
-      params,
-      id: crypto.randomUUID(),
-    },
-    () => {
-      if (chrome.runtime.lastError) {
-        // Ignore
-      }
-    }
-  );
-}
-// ...
-function handleSpaceBarSwitch(event: Event) {
-  const detail = (
-    event as CustomEvent<{ spaceId?: number; spaceUuid?: string; direction: SwipeDirection }>
-  ).detail;
-  if (
-    !detail ||
-    (typeof detail.spaceId !== 'number' && typeof detail.spaceUuid !== 'string') ||
-    !detail.direction
-  )
-    return;
-
-  const idOrUuid = detail.spaceUuid || detail.spaceId!;
-
-  const perfId = `spacebar-${Math.random().toString(36).slice(2, 6)}`;
-  const t0 = Date.now();
-  console.log(
-    `[Arcline][Perf][${perfId}] T0: Spacebar switch triggered at ${new Date(t0).toISOString().split('T')[1]} (${t0})`
-  );
-
-  const started = gestureController.triggerFlickTransition(detail.direction, () => {
-    sendActivateSpace(idOrUuid, { perfId, t0 });
-  });
-
-  if (!started) {
-    sendActivateSpace(idOrUuid, { perfId, t0 });
   }
 }
 
@@ -366,7 +239,6 @@ function ensureHost() {
   element.style.width = `${HOTZONE_WIDTH_PX}px`;
   element.style.transition = 'none'; // Disable CSS transitions to avoid animation conflicts
   element.style.zIndex = '2147483646';
-  // Initially auto to allow edge detection on the 8px strip
   element.style.pointerEvents = 'auto';
   document.documentElement.append(element);
 
@@ -399,65 +271,7 @@ function setHostPointerEvents(enabled: boolean) {
   hostElement.style.pointerEvents = enabled ? 'auto' : 'none';
 }
 
-/**
- * Shows a subtle notification to the user that the page needs to be refreshed
- * because the extension has been updated/reloaded.
- */
-function showRefreshRequiredNotification() {
-  if (document.getElementById('arcline-refresh-notification')) return;
-
-  const div = document.createElement('div');
-  div.id = 'arcline-refresh-notification';
-  Object.assign(div.style, {
-    position: 'fixed',
-    bottom: '24px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    background: '#1a1a1b',
-    color: '#ffffff',
-    padding: '12px 32px',
-    borderRadius: '16px',
-    fontSize: '14px',
-    fontWeight: '600',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-    zIndex: '2147483647',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    border: '1px solid rgba(255,255,255,0.1)',
-    cursor: 'pointer',
-    backdropFilter: 'blur(12px)',
-    animation: 'arcline-fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-  });
-
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes arcline-fade-in-up {
-      from { opacity: 0; transform: translate(-50%, 10px); }
-      to { opacity: 1; transform: translate(-50%, 0); }
-    }
-  `;
-  document.head.append(style);
-
-  div.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-      <line x1="12" y1="9" x2="12" y2="13"></line>
-      <line x1="12" y1="17" x2="12.01" y2="17"></line>
-    </svg>
-    <span>Extension Updated: Please Refresh Page</span>
-  `;
-
-  div.onclick = () => window.location.reload();
-  document.body.append(div);
-}
-
 function openFloatingUiFromEdge() {
-  if (!hasChromeRuntime()) {
-    showRefreshRequiredNotification();
-    return;
-  }
   if (floatingInstance) {
     floatingInstance.openFromHover();
     setHostPointerEvents(false);
@@ -471,23 +285,8 @@ function updateEdgeDetectionStateForX(x: number) {
     edgeDetectionState = EdgeDetectionState.BORDER;
     return;
   }
-  const isProximity = x <= config.viewportEdgeThresholdPx;
-  edgeDetectionState = isProximity ? EdgeDetectionState.PROXIMITY : EdgeDetectionState.IDLE;
-
-  if (isProximity) {
-    void prewarmFloatingUi();
-  }
-}
-
-async function prewarmFloatingUi() {
-  if (mountPromise || floatingInstance) return;
-
-  // Start loading the heavy mount module ahead of time
-  mountPromise = import('../floating/mount').catch((error) => {
-    console.warn('[Arcline] Failed to pre-warm floating UI', error);
-    mountPromise = null;
-    return null;
-  });
+  edgeDetectionState =
+    x <= config.viewportEdgeThresholdPx ? EdgeDetectionState.PROXIMITY : EdgeDetectionState.IDLE;
 }
 
 function maybeLogEdgeDebug(source: string, payload: Record<string, unknown>) {
@@ -495,13 +294,7 @@ function maybeLogEdgeDebug(source: string, payload: Record<string, unknown>) {
   console.debug('[Arcline][EdgeDetection]', source, payload);
 }
 
-async function startFloatingUi(options?: {
-  instant?: boolean;
-  commandPalette?: boolean;
-  perfId?: string;
-  t0?: number;
-  data?: { spaces: SpaceSnapshot[]; activeSpaceId: number };
-}) {
+async function startFloatingUi(options?: { instant?: boolean; commandPalette?: boolean }) {
   if (!hostElement || !shadowRoot) return;
   if (!mountPromise) {
     mountPromise = import('../floating/mount').catch((error) => {
@@ -515,7 +308,11 @@ async function startFloatingUi(options?: {
   if (!module) return;
   if (floatingInstance) {
     if (options?.instant) {
-      floatingInstance.openInstantly(options.data);
+      floatingInstance.openInstantly();
+    } else if (options?.commandPalette) {
+      floatingInstance.openCommandPalette();
+    } else {
+      floatingInstance.openFromHover();
     }
     return;
   }
@@ -524,27 +321,11 @@ async function startFloatingUi(options?: {
     .mountFloatingUi({
       host: hostElement,
       shadowRoot,
-      perfId: options?.perfId,
-      t0: options?.t0,
       onBootstrapReady: () => {
         bootstrapHotzone?.remove();
         bootstrapHotzone = null;
       },
-      onClosed: () => {
-        enableHostElementPointerEvents();
-      },
-      onOpenStateChange: (isOpen: boolean) => {
-        if (hostElement) {
-          hostElement.setAttribute('aria-hidden', (!isOpen).toString());
-          if (isOpen) {
-            hostElement.style.width = '100%';
-            hostElement.style.pointerEvents = 'none';
-          } else {
-            hostElement.style.width = `${HOTZONE_WIDTH_PX}px`;
-            hostElement.style.pointerEvents = 'auto';
-          }
-        }
-      },
+      onClosed: enableHostElementPointerEvents,
     })
     .catch((error) => {
       console.error('[Arcline] Failed to mount floating UI', error);
@@ -553,7 +334,7 @@ async function startFloatingUi(options?: {
     });
 
   if (options?.instant) {
-    floatingInstance?.openInstantly(options.data);
+    floatingInstance?.openInstantly();
   } else if (options?.commandPalette) {
     floatingInstance?.openCommandPalette();
   } else {
@@ -569,7 +350,7 @@ function setupEdgeDetection() {
     void import('./edge-detection-debug')
       .then((module) => {
         updateDebugInfoFn = module.updateDebugInfo;
-        // module.enableEdgeDetectionDebug(); // Disabled by default, use Ctrl+Shift+D to toggle
+        module.enableEdgeDetectionDebug();
       })
       .catch((error) => {
         console.warn('[Arcline] Failed to load edge detection debug', error);
@@ -677,94 +458,135 @@ function teardownEdgeDetection() {
   }
 }
 
-// Keyboard shortcuts for swipe debug and space switching
-document.addEventListener('keydown', (e) => {
-  // Debug shortcuts
-  if (e.ctrlKey && e.shiftKey && e.key === 'S') {
-    if (isSwipeDebugActive()) {
-      disableSwipeDebug();
-      console.log('[Arcline Debug] Swipe debug disabled');
-    } else {
-      enableSwipeDebug();
-      console.log('[Arcline Debug] Swipe debug enabled');
-    }
-  }
+function setupTrackpadGestures() {
+  if (gestureHandler) return;
 
-  if (e.ctrlKey && e.shiftKey && e.key === 'R') {
-    resetSwipeDebugStats();
-    console.log('[Arcline Debug] Swipe stats reset');
-  }
+  gestureHandler = (e: WheelEvent) => {
+    if (!gesturesEnabled) return;
 
-  // Export logs to clipboard as JSON
-  if (e.ctrlKey && e.shiftKey && e.key === 'E') {
-    exportSwipeLogsToClipboard();
-  }
-
-  // Print logs to console
-  if (e.ctrlKey && e.shiftKey && e.key === 'L') {
-    printSwipeLogsToConsole();
-  }
-
-  // Export logs to file (download)
-  if (e.ctrlKey && e.shiftKey && e.key === 'W') {
-    exportSwipeLogsToFile();
-  }
-
-  // --- Arc-like Space Switching Shortcuts ---
-
-  // Control+1-9 (Mac & Windows): Switch to space by index
-  if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
-    const numKey = parseInt(e.key, 10);
-    if (numKey >= 1 && numKey <= 9) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleSpaceIndexSwitch(numKey - 1);
+    // Ignore vertical scrolling dominant events early
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
       return;
     }
-  }
 
-  // Command+Option+Arrow (Mac) or Ctrl+Alt+Arrow (Windows/Linux): Navigate spaces
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  const isSequentialNav = isMac
-    ? e.metaKey && e.altKey && !e.ctrlKey && !e.shiftKey
-    : e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey;
-
-  if (isSequentialNav && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    // Prevent browser's back/forward navigation gesture for ALL horizontal scrolls
+    // This must be called before processing to block browser gestures during accumulation
     e.preventDefault();
-    e.stopPropagation();
-    const direction: SwipeDirection = e.key === 'ArrowLeft' ? 'right' : 'left';
-    handleSequentialSpaceNav(direction);
-    return;
-  }
-});
 
-function handleSpaceIndexSwitch(index: number) {
-  const perfId = `kbd-idx-${Math.random().toString(36).slice(2, 6)}`;
-  const t0 = Date.now();
-  console.log(`[Arcline] Keyboard space switch to index ${index}`);
+    const direction = swipeDetector.process(e);
+    if (direction) {
+      if (typeof crypto.randomUUID !== 'function') return;
 
-  // Request spaces snapshot and switch to the space at the given index
-  chrome.runtime.sendMessage(
-    {
-      method: 'activateSpaceByIndex',
-      params: { index, perfId, t0 },
-      id: crypto.randomUUID(),
-    },
-    () => {
-      if (chrome.runtime.lastError) {
-        // Ignore
-      }
+      chrome.runtime.sendMessage(
+        {
+          method: 'navigateSpace',
+          params: { direction },
+          id: crypto.randomUUID(),
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            // Ignore
+          }
+        }
+      );
+
+      showFeedback(direction);
     }
-  );
+  };
+
+  // passive: false is required to use preventDefault() for blocking browser gestures
+  window.addEventListener('wheel', gestureHandler, { passive: false });
 }
 
-function handleSequentialSpaceNav(direction: SwipeDirection) {
-  const perfId = `kbd-nav-${Math.random().toString(36).slice(2, 6)}`;
-  const t0 = Date.now();
-  console.log(`[Arcline] Keyboard sequential navigation: ${direction}`);
+const FEEDBACK_ID = 'arcline-swipe-feedback';
 
-  // Use the existing sendNavigateSpace function
-  sendNavigateSpace(direction, { mode: 'flick', perfId, t0 });
+function ensureFeedbackStyles() {
+  if (!shadowRoot) return;
+  if (shadowRoot.querySelector('#arcline-feedback-styles')) return;
+
+  const style = document.createElement('style');
+  style.id = 'arcline-feedback-styles';
+  style.textContent = `
+    .arcline-feedback {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 2147483647;
+      opacity: 0;
+      transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+      background: rgba(0, 0, 0, 0.75);
+      border-radius: 16px;
+      padding: 24px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .arcline-feedback.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.0);
+    }
+    .arcline-feedback.enter {
+      transform: translate(-50%, -50%) scale(0.9);
+    }
+    .arcline-feedback svg {
+      width: 48px;
+      height: 48px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  `;
+  shadowRoot.append(style);
+}
+
+function showFeedback(direction: 'left' | 'right') {
+  ensureHost();
+  if (!shadowRoot) return;
+  ensureFeedbackStyles();
+
+  let el = shadowRoot.getElementById(FEEDBACK_ID) as HTMLDivElement;
+  if (!el) {
+    el = document.createElement('div');
+    el.id = FEEDBACK_ID;
+    el.className = 'arcline-feedback enter';
+    shadowRoot.append(el);
+  }
+
+  // Icons (Chevron Left / Right)
+  const leftIcon = `<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>`;
+  const rightIcon = `<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>`;
+
+  el.innerHTML = direction === 'left' ? leftIcon : rightIcon;
+
+  // Reset animation
+  el.classList.remove('show');
+  el.classList.add('enter');
+
+  // Force reflow
+  void el.offsetWidth;
+
+  // Animate in
+  el.classList.add('show');
+  el.classList.remove('enter');
+
+  // Hide after delay (short pulse)
+  setTimeout(() => {
+    el.classList.remove('show');
+  }, 600);
+}
+
+function teardownTrackpadGestures() {
+  if (gestureHandler) {
+    window.removeEventListener('wheel', gestureHandler);
+    gestureHandler = null;
+  }
 }
 
 // Re-enable hostElement pointer events when UI is closed
@@ -785,7 +607,7 @@ function teardownFloatingUi() {
   window.__arclineFloatingReady = false;
 
   teardownEdgeDetection();
-  gestureController.teardown();
+  teardownTrackpadGestures();
 
   if (hostElement) {
     hostElement.remove();
@@ -803,95 +625,15 @@ function applyUiMode(mode: UiMode) {
     ensureHost();
     ensureBootstrapHotzone();
     setupEdgeDetection();
-    gestureController.setup();
+    setupTrackpadGestures();
   } else {
     teardownFloatingUi();
   }
 }
 
-import { getServiceWorkerBridge } from '@/hooks/use-service-worker-bridge';
-
-function handleOpenFloatingUiWithData(payload: {
-  perfId?: string;
-  t0?: number;
-  spaces?: SpaceSnapshot[];
-  transition?: SpaceTransitionHandoff;
-  instant?: boolean;
-  activeSpaceId?: number;
-}) {
-  const t6 = Date.now();
-  const { perfId, t0 } = payload;
-  if (perfId) {
-    console.log(
-      `[Arcline][Perf][${perfId}] T6: UI Message received on target tab at ${new Date(t6).toISOString().split('T')[1]} (Total Latency T0-T6: ${t6 - (t0 || t6)}ms)`
-    );
-  }
-
-  console.log('[Arcline] 📥 handleOpenFloatingUiWithData received', {
-    activeSpaceId: payload.activeSpaceId,
-    spacesCount: payload.spaces?.length,
-    perfId: payload.perfId,
-  });
-
-  if (payload.spaces) {
-    // Pre-populate both caches directly to avoid query delay and stale UI flash
-    getServiceWorkerBridge().updateSpacesCache(payload.spaces);
-    // Also update Zustand store which mount.tsx uses for rendering (synchronous)
-    useSpacesStore.getState().setSpaces(payload.spaces);
-    console.log('[Arcline] Zustand store updated with spaces');
-  }
-
-  if (payload.activeSpaceId !== undefined) {
-    useSpacesStore.getState().setActiveSpace(payload.activeSpaceId);
-    console.log(`[Arcline] Zustand store activeSpaceId set to ${payload.activeSpaceId}`);
-  }
-
-  ensureHost();
-  ensureBootstrapHotzone();
-
-  // Wait for React to process the Zustand state update before opening UI
-  // This ensures the new space data is rendered, not stale data
-  queueMicrotask(() => {
-    requestAnimationFrame(() => {
-      console.log('[Arcline] 🚀 Calling startFloatingUi from message handler');
-      void startFloatingUi({
-        instant: payload.instant,
-        perfId: perfId,
-        t0: t0,
-        data: {
-          spaces: payload.spaces || [],
-          activeSpaceId: payload.activeSpaceId || -1,
-        },
-      });
-    });
-  });
-}
-
 function handleRuntimeMessage(message: unknown) {
   if (typeof message !== 'object' || message === null) return;
-  const payload = message as {
-    command?: string;
-    mode?: UiMode;
-    transition?: SpaceTransitionHandoff;
-    spaces?: SpaceSnapshot[];
-    instant?: boolean;
-    activeSpaceId?: number;
-  };
-
-  if (payload.command === 'openFloatingUiWithData') {
-    handleOpenFloatingUiWithData(
-      message as {
-        perfId?: string;
-        t0?: number;
-        spaces?: SpaceSnapshot[];
-        transition?: SpaceTransitionHandoff;
-        instant?: boolean;
-        activeSpaceId?: number;
-      }
-    );
-    return;
-  }
-
+  const payload = message as { command?: string; mode?: UiMode };
   if (payload.command === 'currentUiMode' && payload.mode) {
     applyUiMode(payload.mode);
     return;
@@ -909,15 +651,7 @@ function handleRuntimeMessage(message: unknown) {
     void startFloatingUi({ instant: true });
   }
 
-  if (payload.command === 'preloadFloatingUi') {
-    void prewarmFloatingUi();
-  }
-
   if (payload.command === 'openCommandPalette') {
-    if (!hasChromeRuntime()) {
-      showRefreshRequiredNotification();
-      return;
-    }
     ensureHost();
     ensureBootstrapHotzone();
     void startFloatingUi({ commandPalette: true });
@@ -967,14 +701,14 @@ async function initialize() {
   ]);
 
   if (settings) {
-    gestureController.updateSettings(settings);
+    swipeDetector.updateConfig({ threshold: settings.gestureSensitivity });
+    gesturesEnabled = settings.gesturesEnabled;
   }
 
   applyUiMode(mode);
 
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
   window.addEventListener('message', handleWindowMessage);
-  window.addEventListener('arcline-space-bar-switch', handleSpaceBarSwitch);
 
   void syncZoomLevel();
 }

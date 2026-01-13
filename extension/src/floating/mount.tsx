@@ -11,41 +11,34 @@ import React, {
   useState,
 } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { queryClient } from '@/lib/query-client';
 import { getSpaceTheme } from '@/lib/space-theme';
+import { queryClient } from '@/lib/query-client';
 import { useSpacesStore } from '@/store';
-import type { SpaceSnapshot } from '@/shared/types';
-import { PortalProvider } from '@/ui/contexts/PortalContext';
 import stylesText from '@/styles.css?inline';
 
-import FloatingApp from './FloatingApp';
+const FloatingApp = React.lazy(() => import('./FloatingApp'));
 const CommandPalette = React.lazy(() =>
   import('./CommandPalette').then((module) => ({ default: module.CommandPalette }))
 );
 
 export interface FloatingUiInstance {
   openFromHover(): void;
-  openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }): void;
+  openInstantly(): void;
   openCommandPalette(): void;
-  showPageTransition(): void;
   destroy(): void;
 }
 
 interface MountOptions {
   host: HTMLElement;
   shadowRoot: ShadowRoot;
-  perfId?: string;
-  t0?: number;
   onBootstrapReady?: () => void;
   onClosed?: () => void;
-  onOpenStateChange?: (isOpen: boolean) => void;
 }
 
 interface FloatingUiHandle {
   openFromHover(): void;
-  openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }): void;
+  openInstantly(): void;
   openCommandPalette(): void;
-  showPageTransition(): void;
   destroy(): void;
 }
 
@@ -56,19 +49,16 @@ function injectStyles(shadowRoot: ShadowRoot) {
   const style = document.createElement('style');
   style.setAttribute('data-arcline-floating-style', 'true');
   style.textContent = stylesText;
+  if (import.meta.env.DEV) {
+    console.log('[Arcline-Debug] Styles Content Preview:', stylesText.slice(0, 200));
+  }
   shadowRoot.append(style);
 }
 
 const FloatingUiRoot = forwardRef<
   FloatingUiHandle,
-  {
-    onBootstrapReady?: () => void;
-    onClosed?: () => void;
-    onOpenStateChange?: (isOpen: boolean) => void;
-    perfId?: string;
-    t0?: number;
-  }
->(({ onBootstrapReady, onClosed, onOpenStateChange, perfId, t0 }, ref) => {
+  { onBootstrapReady?: () => void; onClosed?: () => void }
+>(({ onBootstrapReady, onClosed }, ref) => {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
@@ -114,17 +104,15 @@ const FloatingUiRoot = forwardRef<
     }
   }, []);
 
-  const isModalOpen = useSpacesStore((state) => state.isModalOpen);
-
   const scheduleClose = useCallback(() => {
-    if (pinned || isModalOpen) return;
+    if (pinned) return;
     clearCloseTimer();
     closeTimer.current = window.setTimeout(() => {
       setOpen(false);
       // Re-enable hostElement pointer events when UI closes
       onClosed?.();
     }, 220);
-  }, [clearCloseTimer, onClosed, pinned, isModalOpen]);
+  }, [clearCloseTimer, onClosed, pinned]);
 
   const cancelClose = useCallback(() => {
     clearCloseTimer();
@@ -148,17 +136,8 @@ const FloatingUiRoot = forwardRef<
         setSkipAnimation(false);
         setOpen(true);
       },
-      openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }) {
+      openInstantly() {
         cancelClose();
-        // Update store immediately before opening to ensure no flash of old content
-        if (data) {
-          if (data.spaces) {
-            useSpacesStore.getState().setSpaces(data.spaces);
-          }
-          if (typeof data.activeSpaceId === 'number') {
-            useSpacesStore.getState().setActiveSpace(data.activeSpaceId);
-          }
-        }
         setSkipAnimation(true);
         setOpen(true);
         // Reset animation flag after a short delay
@@ -166,9 +145,6 @@ const FloatingUiRoot = forwardRef<
       },
       openCommandPalette() {
         setShowPalette(true);
-      },
-      showPageTransition() {
-        // No-op: blur transitions removed
       },
       destroy() {
         cancelClose();
@@ -183,42 +159,14 @@ const FloatingUiRoot = forwardRef<
 
   useEffect(() => {
     onBootstrapReady?.();
-    if (perfId) {
-      const t9 = Date.now();
-      console.log(
-        `[Arcline][Perf][${perfId}] T9: FloatingUiRoot Ready (useEffect) at ${new Date(t9).toISOString().split('T')[1]} (Total Latency T0-T9: ${t9 - (t0 || t9)}ms)`
-      );
-
-      requestAnimationFrame(() => {
-        const t10 = Date.now();
-        console.log(
-          `[Arcline][Perf][${perfId}] T10: First Frame Rendered at ${new Date(t10).toISOString().split('T')[1]} (Total Latency T0-T10: ${t10 - (t0 || t10)}ms)`
-        );
-      });
-    }
-  }, [onBootstrapReady, perfId, t0]);
+  }, [onBootstrapReady]);
 
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
-
-  // Listen for Command Palette open event from NewTabButton
-  useEffect(() => {
-    const handleOpenCommandPalette = () => {
-      setShowPalette(true);
-    };
-    window.addEventListener('arcline-open-command-palette', handleOpenCommandPalette);
-    return () => {
-      window.removeEventListener('arcline-open-command-palette', handleOpenCommandPalette);
-    };
-  }, []);
 
   useEffect(() => {
     // We do NOT set host styles here anymore to avoid conflicting with zoom correction.
     // The host element is styled by floating-ui.ts content script.
   }, []);
-
-  useEffect(() => {
-    onOpenStateChange?.(open || pinned);
-  }, [open, pinned, onOpenStateChange]);
 
   return (
     <div className="pointer-events-none fixed inset-y-0 left-0 flex w-full max-w-[300px] font-sans text-base leading-normal text-left">
@@ -232,15 +180,11 @@ const FloatingUiRoot = forwardRef<
         }}
         onPointerLeave={handlePointerLeave}
       />
-      <div
-        className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch"
-        style={{ zIndex: 10 }}
-      >
+      <div className="pointer-events-none flex h-full w-full max-w-[332px] items-stretch">
         <button
           data-testid="arcline-floating-hotzone"
           type="button"
           className="relative flex w-[8px] flex-col items-center justify-center appearance-none border-none bg-transparent opacity-0 outline-none transition-all focus:outline-none active:scale-95"
-          style={{ zIndex: 11 }}
           onPointerEnter={() => {
             cancelClose();
             setOpen(true);
@@ -275,7 +219,7 @@ const FloatingUiRoot = forwardRef<
           tabIndex={0}
           title={pinned ? 'Click to unpin sidebar' : 'Hover or click to open sidebar'}
         />
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {(open || pinned) && (
             <motion.aside
               key="arcline-floating-panel"
@@ -349,58 +293,32 @@ const FloatingUiRoot = forwardRef<
 });
 FloatingUiRoot.displayName = 'FloatingUiRoot';
 
-export async function mountFloatingUi(options: MountOptions): Promise<FloatingUiInstance> {
-  const { host, shadowRoot, perfId, t0, onBootstrapReady, onClosed, onOpenStateChange } = options;
+export async function mountFloatingUi({
+  host,
+  shadowRoot,
+  onBootstrapReady,
+  onClosed,
+}: MountOptions): Promise<FloatingUiInstance> {
   void host;
-  const t7 = Date.now();
-  if (perfId)
-    console.log(
-      `[Arcline][Perf][${perfId}] T7: mountFloatingUi started at ${new Date(t7).toISOString().split('T')[1]}`
-    );
-
   injectStyles(shadowRoot);
 
   const container = document.createElement('div');
   shadowRoot.append(container);
   const rootRef = React.createRef<FloatingUiHandle>();
   const root: Root = createRoot(container);
-
-  const t8 = Date.now();
-  if (perfId)
-    console.log(
-      `[Arcline][Perf][${perfId}] T8: React root.render() called at ${new Date(t8).toISOString().split('T')[1]}`
-    );
-
-  const portalContainer = document.createElement('div');
-  portalContainer.setAttribute('data-arcline-portal-container', 'true');
-  shadowRoot.append(portalContainer);
-
   root.render(
-    <PortalProvider container={portalContainer}>
-      <FloatingUiRoot
-        ref={rootRef}
-        onBootstrapReady={onBootstrapReady}
-        onClosed={onClosed}
-        onOpenStateChange={onOpenStateChange}
-        perfId={perfId}
-        t0={t0}
-      />
-    </PortalProvider>
+    <FloatingUiRoot ref={rootRef} onBootstrapReady={onBootstrapReady} onClosed={onClosed} />
   );
 
   return {
     openFromHover() {
       rootRef.current?.openFromHover();
     },
-    openInstantly(data?: { spaces: SpaceSnapshot[]; activeSpaceId: number }) {
-      console.log('[Arcline] 🔓 openInstantly called on FloatingUiHandle');
-      rootRef.current?.openInstantly(data);
+    openInstantly() {
+      rootRef.current?.openInstantly();
     },
     openCommandPalette() {
       rootRef.current?.openCommandPalette();
-    },
-    showPageTransition() {
-      rootRef.current?.showPageTransition();
     },
     destroy() {
       rootRef.current?.destroy();
