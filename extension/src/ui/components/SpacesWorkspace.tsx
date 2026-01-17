@@ -38,6 +38,7 @@ import { SpaceContentView } from '@/ui/components/SpaceContentView';
 import { SpaceManagementModal } from '@/ui/components/SpaceManagementModal';
 import { TabRow } from '@/ui/components/TabRow';
 import { SpaceContextMenu } from '@/ui/components/context-menu/SpaceContextMenu';
+import { MoreMenu } from '@/ui/components/MoreMenu';
 import { usePortalContainer } from '@/ui/contexts/PortalContext';
 
 interface SpacesWorkspaceProps {
@@ -290,13 +291,7 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
       >
         {/* Search Bar - Always visible at top */}
         <div className="flex-shrink-0 px-2 pt-3">
-          <SearchBar
-            variant={componentVariant}
-            onOpenCommandPalette={handleOpenCommandPalette}
-            onOpenSettings={() => setShowSettings(true)}
-            onOpenArchive={() => setShowArchive(true)}
-            onOpenBookmarkImport={() => setShowBookmarkImport(true)}
-          />
+          <SearchBar variant={componentVariant} onOpenCommandPalette={handleOpenCommandPalette} />
         </div>
 
         {/* Favorites Grid */}
@@ -318,22 +313,30 @@ export function SpacesWorkspace({ variant }: SpacesWorkspaceProps) {
                       const temporaryTabs = buildTemporaryTabs(space);
                       return space ? (
                         <div className="space-y-4 px-2 pb-4 pt-2">
-                          {/* Space Name - Moves with swipe */}
-                          <SpaceContextMenu
-                            space={space}
-                            onOpenSettings={() => setShowSettings(true)}
-                            onOpenArchive={() => setShowArchive(true)}
-                            onOpenBookmarkImport={() => setShowBookmarkImport(true)}
-                          >
-                            <div className="px-2 py-1 flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded-lg transition-colors">
-                              {space.icon && (
-                                <span className="text-lg drop-shadow-md">{space.icon}</span>
-                              )}
-                              <h2 className="text-sm font-bold text-white tracking-wide drop-shadow-md">
-                                {space.name || 'Spaces'}
-                              </h2>
-                            </div>
-                          </SpaceContextMenu>
+                          {/* Space Name Row with MoreMenu */}
+                          <div className="flex items-center justify-between">
+                            <SpaceContextMenu
+                              space={space}
+                              onOpenSettings={() => setShowSettings(true)}
+                              onOpenArchive={() => setShowArchive(true)}
+                              onOpenBookmarkImport={() => setShowBookmarkImport(true)}
+                            >
+                              <div className="px-2 py-1 flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded-lg transition-colors">
+                                {space.icon && (
+                                  <span className="text-lg drop-shadow-md">{space.icon}</span>
+                                )}
+                                <h2 className="text-sm font-bold text-white tracking-wide drop-shadow-md">
+                                  {space.name || 'Spaces'}
+                                </h2>
+                              </div>
+                            </SpaceContextMenu>
+                            <MoreMenu
+                              onOpenSettings={() => setShowSettings(true)}
+                              onOpenArchive={() => setShowArchive(true)}
+                              onOpenBookmarkImport={() => setShowBookmarkImport(true)}
+                              variant={componentVariant}
+                            />
+                          </div>
 
                           {/* Pinned Items Section Header */}
                           {(space.pinnedItems?.length > 0 || space.pinnedTabs?.length > 0) && (

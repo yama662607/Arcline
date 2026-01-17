@@ -36,6 +36,7 @@ export function MoreMenu({
       <DropdownMenu.Portal container={usePortalContainer()}>
         <DropdownMenu.Content
           className="min-w-[200px] rounded-lg border border-white/10 bg-slate-900/95 p-1.5 text-sm text-slate-200 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+          style={{ zIndex: 99999 }}
           sideOffset={5}
         >
           <DropdownMenu.Item className={menuItemClass} onSelect={onOpenSettings}>
