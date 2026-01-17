@@ -4,9 +4,14 @@ import { usePortalContainer } from '@/ui/contexts/PortalContext';
 interface HeaderMenuProps {
   onOpenSettings: () => void;
   onOpenArchive: () => void;
+  onOpenBookmarkImport: () => void;
 }
 
-export function HeaderMenu({ onOpenSettings, onOpenArchive }: HeaderMenuProps) {
+export function HeaderMenu({
+  onOpenSettings,
+  onOpenArchive,
+  onOpenBookmarkImport,
+}: HeaderMenuProps) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
@@ -88,6 +93,30 @@ export function HeaderMenu({ onOpenSettings, onOpenArchive }: HeaderMenuProps) {
               />
             </svg>
             Archive
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Item
+            className="flex cursor-pointer items-center rounded px-3 py-2 text-sm text-slate-100 outline-none transition-colors hover:bg-white/10 focus:bg-white/10"
+            onSelect={onOpenBookmarkImport}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="mr-2"
+              aria-hidden="true"
+            >
+              <path
+                d="M14 10v4a1 1 0 01-1 1H3a1 1 0 01-1-1v-4M11 5L8 2M8 2L5 5M8 2v8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Import Bookmarks
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

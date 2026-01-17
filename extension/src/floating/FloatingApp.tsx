@@ -1,12 +1,14 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { queryClient } from '@/lib/query-client';
 import { getSpaceTheme } from '@/lib/space-theme';
 import { useSpacesSync } from '@/lib/useSpacesSync';
 import { useSpacesStore } from '@/store';
 import { ArchiveManager } from '@/ui/components/ArchiveManager';
+import { BookmarkImport } from '@/ui/components/BookmarkImport';
 import { HeaderMenu } from '@/ui/components/HeaderMenu';
 import { SettingsPanel } from '@/ui/components/SettingsPanel';
 import { SpacesWorkspace } from '@/ui/components/SpacesWorkspace';
@@ -32,6 +34,7 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
 
   const [showSettings, setShowSettings] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [showBookmarkImport, setShowBookmarkImport] = useState(false);
   const setIsModalOpen = useSpacesStore((state) => state.setIsModalOpen);
   const portalContainer = usePortalContainer();
 
@@ -43,8 +46,8 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
 
   useMemo(() => {
     // Sync modal state to store
-    setIsModalOpen(showSettings || showArchive);
-  }, [showSettings, showArchive, setIsModalOpen]);
+    setIsModalOpen(showSettings || showArchive || showBookmarkImport);
+  }, [showSettings, showArchive, showBookmarkImport, setIsModalOpen]);
 
   const spaceTheme = getSpaceTheme(activeSpace?.themeColor);
 
@@ -108,7 +111,7 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
   // Set up two-finger tap detection on container
   const twoFingerTapRef = useTwoFingerTap<HTMLDivElement>({
     onTap: handleTwoFingerTap,
-    disabled: showSettings || showArchive,
+    disabled: showSettings || showArchive || showBookmarkImport,
   });
 
   // Merge refs
@@ -143,6 +146,7 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
           <HeaderMenu
             onOpenSettings={() => setShowSettings(true)}
             onOpenArchive={() => setShowArchive(true)}
+            onOpenBookmarkImport={() => setShowBookmarkImport(true)}
           />
           <button
             type="button"
@@ -191,6 +195,40 @@ function FloatingAppContent({ pinned, onTogglePinned, onRequestClose: _ }: Float
             <Dialog.Overlay className="fixed inset-0 bg-black/50" />
             <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur-xl shadow-2xl p-0">
               <ArchiveManager variant="floating" />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
+
+      {/* Bookmark Import Modal */}
+      {showBookmarkImport && (
+        <Dialog.Root open={showBookmarkImport} onOpenChange={setShowBookmarkImport}>
+          <Dialog.Portal container={portalContainer}>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+            <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur-xl shadow-2xl p-0">
+              <div className="sticky top-0 flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-white/10 z-10">
+                <Dialog.Title className="text-lg font-medium text-white">
+                  Import Bookmarks
+                </Dialog.Title>
+                <Dialog.Close asChild>
+                  <button
+                    type="button"
+                    className="rounded-md p-1 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                    aria-label="Close"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </Dialog.Close>
+              </div>
+              <div className="px-6 py-4">
+                <BookmarkImport
+                  onImport={(result) => {
+                    console.log('Bookmark import result:', result);
+                    setShowBookmarkImport(false);
+                  }}
+                  onCancel={() => setShowBookmarkImport(false)}
+                />
+              </div>
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

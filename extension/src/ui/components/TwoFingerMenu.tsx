@@ -2,7 +2,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ChevronRight, FolderPlus, Link, Palette, Smile, Trash2, Type } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
-import { useRemoveSpace, useUpdateSpace } from '@/hooks/use-spaces-query';
+import { useCreatePinnedFolder, useRemoveSpace, useUpdateSpace } from '@/hooks/use-spaces-query';
 import { SPACE_COLORS, SPACE_ICONS } from '@/lib/space-theme';
 import type { SpaceColor, SpaceSnapshot } from '@/shared/types';
 import { useSpacesStore } from '@/store';
@@ -65,12 +65,15 @@ interface SpaceMenuItemsProps {
 function SpaceMenuItems({ space, onClose }: SpaceMenuItemsProps) {
   const { mutateAsync: removeSpace } = useRemoveSpace();
   const { mutate: updateSpace } = useUpdateSpace();
+  const { mutate: createFolder } = useCreatePinnedFolder();
   const spaces = useSpacesStore((state) => state.spaces);
   const setActiveSpace = useSpacesStore((state) => state.setActiveSpace);
   const portalContainer = usePortalContainer();
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(space.name);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('New Folder');
 
   const handleRemove = async () => {
     if (spaces.length <= 1) return;
@@ -114,13 +117,58 @@ function SpaceMenuItems({ space, onClose }: SpaceMenuItemsProps) {
   );
 
   const handleNewFolder = useCallback(() => {
-    // TODO: Implement new folder creation
-    console.log('New folder in space:', space.id);
+    if (newFolderName.trim()) {
+      createFolder({ spaceName: space.name, title: newFolderName.trim() });
+    }
+    setIsCreatingFolder(false);
+    setNewFolderName('New Folder');
     onClose();
-  }, [space.id, onClose]);
+  }, [space.name, newFolderName, createFolder, onClose]);
 
   const menuItemClass =
     'flex cursor-pointer select-none items-center gap-2 rounded py-1.5 px-2 outline-none hover:bg-white/10 data-[highlighted]:bg-white/10';
+
+  if (isCreatingFolder) {
+    return (
+      <div className="p-2">
+        <h3 className="mb-2 text-xs font-medium text-slate-400">New Folder</h3>
+        <input
+          type="text"
+          value={newFolderName}
+          onChange={(e) => setNewFolderName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleNewFolder();
+            if (e.key === 'Escape') {
+              setIsCreatingFolder(false);
+              onClose();
+            }
+          }}
+          className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
+          // biome-ignore lint/a11y/noAutofocus: intentional focus for UX
+          autoFocus
+        />
+        <div className="mt-2 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsCreatingFolder(false);
+              onClose();
+            }}
+            className="rounded px-2 py-1 text-xs text-slate-400 hover:text-white"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleNewFolder}
+            className="rounded bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary/90"
+          >
+            Create
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isRenaming) {
     return (
@@ -246,7 +294,7 @@ function SpaceMenuItems({ space, onClose }: SpaceMenuItemsProps) {
       <DropdownMenu.Separator className="my-1.5 h-px bg-white/10" />
 
       {/* New Folder */}
-      <DropdownMenu.Item className={menuItemClass} onSelect={handleNewFolder}>
+      <DropdownMenu.Item className={menuItemClass} onSelect={() => setIsCreatingFolder(true)}>
         <FolderPlus className="h-4 w-4 text-slate-400" />
         <span>New Folder</span>
         <span className="ml-auto text-xs text-slate-500">⌘N</span>
@@ -274,9 +322,6 @@ interface TabMenuItemsProps {
 }
 
 function TabMenuItems({ tab, onClose }: TabMenuItemsProps) {
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [newTitle, setNewTitle] = useState(tab.title);
-
   const handleCopyLink = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(tab.url);
@@ -287,59 +332,8 @@ function TabMenuItems({ tab, onClose }: TabMenuItemsProps) {
     onClose();
   }, [tab.url, onClose]);
 
-  const handleRename = useCallback(() => {
-    if (newTitle.trim() && newTitle !== tab.title) {
-      // TODO: Implement rename via mutation
-      console.log('Rename tab:', tab.id, 'to:', newTitle);
-    }
-    setIsRenaming(false);
-    onClose();
-  }, [newTitle, tab.id, tab.title, onClose]);
-
   const menuItemClass =
     'flex cursor-pointer select-none items-center gap-2 rounded py-1.5 px-2 outline-none hover:bg-white/10 data-[highlighted]:bg-white/10';
-
-  if (isRenaming) {
-    return (
-      <div className="p-2">
-        <h3 className="mb-2 text-xs font-medium text-slate-400">Rename</h3>
-        <input
-          type="text"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleRename();
-            if (e.key === 'Escape') {
-              setIsRenaming(false);
-              onClose();
-            }
-          }}
-          className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
-          // biome-ignore lint/a11y/noAutofocus: intentional focus for UX
-          autoFocus
-        />
-        <div className="mt-2 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setIsRenaming(false);
-              onClose();
-            }}
-            className="rounded px-2 py-1 text-xs text-slate-400 hover:text-white"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleRename}
-            className="rounded bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary/90"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -347,12 +341,6 @@ function TabMenuItems({ tab, onClose }: TabMenuItemsProps) {
       <DropdownMenu.Item className={menuItemClass} onSelect={handleCopyLink}>
         <Link className="h-4 w-4 text-slate-400" />
         <span>Copy Link</span>
-      </DropdownMenu.Item>
-
-      {/* Rename */}
-      <DropdownMenu.Item className={menuItemClass} onSelect={() => setIsRenaming(true)}>
-        <Type className="h-4 w-4 text-slate-400" />
-        <span>Rename...</span>
       </DropdownMenu.Item>
     </>
   );
