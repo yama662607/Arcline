@@ -1,5 +1,15 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { ChevronRight, FolderPlus, Palette, Smile, Trash2, Type } from 'lucide-react';
+import {
+  Archive,
+  BookmarkPlus,
+  ChevronRight,
+  FolderPlus,
+  Palette,
+  Settings,
+  Smile,
+  Trash2,
+  Type,
+} from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -12,9 +22,18 @@ import { usePortalContainer } from '@/ui/contexts/PortalContext';
 interface SpaceContextMenuProps {
   children: React.ReactNode;
   space: SpaceSnapshot;
+  onOpenSettings?: () => void;
+  onOpenArchive?: () => void;
+  onOpenBookmarkImport?: () => void;
 }
 
-export function SpaceContextMenu({ children, space }: SpaceContextMenuProps) {
+export function SpaceContextMenu({
+  children,
+  space,
+  onOpenSettings,
+  onOpenArchive,
+  onOpenBookmarkImport,
+}: SpaceContextMenuProps) {
   const { mutateAsync: removeSpace } = useRemoveSpace();
   const { mutate: updateSpace } = useUpdateSpace();
   const spaces = useSpacesStore((state) => state.spaces);
@@ -213,6 +232,52 @@ export function SpaceContextMenu({ children, space }: SpaceContextMenuProps) {
               <Trash2 className="h-4 w-4" />
               <span>Delete Space</span>
             </DropdownMenu.Item>
+
+            {/* App-level Actions */}
+            {(onOpenSettings || onOpenArchive || onOpenBookmarkImport) && (
+              <>
+                <DropdownMenu.Separator className="my-1.5 h-px bg-white/10" />
+
+                {onOpenSettings && (
+                  <DropdownMenu.Item
+                    className={menuItemClass}
+                    onSelect={() => {
+                      onOpenSettings();
+                      setIsOpen(false);
+                    }}
+                  >
+                    <Settings className="h-4 w-4 text-slate-400" />
+                    <span>Settings</span>
+                  </DropdownMenu.Item>
+                )}
+
+                {onOpenArchive && (
+                  <DropdownMenu.Item
+                    className={menuItemClass}
+                    onSelect={() => {
+                      onOpenArchive();
+                      setIsOpen(false);
+                    }}
+                  >
+                    <Archive className="h-4 w-4 text-slate-400" />
+                    <span>Archive</span>
+                  </DropdownMenu.Item>
+                )}
+
+                {onOpenBookmarkImport && (
+                  <DropdownMenu.Item
+                    className={menuItemClass}
+                    onSelect={() => {
+                      onOpenBookmarkImport();
+                      setIsOpen(false);
+                    }}
+                  >
+                    <BookmarkPlus className="h-4 w-4 text-slate-400" />
+                    <span>Import Bookmarks</span>
+                  </DropdownMenu.Item>
+                )}
+              </>
+            )}
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
