@@ -12,6 +12,19 @@ const AUTO_ARCHIVE_ALARM_NAME = 'autoArchiveTabsAlarm';
 const MINUTE_IN_MS = 60 * 1000;
 
 /**
+ * URLがブックマーク済みかどうかをチェックする
+ */
+async function isUrlBookmarked(url: string): Promise<boolean> {
+  try {
+    const bookmarks = await chrome.bookmarks.search({ url });
+    return bookmarks.length > 0;
+  } catch {
+    // ブックマークAPIが利用できない場合は除外しない
+    return false;
+  }
+}
+
+/**
  * 自動アーカイブの設定を更新する
  */
 export async function setupAutoArchiveAlarm(enabled: boolean, idleMinutes: number): Promise<void> {
@@ -83,6 +96,11 @@ export async function archiveInactiveTabs(
         continue;
       }
 
+      // ブックマーク済みタブは除外（非同期チェック）
+      if (tab.url && (await isUrlBookmarked(tab.url))) {
+        continue;
+      }
+
       // 最終アクティブ時刻をチェック
       const lastActivity = tabActivity[tab.id] || 0;
       const idleTime = currentTime - lastActivity;
@@ -127,9 +145,6 @@ export function shouldExcludeFromAutoArchive(tab: chrome.tabs.Tab): boolean {
   if (tab.audible) {
     return true;
   }
-
-  // ブックマーク済みタブは除外（確認が必要）
-  // TODO: ブックマークチェックを実装
 
   return false;
 }
