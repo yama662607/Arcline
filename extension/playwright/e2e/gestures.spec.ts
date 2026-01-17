@@ -7,7 +7,7 @@ test.describe('Trackpad Gestures', () => {
     await addServiceWorkerBridgeMock(page);
   });
 
-  test('should trigger navigateSpace on swipe', async ({ page }, testInfo) => {
+  test('should trigger navigateSpace on swipe', async ({ page }, _testInfo) => {
     // Navigate to a page where content script should load
     await page.goto('https://example.com');
 
@@ -56,7 +56,7 @@ test.describe('Trackpad Gestures', () => {
     await expect(feedback).toHaveClass(/show/);
   });
 
-  test('should ignore small swipes (below threshold)', async ({ page }, testInfo) => {
+  test('should ignore small swipes (below threshold)', async ({ page }, _testInfo) => {
     await page.goto('https://example.com');
     await page.waitForTimeout(1000);
 

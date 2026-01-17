@@ -322,6 +322,7 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
     getBookmarksForSpace: (message, sendResponse) => {
       const { spaceId, spaceName } = message as { spaceId?: number; spaceName?: string };
 
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: resolver logic with multiple branches
       return respondAsync(async () => {
         try {
           let resolvedName = spaceName;
@@ -736,7 +737,12 @@ export function createCommandHandlers(deps: CommandHandlersDeps): Record<string,
 
       return respondAsync(async () => {
         try {
-          const success = await deps.activateSpace(spaceUuid || spaceId!, {
+          const resolvedSpaceIdentifier = spaceUuid ?? spaceId;
+          if (resolvedSpaceIdentifier === undefined) {
+            sendResponse({ ok: false, error: 'spaceId or spaceUuid is required' });
+            return;
+          }
+          const success = await deps.activateSpace(resolvedSpaceIdentifier, {
             transition,
             perfId,
             t0,

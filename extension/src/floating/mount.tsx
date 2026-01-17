@@ -23,22 +23,27 @@ const CommandPalette = React.lazy(() =>
 
 export interface FloatingUiInstance {
   openFromHover(): void;
-  openInstantly(): void;
+  openInstantly(data?: { spaces?: unknown[]; activeSpaceId?: number }): void;
   openCommandPalette(): void;
+  showPageTransition(): void;
   destroy(): void;
 }
 
 interface MountOptions {
   host: HTMLElement;
   shadowRoot: ShadowRoot;
+  perfId?: string;
+  t0?: number;
   onBootstrapReady?: () => void;
   onClosed?: () => void;
+  onOpenStateChange?: (isOpen: boolean) => void;
 }
 
 interface FloatingUiHandle {
   openFromHover(): void;
-  openInstantly(): void;
+  openInstantly(data?: { spaces?: unknown[]; activeSpaceId?: number }): void;
   openCommandPalette(): void;
+  showPageTransition(): void;
   destroy(): void;
 }
 
@@ -136,7 +141,9 @@ const FloatingUiRoot = forwardRef<
         setSkipAnimation(false);
         setOpen(true);
       },
-      openInstantly() {
+      openInstantly(_data?: { spaces?: unknown[]; activeSpaceId?: number }) {
+        // Note: data parameter is for future use (spaces/activeSpaceId updates)
+        // Currently the store is synced via useSpacesSync
         cancelClose();
         setSkipAnimation(true);
         setOpen(true);
@@ -145,6 +152,10 @@ const FloatingUiRoot = forwardRef<
       },
       openCommandPalette() {
         setShowPalette(true);
+      },
+      showPageTransition() {
+        // Page transition effect placeholder - can be expanded for visual feedback
+        console.log('[Arcline] showPageTransition called');
       },
       destroy() {
         cancelClose();
@@ -314,11 +325,14 @@ export async function mountFloatingUi({
     openFromHover() {
       rootRef.current?.openFromHover();
     },
-    openInstantly() {
-      rootRef.current?.openInstantly();
+    openInstantly(data?: { spaces?: unknown[]; activeSpaceId?: number }) {
+      rootRef.current?.openInstantly(data);
     },
     openCommandPalette() {
       rootRef.current?.openCommandPalette();
+    },
+    showPageTransition() {
+      rootRef.current?.showPageTransition();
     },
     destroy() {
       rootRef.current?.destroy();

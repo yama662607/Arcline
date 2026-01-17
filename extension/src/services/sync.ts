@@ -87,6 +87,7 @@ async function syncBookmarksToDb(): Promise<void> {
   console.log(`[Arcline] 📊 Starting sync: ${totalSpaces} spaces, ~${totalItems} items to process`);
 
   // Clear existing data (full sync)
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: full sync transaction with progress tracking
   await db.transaction('rw', [db.spaces, db.items], async () => {
     try {
       await db.spaces.clear();

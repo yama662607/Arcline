@@ -167,6 +167,7 @@ interface EmptySpaceHandleResult {
   spaceId?: number;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: space restoration/creation has multiple branches and retries
 async function handleEmptyOrVirtualSpace(
   targetSpace: SpaceSnapshot,
   options?: SpaceTransitionOptions & { perfId?: string; t0?: number }
@@ -196,12 +197,17 @@ async function handleEmptyOrVirtualSpace(
 
       // Robustly wait for the tab and retry sending the message
       let attempts = 0;
+      const targetTabId = activeTab.id;
+      if (!targetTabId) {
+        console.warn('[Arcline] ⚠️ No tab ID available for restored virtual space');
+        return { handled: true, spaceId: newGroupId };
+      }
       while (attempts < 20) {
         try {
-          const tab = await chrome.tabs.get(activeTab.id!);
+          const tab = await chrome.tabs.get(targetTabId);
           if (tab.status === 'complete') {
             try {
-              await openFloatingUiOnTab(activeTab.id, refreshedSpaces, newGroupId, options);
+              await openFloatingUiOnTab(targetTabId, refreshedSpaces, newGroupId, options);
               console.log(
                 `[Arcline] ✅ Floating UI opened successfully on attempt ${attempts + 1}`
               );

@@ -30,7 +30,7 @@ import type {
   PinnedTab,
 } from '@/shared/types';
 import { db } from '@/db';
-import type { SpaceRecord } from '@/db/schema';
+import type { ItemRecord, SpaceRecord } from '@/db/schema';
 import { setSkipNextAutoGroup } from './auto-group';
 
 const TAB_GROUP_ID_NONE = -1;
@@ -387,7 +387,6 @@ export async function moveTabToSpace(tabId: number, spaceId: number): Promise<nu
   return result;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: space creation flow has multiple branches
 export async function createSpace(name: string, color?: TabGroupColor): Promise<number> {
   console.log(`[Arcline] 🏗️ createSpace START: name="${name}", color=${color}`);
 
@@ -1096,7 +1095,7 @@ async function getPinnedItemsFromDb(spaceId: number): Promise<PinnedItem[]> {
   );
 
   // Create lookup map for parent-child relationship
-  const itemsByParent = new Map<number | undefined, any[]>();
+  const itemsByParent = new Map<number | undefined, ItemRecord[]>();
   for (const item of allItems) {
     const parentId = item.parentId;
     if (!itemsByParent.has(parentId)) {
@@ -1114,7 +1113,7 @@ async function getPinnedItemsFromDb(spaceId: number): Promise<PinnedItem[]> {
           return {
             type: 'folder',
             id: String(item.id),
-            title: item.name || item.title,
+            title: item.title,
             children: buildTree(item.id),
             parentId: item.parentId ? String(item.parentId) : undefined,
           } as PinnedFolder;

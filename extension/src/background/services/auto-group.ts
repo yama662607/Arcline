@@ -131,6 +131,7 @@ export function initializeAutoGrouping() {
   });
 
   // Auto-group new tabs into the active space
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: auto-group logic with multiple condition checks
   chrome.tabs.onCreated.addListener(async (tab) => {
     // Skip if flagged (system-created tabs like empty-space.html)
     if (shouldSkipAutoGroup()) {

@@ -131,6 +131,7 @@ describe('getSpacesSnapshot', () => {
         sortOrder: 0,
         parentId: undefined,
         createdAt: new Date(),
+        // biome-ignore lint/suspicious/noExplicitAny: mock data for test
       } as any,
     ]);
 
@@ -192,6 +193,7 @@ describe('getSpacesSnapshot', () => {
         sortOrder: 0,
         parentId: undefined,
         createdAt: new Date(),
+        // biome-ignore lint/suspicious/noExplicitAny: mock data for test
       } as any,
     ]);
 

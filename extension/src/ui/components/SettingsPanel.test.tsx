@@ -103,7 +103,8 @@ describe('SettingsPanel', () => {
 
       // Get input by role
       const inputs = screen.getAllByRole('textbox');
-      const input = inputs[0]!; // First textbox is Default Space Name
+      const input = inputs[0]; // First textbox is Default Space Name
+      if (!input) throw new Error('Expected at least one textbox');
 
       // Clear input and type new value
       await user.clear(input);
@@ -143,7 +144,8 @@ describe('SettingsPanel', () => {
       // Find all toggle switches (role="switch")
       const toggleSwitches = screen.getAllByRole('switch');
       // Compact mode is the 3rd toggle (after New tab integration, Show favicons)
-      const compactModeToggle = toggleSwitches[2]!;
+      const compactModeToggle = toggleSwitches[2];
+      if (!compactModeToggle) throw new Error('Expected at least 3 toggle switches');
 
       // Verify initial state (unchecked)
       expect(compactModeToggle).toHaveAttribute('aria-checked', 'false');

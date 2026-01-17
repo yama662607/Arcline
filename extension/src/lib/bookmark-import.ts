@@ -267,6 +267,7 @@ export function parseArcJson(jsonContent: string): ImportedBookmark[] {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Arc sidebar data parsing with multiple formats
 function collectArcBookmarks(data: ArcSidebarData): ImportedBookmark[] {
   const bookmarks: ImportedBookmark[] = [];
   const spaceTitleMap: Record<string, string> = {};
@@ -443,6 +444,7 @@ function tryParseArcUrl(item: ArcItem): ImportedBookmark | null {
 /**
  * Try to parse an Arc item as a folder with children
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: folder parsing with child resolution
 function tryParseArcFolder(
   item: ArcItem,
   itemsMap: Record<string, ArcItem>
