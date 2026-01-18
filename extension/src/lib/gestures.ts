@@ -7,12 +7,15 @@ export interface GestureConfig {
   timeout: number;
   /** Cooldown in ms after a swipe is detected to prevent re-triggering */
   cooldown: number;
+  /** Maximum number of swipes allowed in a single continuous gesture burst */
+  maxSwipesPerBurst: number;
 }
 
 const DEFAULT_CONFIG: GestureConfig = {
-  threshold: 50, // Lower threshold for better responsiveness (legacy used 25 for single event)
+  threshold: 50, // Lower threshold for better responsiveness
   timeout: 300,
-  cooldown: 400, // Cooldown to prevent re-triggering during the same gesture (legacy used 400ms)
+  cooldown: 500, // Increased from 400ms to better handle trackpad inertia
+  maxSwipesPerBurst: 2, // Limit to 2 spaces per burst as per user request
 };
 
 /**
@@ -24,6 +27,7 @@ export class SwipeDetector {
   private lastEventTime = 0;
   private config: GestureConfig;
   private isSwiping = false;
+  private swipesInBurst = 0;
   private cooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: Partial<GestureConfig> = {}) {
@@ -39,19 +43,25 @@ export class SwipeDetector {
    * Returns null if no swipe is detected yet, during cooldown, or if resetting.
    */
   process(e: WheelEvent): SwipeDirection | null {
-    // Block during cooldown to prevent re-triggering
+    const now = Date.now();
+
+    // Reset if timeout expired (user stopped swiping, new burst starts)
+    if (now - this.lastEventTime > this.config.timeout) {
+      this.totalDeltaX = 0;
+      this.swipesInBurst = 0;
+    }
+
+    this.lastEventTime = now;
+
+    // Block during cooldown to prevent re-triggering within the same movement
     if (this.isSwiping) {
       return null;
     }
 
-    const now = Date.now();
-
-    // Reset if timeout expired (user stopped swiping)
-    if (now - this.lastEventTime > this.config.timeout) {
-      this.totalDeltaX = 0;
+    // Limit the number of swipes in a single burst (e.g., fast flick with inertia)
+    if (this.swipesInBurst >= this.config.maxSwipesPerBurst) {
+      return null;
     }
-
-    this.lastEventTime = now;
 
     // Ignore vertical scrolling dominant events
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -67,6 +77,7 @@ export class SwipeDetector {
 
       // Reset accumulator and start cooldown
       this.totalDeltaX = 0;
+      this.swipesInBurst++;
       this.startCooldown();
 
       return direction;
@@ -90,6 +101,7 @@ export class SwipeDetector {
     this.totalDeltaX = 0;
     this.lastEventTime = 0;
     this.isSwiping = false;
+    this.swipesInBurst = 0;
     if (this.cooldownTimer) {
       clearTimeout(this.cooldownTimer);
       this.cooldownTimer = null;
