@@ -293,7 +293,12 @@ function maybeLogEdgeDebug(source: string, payload: Record<string, unknown>) {
   console.debug('[Arcline][EdgeDetection]', source, payload);
 }
 
-async function startFloatingUi(options?: { instant?: boolean; commandPalette?: boolean }) {
+async function startFloatingUi(options?: {
+  instant?: boolean;
+  commandPalette?: boolean;
+  spaces?: any[];
+  activeSpaceId?: number;
+}) {
   if (!hostElement || !shadowRoot) return;
   if (!mountPromise) {
     mountPromise = import('../floating/mount').catch((error) => {
@@ -307,7 +312,10 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
   if (!module) return;
   if (floatingInstance) {
     if (options?.instant) {
-      floatingInstance.openInstantly();
+      floatingInstance.openInstantly({
+        spaces: options.spaces,
+        activeSpaceId: options.activeSpaceId,
+      });
     } else if (options?.commandPalette) {
       floatingInstance.openCommandPalette();
     } else {
@@ -347,7 +355,13 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
         chrome.runtime.sendMessage(
           {
             method: 'navigateSpace',
-            params: { direction, ...opts },
+            params: {
+              direction,
+              mode: opts.mode,
+              spaceId: opts.spaceId,
+              spaceUuid: opts.spaceUuid,
+              transition: opts.transition,
+            },
             id: crypto.randomUUID(),
           },
           () => {
@@ -568,6 +582,22 @@ function handleRuntimeMessage(message: unknown) {
   if (payload.command === 'zoomChanged' && (payload as { zoomFactor?: number }).zoomFactor) {
     applyZoomCorrection((payload as { zoomFactor: number }).zoomFactor);
   }
+
+  if (payload.command === 'navigateSpace' && floatingGestureController) {
+    const navPayload = payload as { direction: 'left' | 'right' };
+    floatingGestureController.triggerFlickTransition(navPayload.direction);
+  }
+
+  if (payload.command === 'openFloatingUiWithData') {
+    const data = payload as { spaces: any[]; activeSpaceId: number; instant?: boolean };
+    ensureHost();
+    ensureBootstrapHotzone();
+    void startFloatingUi({
+      instant: data.instant !== false, // Default to instant for this command
+      spaces: data.spaces,
+      activeSpaceId: data.activeSpaceId,
+    });
+  }
 }
 
 function applyZoomCorrection(zoomFactor: number) {
@@ -627,25 +657,44 @@ async function initialize() {
         direction?: 'left' | 'right';
       }>
     ).detail;
-    if (!detail) return;
 
-    // Send message to background to activate the space
-    chrome.runtime.sendMessage(
-      {
-        method: 'activateSpace',
-        params: {
-          spaceId: detail.spaceId,
-          spaceUuid: detail.spaceUuid,
-        },
-        id: crypto.randomUUID(),
-      },
-      (_response) => {
-        if (chrome.runtime.lastError) {
-          console.error('[Arcline] ❌ activateSpace message failed:', chrome.runtime.lastError);
+    if (floatingGestureController && detail.direction) {
+      floatingGestureController.triggerFlickTransition(detail.direction, {
+        spaceId: detail.spaceId,
+        spaceUuid: detail.spaceUuid,
+      });
+    }
+  });
+
+  // Global Keyboard Shortcuts (Opt+Cmd+Left/Right)
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      // Check for Option + Command/Control + Arrow keys
+      if ((e.altKey && (e.metaKey || e.ctrlKey)) || (e.altKey && e.shiftKey)) {
+        let direction: 'left' | 'right' | null = null;
+        if (e.key === 'ArrowLeft') direction = 'left';
+        if (e.key === 'ArrowRight') direction = 'right';
+
+        if (direction) {
+          // If the UI is open and we have the gesture controller, animate first
+          if (floatingInstance && floatingGestureController) {
+            e.preventDefault();
+            e.stopPropagation();
+            floatingGestureController.triggerFlickTransition(direction);
+          } else {
+            // Fallback: Send message directly if UI is closed or controller missing
+            // (The background script will handle the navigation logic)
+            chrome.runtime.sendMessage({
+              method: 'navigateSpace',
+              params: { direction },
+            });
+          }
         }
       }
-    );
-  });
+    },
+    { capture: true }
+  );
 
   void syncZoomLevel();
 }

@@ -38,7 +38,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
   const previousSpaceId = useSpacesStore((state) => state.previousSpaceId);
   const lastSwipeDirectionRef = useRef(0);
   const lastSwipeAtRef = useRef(0);
-  const isGestureRef = useRef(false);
+  const isOrchestratedRef = useRef(false);
   const [previewSpaceId, setPreviewSpaceId] = useState<number | null>(null);
 
   const spacesRef = useRef(spaces);
@@ -61,7 +61,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
       const navDirection = progress > 0 ? 1 : -1;
       lastSwipeDirectionRef.current = navDirection;
       lastSwipeAtRef.current = performance.now();
-      isGestureRef.current = true;
+      isOrchestratedRef.current = true;
 
       const currentSpaces = spacesRef.current;
       const currentActiveId = activeSpaceIdRef.current;
@@ -82,7 +82,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
       if (!direction) return;
       lastSwipeDirectionRef.current = direction === 'left' ? 1 : -1;
       lastSwipeAtRef.current = performance.now();
-      isGestureRef.current = false;
+      isOrchestratedRef.current = true; // Mark click/shortcut as orchestrated too
     };
 
     window.addEventListener('arcline-swipe-progress', handleSwipeProgress);
@@ -108,10 +108,11 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
   }, [previousSpaceId, activeSpaceId, spaces]);
 
   const activeTransition = useMemo(() => {
-    // If we just finished a swipe gesture, the viewport is already at the target position.
-    // We set duration to 0 to prevent a second "corrective" animation from Framer Motion.
-    const recentlySwiped = performance.now() - lastSwipeAtRef.current < 800;
-    if (recentlySwiped && isGestureRef.current) {
+    // If we just finished an orchestrated transition (swipe/click/shortcut),
+    // the whole host viewport has already been moved to the target position.
+    // We set duration to 0 to prevent a second "corrective" internal animation.
+    const recentlySwiped = performance.now() - lastSwipeAtRef.current < 1500;
+    if (recentlySwiped && isOrchestratedRef.current) {
       return {
         x: { duration: 0 },
         opacity: { duration: 0 },

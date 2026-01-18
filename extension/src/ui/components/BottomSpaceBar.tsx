@@ -141,6 +141,13 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
     };
   }, []);
 
+  const [optimisticActiveSpaceId, setOptimisticActiveSpaceId] = useState<number | null>(null);
+
+  // Reset optimistic state when activeSpaceId actually updates (e.g. on new page load or completed nav)
+  useEffect(() => {
+    setOptimisticActiveSpaceId(null);
+  }, [activeSpaceId]);
+
   // Get favorite spaces (max 6) or first 6 if no favorites set
   const displaySpaces = useMemo(() => {
     if (favoriteSpaceIds.length > 0) {
@@ -179,7 +186,13 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
       <div className="flex items-center gap-1">
         {displaySpaces.map((space, _index) => {
           // Use UUID for comparison when id=-1 (tab not in group)
-          const isActive = space.uuid ? space.uuid === activeSpaceUuid : space.id === activeSpaceId;
+          // Prioritize optimistic ID if set
+          const effActiveId = optimisticActiveSpaceId ?? activeSpaceId;
+          const isActive =
+            space.uuid && activeSpaceUuid
+              ? space.uuid === activeSpaceUuid
+              : space.id === effActiveId;
+
           const spaceIndex = spaces.findIndex((s) => s.uuid === space.uuid || s.id === space.id);
           const isTarget = targetSpaceIndex === spaceIndex;
           const shouldShowProgress = Math.abs(swipeProgress) > 0.1 && (isActive || isTarget);
@@ -193,11 +206,15 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
                   // Use UUID for comparison - this prevents false positives when all spaces have id=-1
                   if (space.uuid && activeSpaceUuid && space.uuid === activeSpaceUuid) return;
                   if (!space.uuid && space.id === activeSpaceId) return;
+
                   const targetIndex = spaces.findIndex((s) => s.id === space.id);
                   const direction =
                     targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'left' : 'right';
 
                   if (isFloatingVariant) {
+                    // Optimistic update for immediate visual feedback
+                    setOptimisticActiveSpaceId(space.id);
+
                     window.dispatchEvent(
                       new CustomEvent('arcline-space-bar-switch', {
                         detail: {

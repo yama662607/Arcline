@@ -15,7 +15,9 @@ type GestureControllerDeps = {
   onNavigateSpace: (
     direction: SwipeDirection,
     options: {
-      mode: 'handoff' | 'flick';
+      mode: 'handoff' | 'flick' | 'forced';
+      spaceId?: number;
+      spaceUuid?: string;
       transition?: SpaceTransitionHandoff;
       perfId?: string;
       t0?: number;
@@ -759,10 +761,13 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
     deltaScale = clamp(settings.gestureSensitivity / 100, 0.6, 1.6);
   };
 
-  const triggerFlickTransition = (direction: SwipeDirection, onComplete?: () => void) => {
+  const triggerFlickTransition = (
+    direction: SwipeDirection,
+    options?: { spaceId?: number; spaceUuid?: string; onComplete?: () => void }
+  ) => {
     const target = getTransitionTarget(deps.getShadowRoot());
     const width = getTransitionWidth(target);
-    if (!target || !width || phase !== 'idle') {
+    if (!target || !width || (phase !== 'idle' && phase !== 'cooldown')) {
       return false;
     }
 
@@ -781,11 +786,18 @@ export function createFloatingGestureController(deps: GestureControllerDeps) {
       if (completionTriggered) return;
       completionTriggered = true;
 
+      // Navigate AFTER animation completes
+      deps.onNavigateSpace(direction, {
+        mode: 'forced',
+        spaceId: options?.spaceId,
+        spaceUuid: options?.spaceUuid,
+      });
+
       applyTransitionOffset(target, 0, { animate: false });
       dispatchSwipeProgress(0);
       resetGesture();
       enterCooldown();
-      onComplete?.();
+      options?.onComplete?.();
     };
 
     // Use transitionend for accurate completion detection

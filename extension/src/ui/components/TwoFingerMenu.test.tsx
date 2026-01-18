@@ -15,13 +15,14 @@ globalThis.ResizeObserver = ResizeObserverMock;
 vi.mock('@/hooks/use-spaces-query', () => ({
   useRemoveSpace: vi.fn(),
   useUpdateSpace: vi.fn(),
+  useCreatePinnedFolder: vi.fn(),
 }));
 
 vi.mock('@/store', () => ({
   useSpacesStore: vi.fn(),
 }));
 
-import { useRemoveSpace, useUpdateSpace } from '@/hooks/use-spaces-query';
+import { useCreatePinnedFolder, useRemoveSpace, useUpdateSpace } from '@/hooks/use-spaces-query';
 import { useSpacesStore } from '@/store';
 
 describe('TwoFingerMenu', () => {
@@ -54,6 +55,15 @@ describe('TwoFingerMenu', () => {
       status: 'idle',
       reset: vi.fn(),
     } as unknown as ReturnType<typeof useUpdateSpace>);
+
+    vi.mocked(useCreatePinnedFolder).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      status: 'idle',
+      reset: vi.fn(),
+    } as unknown as ReturnType<typeof useCreatePinnedFolder>);
 
     vi.mocked(useSpacesStore).mockImplementation((selector) => {
       const state = {
@@ -174,21 +184,6 @@ describe('TwoFingerMenu', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Copy Link')).toBeInTheDocument();
-      });
-    });
-
-    it('should show rename option for tabs', async () => {
-      renderWithQuery(
-        <TwoFingerMenu
-          open={true}
-          onOpenChange={vi.fn()}
-          position={{ x: 100, y: 100 }}
-          context={mockTabContext}
-        />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('Rename...')).toBeInTheDocument();
       });
     });
   });

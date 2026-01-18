@@ -23,7 +23,7 @@ const CommandPalette = React.lazy(() =>
 
 export interface FloatingUiInstance {
   openFromHover(): void;
-  openInstantly(data?: { spaces?: unknown[]; activeSpaceId?: number }): void;
+  openInstantly(data?: { spaces?: any[]; activeSpaceId?: number }): void;
   openCommandPalette(): void;
   showPageTransition(): void;
   destroy(): void;
@@ -41,7 +41,7 @@ interface MountOptions {
 
 interface FloatingUiHandle {
   openFromHover(): void;
-  openInstantly(data?: { spaces?: unknown[]; activeSpaceId?: number }): void;
+  openInstantly(data?: { spaces?: any[]; activeSpaceId?: number }): void;
   openCommandPalette(): void;
   showPageTransition(): void;
   destroy(): void;
@@ -141,9 +141,13 @@ const FloatingUiRoot = forwardRef<
         setSkipAnimation(false);
         setOpen(true);
       },
-      openInstantly(_data?: { spaces?: unknown[]; activeSpaceId?: number }) {
-        // Note: data parameter is for future use (spaces/activeSpaceId updates)
-        // Currently the store is synced via useSpacesSync
+      openInstantly(data?: { spaces?: any[]; activeSpaceId?: number }) {
+        if (data?.spaces) {
+          useSpacesStore.getState().setSpaces(data.spaces);
+        }
+        if (typeof data?.activeSpaceId === 'number') {
+          useSpacesStore.getState().setActiveSpace(data.activeSpaceId);
+        }
         cancelClose();
         setSkipAnimation(true);
         setOpen(true);
@@ -335,7 +339,7 @@ export async function mountFloatingUi({
     openFromHover() {
       rootRef.current?.openFromHover();
     },
-    openInstantly(data?: { spaces?: unknown[]; activeSpaceId?: number }) {
+    openInstantly(data?: { spaces?: any[]; activeSpaceId?: number }) {
       rootRef.current?.openInstantly(data);
     },
     openCommandPalette() {
