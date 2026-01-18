@@ -742,6 +742,15 @@ async function initialize() {
   void syncZoomLevel();
 }
 
+/**
+ * Initialize Floating UI programmatically.
+ * Used by extension pages like empty-space.html to get identical behavior to content scripts.
+ */
+export async function initFloatingUi() {
+  await initialize();
+}
+
+// Auto-initialize when loaded as a content script (not imported as a module)
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     void initialize();
