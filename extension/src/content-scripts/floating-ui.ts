@@ -2,7 +2,6 @@
 
 import '@/dev/reactPreamble';
 
-import { SwipeDetector } from '@/lib/gestures';
 import { hasChromeRuntime, requestSettings, requestUiMode, type UiMode } from './shared-utils';
 import {
   EdgeDetectionState,
@@ -27,9 +26,6 @@ let edgeDetectionHandler: ((e: PointerEvent) => void) | null = null;
 let pointerMoveHandler: ((e: PointerEvent) => void) | null = null;
 let pointerRawUpdateHandler: ((e: Event) => void) | null = null;
 let pointerLeaveHandler: ((e: PointerEvent) => void) | null = null;
-let gestureHandler: ((e: WheelEvent) => void) | null = null;
-const swipeDetector = new SwipeDetector(); // Uses default config with cooldown
-let gesturesEnabled = true;
 let edgeDetectionState: EdgeDetectionState = EdgeDetectionState.IDLE;
 let lastVelocityX = 0;
 let lastVelocityY = 0;
@@ -492,136 +488,8 @@ function teardownEdgeDetection() {
   }
 }
 
-function setupTrackpadGestures() {
-  if (gestureHandler) return;
-
-  gestureHandler = (e: WheelEvent) => {
-    if (!gesturesEnabled) return;
-
-    // Ignore vertical scrolling dominant events early
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      return;
-    }
-
-    // Prevent browser's back/forward navigation gesture for ALL horizontal scrolls
-    // This must be called before processing to block browser gestures during accumulation
-    e.preventDefault();
-
-    const direction = swipeDetector.process(e);
-    if (direction) {
-      if (typeof crypto.randomUUID !== 'function') return;
-
-      chrome.runtime.sendMessage(
-        {
-          method: 'navigateSpace',
-          params: { direction },
-          id: crypto.randomUUID(),
-        },
-        () => {
-          if (chrome.runtime.lastError) {
-            // Ignore
-          }
-        }
-      );
-
-      showFeedback(direction);
-    }
-  };
-
-  // passive: false is required to use preventDefault() for blocking browser gestures
-  window.addEventListener('wheel', gestureHandler, { passive: false });
-}
-
-const FEEDBACK_ID = 'arcline-swipe-feedback';
-
-function ensureFeedbackStyles() {
-  if (!shadowRoot) return;
-  if (shadowRoot.querySelector('#arcline-feedback-styles')) return;
-
-  const style = document.createElement('style');
-  style.id = 'arcline-feedback-styles';
-  style.textContent = `
-    .arcline-feedback {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 2147483647;
-      opacity: 0;
-      transition: opacity 0.2s ease-out, transform 0.2s ease-out;
-      background: rgba(0, 0, 0, 0.75);
-      border-radius: 16px;
-      padding: 24px;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-    .arcline-feedback.show {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1.0);
-    }
-    .arcline-feedback.enter {
-      transform: translate(-50%, -50%) scale(0.9);
-    }
-    .arcline-feedback svg {
-      width: 48px;
-      height: 48px;
-      stroke: currentColor;
-      stroke-width: 2.5;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-  `;
-  shadowRoot.append(style);
-}
-
-function showFeedback(direction: 'left' | 'right') {
-  ensureHost();
-  if (!shadowRoot) return;
-  ensureFeedbackStyles();
-
-  let el = shadowRoot.getElementById(FEEDBACK_ID) as HTMLDivElement;
-  if (!el) {
-    el = document.createElement('div');
-    el.id = FEEDBACK_ID;
-    el.className = 'arcline-feedback enter';
-    shadowRoot.append(el);
-  }
-
-  // Icons (Chevron Left / Right)
-  const leftIcon = `<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>`;
-  const rightIcon = `<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>`;
-
-  el.innerHTML = direction === 'left' ? leftIcon : rightIcon;
-
-  // Reset animation
-  el.classList.remove('show');
-  el.classList.add('enter');
-
-  // Force reflow
-  void el.offsetWidth;
-
-  // Animate in
-  el.classList.add('show');
-  el.classList.remove('enter');
-
-  // Hide after delay (short pulse)
-  setTimeout(() => {
-    el.classList.remove('show');
-  }, 600);
-}
-
-function teardownTrackpadGestures() {
-  if (gestureHandler) {
-    window.removeEventListener('wheel', gestureHandler);
-    gestureHandler = null;
-  }
-}
+// Note: Outside-Floating-UI trackpad gesture handling has been removed.
+// All swipe navigation now occurs only within the Floating UI via floatingGestureController.
 
 // Re-enable hostElement pointer events when UI is closed
 export function enableHostElementPointerEvents() {
@@ -647,7 +515,6 @@ function teardownFloatingUi() {
   window.__arclineFloatingReady = false;
 
   teardownEdgeDetection();
-  teardownTrackpadGestures();
 
   if (hostElement) {
     hostElement.remove();
@@ -665,7 +532,8 @@ function applyUiMode(mode: UiMode) {
     ensureHost();
     ensureBootstrapHotzone();
     setupEdgeDetection();
-    setupTrackpadGestures();
+    // Note: Trackpad gestures for outside-Floating-UI swipe are disabled.
+    // Use the Floating UI sliding gestures instead (handled by floatingGestureController).
   } else {
     teardownFloatingUi();
   }
@@ -738,15 +606,12 @@ async function initialize() {
 
   if (!hasChromeRuntime()) return;
 
-  const [mode, settings] = await Promise.all([
+  const [mode, _settings] = await Promise.all([
     requestUiMode().catch(() => 'floating' as const),
     requestSettings().catch(() => ({ gesturesEnabled: true, gestureSensitivity: 100 })),
   ]);
 
-  if (settings) {
-    swipeDetector.updateConfig({ threshold: settings.gestureSensitivity });
-    gesturesEnabled = settings.gesturesEnabled;
-  }
+  // Note: Settings for gesture sensitivity are now handled by floatingGestureController
 
   applyUiMode(mode);
 
