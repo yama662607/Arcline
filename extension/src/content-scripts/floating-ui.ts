@@ -478,25 +478,20 @@ function setupTrackpadGestures() {
     if (direction) {
       if (typeof crypto.randomUUID !== 'function') return;
 
-      // Show feedback first
-      showFeedback(direction);
-
-      // Wait for feedback animation to be visible before navigating
-      // This ensures the user can see the direction indicator
-      setTimeout(() => {
-        chrome.runtime.sendMessage(
-          {
-            method: 'navigateSpace',
-            params: { direction },
-            id: crypto.randomUUID(),
-          },
-          () => {
-            if (chrome.runtime.lastError) {
-              // Ignore
-            }
+      chrome.runtime.sendMessage(
+        {
+          method: 'navigateSpace',
+          params: { direction },
+          id: crypto.randomUUID(),
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            // Ignore
           }
-        );
-      }, 200); // 200ms delay to allow feedback to be visible
+        }
+      );
+
+      showFeedback(direction);
     }
   };
 
