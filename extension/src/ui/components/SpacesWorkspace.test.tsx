@@ -9,12 +9,13 @@ import { SpacesWorkspace } from './SpacesWorkspace';
 type MockSpacesState = {
   spaces: SpaceSnapshot[];
   activeSpaceId: number | null;
+  activeSpaceUuid: string | null;
   previousSpaceId: number | null;
   favoriteSpaceIds: number[];
   swipeProgress: number;
   isModalOpen: boolean;
   setSpaces: (spaces: SpaceSnapshot[]) => void;
-  setActiveSpace: (spaceId: number) => void;
+  setActiveSpace: (spaceId: number, spaceUuid?: string) => void;
   setActiveSpaceFromTabs: (spaces: SpaceSnapshot[]) => void;
   setFavoriteSpaces: (spaceIds: number[]) => void;
   toggleFavoriteSpace: (spaceId: number) => void;
@@ -128,13 +129,14 @@ describe('SpacesWorkspace', () => {
       (selector: (state: MockSpacesState) => unknown) => {
         const state: MockSpacesState = {
           activeSpaceId: 1,
+          activeSpaceUuid: '1',
           spaces: [space],
           previousSpaceId: null,
           favoriteSpaceIds: [],
           swipeProgress: 0,
           isModalOpen: false,
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
-          setActiveSpace: vi.fn<(spaceId: number) => void>(),
+          setActiveSpace: vi.fn<(spaceId: number, spaceUuid?: string) => void>(),
           setActiveSpaceFromTabs: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
           toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
@@ -183,13 +185,14 @@ describe('SpacesWorkspace', () => {
       (selector: (state: MockSpacesState) => unknown) => {
         const state: MockSpacesState = {
           activeSpaceId: 999,
+          activeSpaceUuid: '999',
           spaces: [],
           previousSpaceId: null,
           favoriteSpaceIds: [],
           swipeProgress: 0,
           isModalOpen: false,
           setSpaces: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
-          setActiveSpace: vi.fn<(spaceId: number) => void>(),
+          setActiveSpace: vi.fn<(spaceId: number, spaceUuid?: string) => void>(),
           setActiveSpaceFromTabs: vi.fn<(spaces: SpaceSnapshot[]) => void>(),
           setFavoriteSpaces: vi.fn<(spaceIds: number[]) => void>(),
           toggleFavoriteSpace: vi.fn<(spaceId: number) => void>(),
