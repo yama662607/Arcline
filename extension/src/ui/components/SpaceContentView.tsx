@@ -38,6 +38,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
   const previousSpaceId = useSpacesStore((state) => state.previousSpaceId);
   const lastSwipeDirectionRef = useRef(0);
   const lastSwipeAtRef = useRef(0);
+  const isGestureRef = useRef(false);
   const [previewSpaceId, setPreviewSpaceId] = useState<number | null>(null);
 
   const spacesRef = useRef(spaces);
@@ -60,6 +61,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
       const navDirection = progress > 0 ? 1 : -1;
       lastSwipeDirectionRef.current = navDirection;
       lastSwipeAtRef.current = performance.now();
+      isGestureRef.current = true;
 
       const currentSpaces = spacesRef.current;
       const currentActiveId = activeSpaceIdRef.current;
@@ -80,6 +82,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
       if (!direction) return;
       lastSwipeDirectionRef.current = direction === 'left' ? 1 : -1;
       lastSwipeAtRef.current = performance.now();
+      isGestureRef.current = false;
     };
 
     window.addEventListener('arcline-swipe-progress', handleSwipeProgress);
@@ -103,6 +106,19 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
     }
     return currentIndex > previousIndex ? 1 : -1;
   }, [previousSpaceId, activeSpaceId, spaces]);
+
+  const activeTransition = useMemo(() => {
+    // If we just finished a swipe gesture, the viewport is already at the target position.
+    // We set duration to 0 to prevent a second "corrective" animation from Framer Motion.
+    const recentlySwiped = performance.now() - lastSwipeAtRef.current < 800;
+    if (recentlySwiped && isGestureRef.current) {
+      return {
+        x: { duration: 0 },
+        opacity: { duration: 0 },
+      };
+    }
+    return transition;
+  }, [activeSpaceId]); // Re-calculate when space changes
 
   const renderPanel = (spaceId: number | null, isActive: boolean, xOffset: number) => (
     <div
@@ -145,7 +161,7 @@ export function SpaceContentView({ activeSpaceId, renderContent }: SpaceContentV
             initial="enter"
             animate="center"
             exit="exit"
-            transition={transition}
+            transition={activeTransition}
             className="absolute inset-0 min-h-full w-full"
           >
             {renderContent(activeSpaceId, { isActive: true })}
