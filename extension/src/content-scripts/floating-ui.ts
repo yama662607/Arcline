@@ -9,6 +9,7 @@ import {
   getEdgeDetectionConfig,
   subscribeEdgeDetectionConfig,
 } from './edge-detection-config';
+import { createFloatingGestureController } from './floating-gestures';
 
 const HOST_ID = 'arcline-floating-root';
 const BOOTSTRAP_MARK = 'data-arcline-floating-bootstrap';
@@ -37,6 +38,7 @@ let lastPointerScreenX: number | null = null;
 let lastPointerClientX: number | null = null;
 let lastPointerClientY: number | null = null;
 let initialized = false; // Flag to prevent double initialization
+let floatingGestureController: ReturnType<typeof createFloatingGestureController> | null = null;
 let config = getEdgeDetectionConfig();
 let lastInferenceTime = 0;
 subscribeEdgeDetectionConfig((next) => {
@@ -334,6 +336,37 @@ async function startFloatingUi(options?: { instant?: boolean; commandPalette?: b
       return null;
     });
 
+  // Initialize the gesture controller for sliding animations
+  // Capture references in closure to avoid stale values
+  const capturedShadowRoot = shadowRoot;
+  const capturedHostElement = hostElement;
+
+  if (floatingInstance && !floatingGestureController) {
+    floatingGestureController = createFloatingGestureController({
+      getShadowRoot: () => capturedShadowRoot,
+      getHostElement: () => capturedHostElement,
+      ensureHost: ensureHost,
+      onNavigateSpace: (direction, opts) => {
+        if (typeof crypto.randomUUID !== 'function') return;
+        chrome.runtime.sendMessage(
+          {
+            method: 'navigateSpace',
+            params: { direction, ...opts },
+            id: crypto.randomUUID(),
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              console.error('[Arcline] navigateSpace failed:', chrome.runtime.lastError);
+            }
+          }
+        );
+      },
+      onPageTransition: () => floatingInstance?.showPageTransition(),
+    });
+    floatingGestureController.setup();
+    console.log('[Arcline] Gesture controller initialized for Floating UI');
+  }
+
   if (options?.instant) {
     floatingInstance?.openInstantly();
   } else if (options?.commandPalette) {
@@ -604,6 +637,12 @@ function teardownFloatingUi() {
   floatingInstance?.destroy();
   floatingInstance = null;
   mountPromise = null;
+
+  // Teardown floating gesture controller
+  if (floatingGestureController) {
+    floatingGestureController.teardown();
+    floatingGestureController = null;
+  }
 
   window.__arclineFloatingReady = false;
 
