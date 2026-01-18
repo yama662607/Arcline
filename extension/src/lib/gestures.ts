@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: GestureConfig = {
   threshold: 50, // Lower threshold for better responsiveness
   timeout: 300,
   cooldown: 500, // Increased from 400ms to better handle trackpad inertia
-  maxSwipesPerBurst: 2, // Limit to 2 spaces per burst as per user request
+  maxSwipesPerBurst: 1, // Limit to 1 space per burst as per user request
 };
 
 /**
