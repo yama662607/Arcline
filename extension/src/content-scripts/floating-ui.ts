@@ -36,6 +36,7 @@ let lastPointerEventTime = 0;
 let lastPointerScreenX: number | null = null;
 let lastPointerClientX: number | null = null;
 let lastPointerClientY: number | null = null;
+let initialized = false; // Flag to prevent double initialization
 let config = getEdgeDetectionConfig();
 let lastInferenceTime = 0;
 subscribeEdgeDetectionConfig((next) => {
@@ -693,6 +694,9 @@ function handleWindowMessage(event: MessageEvent) {
 }
 
 async function initialize() {
+  if (initialized) return; // Prevent double initialization
+  initialized = true;
+
   if (!hasChromeRuntime()) return;
 
   const [mode, settings] = await Promise.all([
@@ -751,10 +755,13 @@ export async function initFloatingUi() {
 }
 
 // Auto-initialize when loaded as a content script (not imported as a module)
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
+// Skip if already initialized (e.g., via importFloatingUi from empty-space.html)
+if (!initialized) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      void initialize();
+    });
+  } else {
     void initialize();
-  });
-} else {
-  void initialize();
+  }
 }

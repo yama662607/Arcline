@@ -236,14 +236,24 @@ const FloatingUiRoot = forwardRef<
               key="arcline-floating-panel"
               data-testid="arcline-floating-panel"
               className="pointer-events-auto flex h-full flex-1"
-              style={{ marginLeft: '-5px', marginTop: '3px', marginBottom: '3px' }}
+              style={{
+                marginLeft: '-5px',
+                marginTop: '3px',
+                marginBottom: '3px',
+                willChange: 'transform, opacity', // GPU acceleration
+              }}
               initial={skipAnimation ? false : { x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '-102%', opacity: 0 }}
               transition={
                 skipAnimation
                   ? { duration: 0 }
-                  : { type: 'spring', stiffness: 420, damping: 38, mass: 0.5 }
+                  : {
+                      // Use tween with easeOut for smoother, more predictable motion
+                      type: 'tween',
+                      duration: 0.22,
+                      ease: [0.22, 0.61, 0.36, 1], // custom ease-out-quart-like
+                    }
               }
               onPointerEnter={cancelClose}
               onPointerLeave={handlePointerLeave}
