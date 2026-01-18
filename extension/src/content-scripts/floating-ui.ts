@@ -710,6 +710,35 @@ async function initialize() {
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
   window.addEventListener('message', handleWindowMessage);
 
+  // Listen for space-bar-switch events from BottomSpaceBar (floating mode)
+  window.addEventListener('arcline-space-bar-switch', (event: Event) => {
+    const detail = (
+      event as CustomEvent<{
+        spaceId: number;
+        spaceUuid?: string;
+        direction?: 'left' | 'right';
+      }>
+    ).detail;
+    if (!detail) return;
+
+    // Send message to background to activate the space
+    chrome.runtime.sendMessage(
+      {
+        method: 'activateSpace',
+        params: {
+          spaceId: detail.spaceId,
+          spaceUuid: detail.spaceUuid,
+        },
+        id: crypto.randomUUID(),
+      },
+      (_response) => {
+        if (chrome.runtime.lastError) {
+          console.error('[Arcline] ❌ activateSpace message failed:', chrome.runtime.lastError);
+        }
+      }
+    );
+  });
+
   void syncZoomLevel();
 }
 

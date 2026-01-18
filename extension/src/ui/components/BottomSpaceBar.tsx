@@ -25,7 +25,9 @@ function SpaceBadge({ space, isActive, onClick }: SpaceBadgeProps) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        onClick();
+      }}
       className={`group relative flex h-[34px] w-[34px] items-center justify-center rounded-[10px] transition-all ${
         isActive
           ? 'scale-110 ring-2 ring-white/50 shadow-lg'
@@ -118,6 +120,7 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
   const bridge = useServiceWorkerBridge();
   const spaces = useSpacesStore((state) => state.spaces);
   const activeSpaceId = useSpacesStore((state) => state.activeSpaceId);
+  const activeSpaceUuid = useSpacesStore((state) => state.activeSpaceUuid);
   const favoriteSpaceIds = useSpacesStore((state) => state.favoriteSpaceIds);
   const setActiveSpace = useSpacesStore((state) => state.setActiveSpace);
 
@@ -175,8 +178,9 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
       {/* Favorite space badges */}
       <div className="flex items-center gap-1">
         {displaySpaces.map((space, _index) => {
-          const isActive = space.id === activeSpaceId;
-          const spaceIndex = spaces.findIndex((s) => s.id === space.id);
+          // Use UUID for comparison when id=-1 (tab not in group)
+          const isActive = space.uuid ? space.uuid === activeSpaceUuid : space.id === activeSpaceId;
+          const spaceIndex = spaces.findIndex((s) => s.uuid === space.uuid || s.id === space.id);
           const isTarget = targetSpaceIndex === spaceIndex;
           const shouldShowProgress = Math.abs(swipeProgress) > 0.1 && (isActive || isTarget);
 
@@ -186,15 +190,14 @@ export function BottomSpaceBar({ onManageSpaces, variant = 'standalone' }: Botto
                 space={space}
                 isActive={isActive}
                 onClick={() => {
-                  if (space.id === activeSpaceId) return;
+                  // Use UUID for comparison - this prevents false positives when all spaces have id=-1
+                  if (space.uuid && activeSpaceUuid && space.uuid === activeSpaceUuid) return;
+                  if (!space.uuid && space.id === activeSpaceId) return;
                   const targetIndex = spaces.findIndex((s) => s.id === space.id);
                   const direction =
                     targetIndex >= 0 && targetIndex > currentSpaceIndex ? 'left' : 'right';
 
                   if (isFloatingVariant) {
-                    console.log(
-                      `[Arcline] 🔘 Space badge clicked (floating): ${space.name} (id=${space.id})`
-                    );
                     window.dispatchEvent(
                       new CustomEvent('arcline-space-bar-switch', {
                         detail: {

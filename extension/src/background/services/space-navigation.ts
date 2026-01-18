@@ -512,10 +512,29 @@ function findTargetSpace(
   spaces: SpaceSnapshot[],
   spaceIdOrUuid: number | string
 ): SpaceSnapshot | undefined {
-  if (typeof spaceIdOrUuid === 'number') {
-    return spaces.find((space) => space.id === spaceIdOrUuid);
+  // If it's a string, always search by uuid
+  if (typeof spaceIdOrUuid === 'string') {
+    return spaces.find((space) => space.uuid === spaceIdOrUuid);
   }
-  return spaces.find((space) => space.uuid === spaceIdOrUuid);
+
+  // For negative IDs (like -1), we can't use id to match correctly
+  // because multiple spaces might have id=-1 when tabs are ungrouped.
+  // In this case, this function won't find the right space by id alone.
+  // The caller should pass UUID instead for reliable matching.
+  if (spaceIdOrUuid < 0) {
+    console.warn(
+      `[Arcline] findTargetSpace: received negative id (${spaceIdOrUuid}), this may not match correctly. Caller should pass UUID.`
+    );
+  }
+
+  // For numeric input, first try to find by ID
+  const byId = spaces.find((space) => space.id === spaceIdOrUuid);
+  if (byId) return byId;
+
+  // Fallback: try matching by UUID as number-to-string comparison
+  // (handles cases where UUID is stored as string "250" but passed as number 250)
+  const uuidAsString = String(spaceIdOrUuid);
+  return spaces.find((space) => space.uuid === uuidAsString);
 }
 
 /**
