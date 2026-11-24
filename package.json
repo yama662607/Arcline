@@ -1,0 +1,22 @@
+{
+  "name": "arcline-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "pnpm --filter arcline-extension run dev",
+    "build": "pnpm --filter arcline-extension run build",
+    "preview": "pnpm --filter arcline-extension run preview",
+    "test": "pnpm --filter arcline-extension run test",
+    "test:e2e": "pnpm --filter arcline-extension run test:e2e",
+    "lint": "pnpm --filter arcline-extension run lint",
+    "format": "pnpm --filter arcline-extension run format",
+    "typecheck": "pnpm --filter arcline-extension run typecheck",
+    "check": "pnpm --filter arcline-extension run check"
+  },
+  "devDependencies": {
+    "@arcline/openspec-cli": "workspace:*",
+    "@biomejs/biome": "^2.6.8",
+    "turbo": "^2.11.13",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Format check
+        run: pnpm --dir extension exec biome check . --formatter-enabled=true --linter-enabled=false --assist-enabled=false
+      - name: Lint
+        run: pnpm --dir extension lint
+      - name: Typecheck
+        run: pnpm --dir extension typecheck
+      - name: Test
+        run: pnpm --dir extension test
+      - name: CLI tests
+        run: node --test packages/arcline-cli/test/cli.test.mjs
+      - name: Build MV3 bundle
+        run: pnpm --dir extension build
+      - name: Install Playwright Chromium
+        run: pnpm --dir extension exec playwright install chromium
+      - name: Real-browser extension diagnostics
+        env:
+          ARCLINE_BROWSER: chromium
+        run: pnpm --dir extension run check:extension
+      - name: Real-browser E2E tests
+        env:
+          ARCLINE_BROWSER: chromium
+        run: pnpm --dir extension run e2e

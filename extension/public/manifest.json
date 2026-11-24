@@ -1,0 +1,104 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "version": "1.0.0",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
+  "minimum_chrome_version": "116",
+  "homepage_url": "https://github.com/yama662607/Arcline",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "__MSG_actionTitle__",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "overlay.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidepanel.html",
+        "empty-space.html",
+        "assets/*",
+        "icons/*"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ],
+  "permissions": [
+    "sidePanel",
+    "tabs",
+    "tabGroups",
+    "bookmarks",
+    "storage",
+    "alarms",
+    "favicon",
+    "history"
+  ],
+  "commands": {
+    "toggle-sidebar": {
+      "suggested_key": {
+        "default": "Alt+Shift+B",
+        "mac": "MacCtrl+B"
+      },
+      "description": "__MSG_cmdToggleSidebar__"
+    },
+    "next-space": {
+      "suggested_key": {
+        "default": "Alt+Shift+Right",
+        "mac": "MacCtrl+Right"
+      },
+      "description": "__MSG_cmdNextSpace__"
+    },
+    "previous-space": {
+      "suggested_key": {
+        "default": "Alt+Shift+Left",
+        "mac": "MacCtrl+Left"
+      },
+      "description": "__MSG_cmdPreviousSpace__"
+    },
+    "toggle-pin": {
+      "suggested_key": {
+        "default": "Alt+Shift+D",
+        "mac": "MacCtrl+D"
+      },
+      "description": "__MSG_cmdTogglePin__"
+    },
+    "open-command-bar": {
+      "description": "__MSG_cmdOpenCommandBar__",
+      "global": true
+    }
+  },
+  "chrome_url_overrides": {
+    "newtab": "empty-space.html"
+  }
+}

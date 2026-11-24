@@ -1,0 +1,63 @@
+name: Bug Report / バグ報告
+description: Report a bug or unexpected behavior in Arcline / 不具合や意図しない動作を報告する
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Both English and Japanese are welcome.
+        バグ報告ありがとうございます！日本語・英語どちらでも大丈夫です。
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened? / 起きたこと
+      description: Describe the issue briefly. Screenshots or screen recordings are very helpful (drag & drop them here). / どんな不具合が起きたか教えてください。スクショの貼り付けも歓迎です。
+      placeholder: e.g., When clicking + New Tab on YouTube, the Command Bar did not open...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 再現手順
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser / ブラウザ
+      options:
+        - Brave
+        - Google Chrome
+        - Arc
+        - Vivaldi
+        - Microsoft Edge
+        - Other Chromium browser
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Arcline version / バージョン
+      placeholder: "1.0.0"
+    validations:
+      required: false

@@ -1,0 +1,29 @@
+# Arcline
+
+> Arcline (1.0.0) is a local-only, zero-telemetry Chrome and Brave MV3 extension that brings Arc Browser's auto-hide sidebar, unified Command Bar New Tab, zero-dependency CLI, Agent Skill, and Raycast global launcher to Chromium browsers.
+
+## Documentation
+
+- [README (English)](https://github.com/yama662607/Arcline/blob/main/README.md): Overview, feature matrix, screenshots, global hotkeys, AI agent setup prompt, and development commands.
+- [README (Japanese)](https://github.com/yama662607/Arcline/blob/main/README.ja.md): Full Japanese documentation, screenshots, setup guide, and copy-paste AI agent installation prompt.
+- [Privacy Policy](https://github.com/yama662607/Arcline/blob/main/PRIVACY.md): Zero-telemetry, zero-outbound-network guarantees, local storage model, and MV3 permission justifications.
+
+## CLI, Agent Skill & Raycast
+
+- [Arcline CLI (`@arcline/cli`)](https://github.com/yama662607/Arcline/blob/main/packages/arcline-cli/README.md): Dependency-free Node.js 22+ CLI (`arcline`) with `--json` output for `doctor`, `spaces`, `search`, `add-pin`, `export`, `import-arc`, and `open`.
+- [Arcline Agent Skill](https://github.com/yama662607/Arcline/blob/main/skills/arcline/SKILL.md): Agent instructions (`skills/arcline/SKILL.md`) for inspecting local Spaces, Favorites, pins, and copied-DB browser history, exporting context, parsing Arc `StorableSidebar.json`, adding pins, and opening URLs.
+- [Arcline Raycast Extension](https://github.com/yama662607/Arcline/blob/main/integrations/raycast/README.md): macOS and Windows Raycast extension providing `Search Arcline Command Bar`, `Arcline Favorites`, `Browse Arcline Spaces`, `Open Arcline New Tab`, and `Add Pin to Arcline Space`.
+
+## Automated Setup for AI Agents
+
+When a user asks an AI agent to install Arcline's CLI, Agent Skill, and Raycast extension:
+
+1. Inspect the local environment: detect OS, available runtimes/package managers (`node >= 22`, `bun`, `pnpm`, `npm`), whether Raycast is installed, and existing local AI agent skill directories.
+2. Install the Agent Skill using `npx skills add yama662607/Arcline` or `gh skill install yama662607/Arcline` (fallback: clone `https://github.com/yama662607/Arcline` and copy `skills/arcline/` into the active agent's skills directory).
+3. Install or link `packages/arcline-cli` (preferring `bun` or the user's existing package manager; no build step required) and verify with `arcline --help` and `arcline spaces --json` (or `node packages/arcline-cli/bin/arcline.mjs`).
+4. On macOS with Raycast installed, build `integrations/raycast` (`npm install && npm run build`) so `Search Arcline Command Bar` and `Arcline Favorites` are ready to import via Raycast's Import Extension command.
+5. Run read-only verification (`arcline doctor --json` and `arcline spaces --json`) and report installed components without modifying browser bookmarks or personal data.
+
+## Optional
+
+- [License (GPL-3.0)](https://github.com/yama662607/Arcline/blob/main/LICENSE): GNU General Public License v3.0.

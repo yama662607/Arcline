@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Feedback Form (No login required) / フィードバックフォーム（ログイン不要）
+    url: https://docs.google.com/forms/d/e/1FAIpQLSdXf5b7sSiMUez01iu137XaH0u2D9kvgQLBIUUF4D4MRR7yIg/viewform
+    about: Send bug reports, feature requests, or feedback without a GitHub account / GitHub アカウント不要でバグ報告・要望・感想を送れます
+  - name: Usage Guide & FAQ / 使い方・よくある質問
+    url: https://github.com/yama662607/Arcline#readme
+    about: Check setup steps, shortcuts, and Arc migration guide / セットアップ手順・ショートカット・Arc移行ガイドはこちら

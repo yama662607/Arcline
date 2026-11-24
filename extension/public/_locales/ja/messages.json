@@ -1,0 +1,26 @@
+{
+  "extName": {
+    "message": "Arcline"
+  },
+  "extDescription": {
+    "message": "Arc風の縦型サイドバー。Space、共通お気に入り、左端ホバー表示、コマンドバー付き新規タブページを提供します。"
+  },
+  "actionTitle": {
+    "message": "Arcline サイドバーを開く"
+  },
+  "cmdToggleSidebar": {
+    "message": "Arcline サイドバーを開く"
+  },
+  "cmdNextSpace": {
+    "message": "次の Space に切り替え"
+  },
+  "cmdPreviousSpace": {
+    "message": "前の Space に切り替え"
+  },
+  "cmdTogglePin": {
+    "message": "アクティブなタブをピン留め / 解除"
+  },
+  "cmdOpenCommandBar": {
+    "message": "どこからでも Arcline コマンドバーを開く"
+  }
+}

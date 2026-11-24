@@ -1,0 +1,10 @@
+{
+  "name": "@arcline/cli",
+  "version": "1.0.0",
+  "description": "Local, dependency-free Arcline workspace tools for people and AI agents",
+  "type": "module",
+  "bin": { "arcline": "./bin/arcline.mjs" },
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "engines": { "node": ">=22" },
+  "files": ["bin", "src", "README.md"]
+}

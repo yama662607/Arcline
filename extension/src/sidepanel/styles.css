@@ -1,0 +1,773 @@
+@import "tailwindcss";
+
+@property --space-hue {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 235;
+}
+
+:root {
+  --space-hue: 235;
+  --space-chroma-scale: 1;
+  --arcline-sidebar-w: 290px;
+
+  /*
+   * Authentic Arc Browser Palette:
+   * - Dark mode: deep matte charcoal (#1e1e1f) with subtle atmospheric space tint when colored.
+   * - Light / Tinted mode: muted, dusty organic two-tone wash (low chroma, never neon).
+   */
+  --wash-top-light: oklch(0.84 calc(0.036 * var(--space-chroma-scale)) var(--space-hue));
+  --wash-bottom-light: oklch(
+    0.79 calc(0.044 * var(--space-chroma-scale)) calc(var(--space-hue) + 52)
+  );
+  --ink-light: oklch(0.18 0.015 var(--space-hue));
+  --ink-muted-light: oklch(0.38 0.018 var(--space-hue));
+  --urlbar-light: rgb(0 0 0 / 0.065);
+  --tile-light: rgb(0 0 0 / 0.065);
+  --tile-hover-light: rgb(0 0 0 / 0.11);
+  --tile-active-light: rgb(255 255 255 / 0.55);
+  --pill-light: rgb(255 255 255 / 0.48);
+  --pill-shadow-light: 0 1px 2px rgb(0 0 0 / 0.08), inset 0 0 0 0.5px rgb(255 255 255 / 0.5);
+  --hover-light: rgb(0 0 0 / 0.065);
+  --rule-light: rgb(0 0 0 / 0.12);
+  --menu-light: oklch(0.97 0.008 var(--space-hue));
+  --canvas-light: oklch(0.94 0.012 var(--space-hue));
+  --accent-light: oklch(0.46 0.14 var(--space-hue));
+
+  --wash-top-dark: oklch(0.205 calc(0.028 * var(--space-chroma-scale)) var(--space-hue));
+  --wash-bottom-dark: oklch(
+    0.185 calc(0.024 * var(--space-chroma-scale)) calc(var(--space-hue) + 38)
+  );
+  --ink-dark: oklch(0.935 0.006 var(--space-hue));
+  --ink-muted-dark: oklch(0.64 0.01 var(--space-hue));
+  --urlbar-dark: rgb(255 255 255 / 0.075);
+  --tile-dark: rgb(255 255 255 / 0.078);
+  --tile-hover-dark: rgb(255 255 255 / 0.13);
+  --tile-active-dark: rgb(255 255 255 / 0.34);
+  --pill-dark: rgb(255 255 255 / 0.115);
+  --pill-shadow-dark: inset 0 0 0 0.5px rgb(255 255 255 / 0.12);
+  --hover-dark: rgb(255 255 255 / 0.075);
+  --rule-dark: rgb(255 255 255 / 0.1);
+  --menu-dark: oklch(0.24 0.014 var(--space-hue));
+  --canvas-dark: oklch(0.2 0.012 var(--space-hue));
+  --accent-dark: oklch(0.75 0.12 var(--space-hue));
+
+  --wash-top: var(--wash-top-light);
+  --wash-bottom: var(--wash-bottom-light);
+  --ink: var(--ink-light);
+  --ink-muted: var(--ink-muted-light);
+  --urlbar: var(--urlbar-light);
+  --tile: var(--tile-light);
+  --tile-hover: var(--tile-hover-light);
+  --tile-active: var(--tile-active-light);
+  --pill: var(--pill-light);
+  --pill-shadow: var(--pill-shadow-light);
+  --hover: var(--hover-light);
+  --rule: var(--rule-light);
+  --menu: var(--menu-light);
+  --accent: var(--accent-light);
+
+  --bg-canvas: var(--canvas-light);
+  --bg-surface: var(--menu-light);
+  --bg-hover: var(--hover-light);
+  --bg-active: var(--pill-light);
+  --text-primary: var(--ink-light);
+  --text-muted: var(--ink-muted-light);
+  --border-subtle: var(--rule-light);
+
+  @media (prefers-color-scheme: dark) {
+    --wash-top: var(--wash-top-dark);
+    --wash-bottom: var(--wash-bottom-dark);
+    --ink: var(--ink-dark);
+    --ink-muted: var(--ink-muted-dark);
+    --urlbar: var(--urlbar-dark);
+    --tile: var(--tile-dark);
+    --tile-hover: var(--tile-hover-dark);
+    --tile-active: var(--tile-active-dark);
+    --pill: var(--pill-dark);
+    --pill-shadow: var(--pill-shadow-dark);
+    --hover: var(--hover-dark);
+    --rule: var(--rule-dark);
+    --menu: var(--menu-dark);
+    --accent: var(--accent-dark);
+    --bg-canvas: var(--canvas-dark);
+    --bg-surface: var(--menu-dark);
+    --bg-hover: var(--hover-dark);
+    --bg-active: var(--pill-dark);
+    --text-primary: var(--ink-dark);
+    --text-muted: var(--ink-muted-dark);
+    --border-subtle: var(--rule-dark);
+  }
+
+  @supports (color: light-dark(white, black)) {
+    --wash-top: light-dark(var(--wash-top-light), var(--wash-top-dark));
+    --wash-bottom: light-dark(var(--wash-bottom-light), var(--wash-bottom-dark));
+    --ink: light-dark(var(--ink-light), var(--ink-dark));
+    --ink-muted: light-dark(var(--ink-muted-light), var(--ink-muted-dark));
+    --urlbar: light-dark(var(--urlbar-light), var(--urlbar-dark));
+    --tile: light-dark(var(--tile-light), var(--tile-dark));
+    --tile-hover: light-dark(var(--tile-hover-light), var(--tile-hover-dark));
+    --tile-active: light-dark(var(--tile-active-light), var(--tile-active-dark));
+    --pill: light-dark(var(--pill-light), var(--pill-dark));
+    --hover: light-dark(var(--hover-light), var(--hover-dark));
+    --rule: light-dark(var(--rule-light), var(--rule-dark));
+    --menu: light-dark(var(--menu-light), var(--menu-dark));
+    --accent: light-dark(var(--accent-light), var(--accent-dark));
+    --bg-canvas: light-dark(var(--canvas-light), var(--canvas-dark));
+    --bg-surface: light-dark(var(--menu-light), var(--menu-dark));
+    --bg-hover: light-dark(var(--hover-light), var(--hover-dark));
+    --bg-active: light-dark(var(--pill-light), var(--pill-dark));
+    --text-primary: light-dark(var(--ink-light), var(--ink-dark));
+    --text-muted: light-dark(var(--ink-muted-light), var(--ink-muted-dark));
+    --border-subtle: light-dark(var(--rule-light), var(--rule-dark));
+  }
+
+  color-scheme: light dark;
+  accent-color: var(--accent);
+}
+
+:root[data-neutral="true"] {
+  --space-chroma-scale: 0;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --pill-shadow: var(--pill-shadow-light);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --pill-shadow: var(--pill-shadow-dark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
+}
+
+/*
+ * Prevent horizontal two-finger trackpad swipes inside the sidebar document from
+ * escalating into Chromium browser Back/Forward history navigation.
+ * Host webpages keep their own native `overscroll-behavior-x: auto`.
+ */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior-x: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", sans-serif;
+  font-size: 13.5px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.arcline-shell {
+  position: relative;
+  overscroll-behavior-x: none;
+  background: linear-gradient(175deg, var(--wash-top), var(--wash-bottom));
+  transition: --space-hue 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Tactile procedural analog film grain (SVG feTurbulence, zero network assets) */
+.arcline-grain-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 140px 140px;
+}
+
+/* Subtle translucent vibrancy in floating overlay mode (matches Arc macOS NSVisualEffectView) */
+.arcline-shell[data-arcline-mode="overlay"] {
+  background: linear-gradient(
+    175deg,
+    color-mix(in oklch, var(--wash-top) 91%, transparent),
+    color-mix(in oklch, var(--wash-bottom) 91%, transparent)
+  );
+}
+
+/*
+ * In the browser's native Side Panel (brave:// / chrome:// pages), fill 100% of the panel
+ * edge-to-edge like Arc's wide sidebar—no artificial side margins or boxed card wrapper.
+ */
+.arcline-shell[data-arcline-mode="sidepanel"] {
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * When overlay expands its iframe to full viewport (`100vw x 100vh`) to host a
+ * window-centered modal or an overflowing context menu, pin `.arcline-shell` back
+ * to the exact left sidebar frame so there is zero visual shift.
+ */
+.arcline-shell[data-arcline-mode="overlay"][data-stage-expanded="true"] {
+  position: fixed;
+  top: 6px;
+  left: 6px;
+  bottom: 6px;
+  width: var(--arcline-sidebar-w);
+  height: auto;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.arcline-title-fade {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.arcline-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+
+@supports not (scrollbar-color: auto) {
+  .arcline-scroll {
+    scrollbar-width: auto;
+  }
+  .arcline-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .arcline-scroll::-webkit-scrollbar-thumb {
+    background: var(--rule);
+    border-radius: 999px;
+  }
+  .arcline-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+.arcline-hscroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.arcline-hscroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth Space swipe & directional slide-in transition */
+.arcline-space-stage {
+  will-change: transform, opacity;
+}
+
+@keyframes arcline-slide-from-right {
+  from {
+    opacity: 0.4;
+    transform: translate3d(26px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes arcline-slide-from-left {
+  from {
+    opacity: 0.4;
+    transform: translate3d(-26px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.arcline-space-enter-right {
+  animation: arcline-slide-from-right 210ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.arcline-space-enter-left {
+  animation: arcline-slide-from-left 210ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Smooth bidirectional folder expand & collapse animation (1fr <-> 0fr) */
+.arcline-folder-children {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-2px);
+  pointer-events: none;
+  transition:
+    grid-template-rows 180ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 145ms ease,
+    transform 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.arcline-folder-children[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition:
+    grid-template-rows 210ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 165ms ease,
+    transform 210ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.arcline-folder-children > ul {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Live audio 3-bar micro equalizer */
+@keyframes arcline-eq-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.arcline-eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  height: 10px;
+  width: 10px;
+}
+
+.arcline-eq span {
+  display: block;
+  width: 2px;
+  height: 100%;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: bottom;
+  animation: arcline-eq-bar 820ms ease-in-out infinite;
+}
+
+.arcline-eq span:nth-child(2) {
+  animation-delay: -260ms;
+}
+
+.arcline-eq span:nth-child(3) {
+  animation-delay: -520ms;
+}
+
+/* Subtle loading ring for loading tabs */
+@keyframes arcline-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.arcline-loading-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  border-top-color: var(--accent);
+  animation: arcline-spin 720ms linear infinite;
+  pointer-events: none;
+}
+
+/* Native Popover Context Menu with CSS Anchor Positioning + Smooth Entrance */
+.menu-anchor {
+  position: fixed;
+  inline-size: 0;
+  block-size: 0;
+  pointer-events: none;
+}
+
+[popover].arcline-menu {
+  margin: 0;
+  inset: auto;
+  padding: 5px;
+  min-width: 204px;
+  max-width: 268px;
+  overflow: visible;
+  border-radius: 12px;
+  border: 0.5px solid var(--rule);
+  background: color-mix(in oklch, var(--menu) 94%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  color: var(--ink);
+  box-shadow:
+    0 18px 42px rgb(0 0 0 / 0.38),
+    0 2px 8px rgb(0 0 0 / 0.16),
+    inset 0 0.5px 0 rgb(255 255 255 / 0.14);
+  position-area: block-end span-inline-end;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+}
+
+[popover].arcline-menu:is(:popover-open, .\:popover-open) {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [popover].arcline-menu {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+    transition:
+      opacity 110ms ease,
+      transform 130ms cubic-bezier(0.16, 1, 0.3, 1),
+      display 110ms allow-discrete,
+      overlay 110ms allow-discrete;
+  }
+  [popover].arcline-menu:popover-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    @starting-style {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.97);
+    }
+  }
+}
+
+.arcline-menu-item {
+  transition:
+    background-color 90ms ease,
+    transform 80ms ease;
+}
+
+.arcline-menu-item:hover:not(:disabled),
+.arcline-menu-item:focus-visible:not(:disabled) {
+  background-color: var(--bg-hover);
+  outline: none;
+}
+
+.arcline-menu-item:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.arcline-submenu {
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+
+/* Native Modal Dialogs */
+dialog.arcline-dialog {
+  padding: 0;
+  border: 0.5px solid var(--rule);
+  border-radius: 16px;
+  background: var(--menu);
+  color: var(--ink);
+  box-shadow:
+    0 28px 70px rgb(0 0 0 / 0.46),
+    0 4px 16px rgb(0 0 0 / 0.2),
+    inset 0 0.5px 0 rgb(255 255 255 / 0.12);
+  width: min(92vw, 420px);
+  max-height: 86vh;
+  margin: auto;
+  overflow: hidden;
+}
+
+dialog.arcline-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.arcline-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.arcline-dialog::backdrop {
+  background: rgb(0 0 0 / 0.44);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.arcline-dialog,
+  dialog.arcline-theme-dialog {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+    transition:
+      opacity 150ms ease,
+      transform 190ms cubic-bezier(0.16, 1, 0.3, 1),
+      display 150ms allow-discrete,
+      overlay 150ms allow-discrete;
+  }
+  dialog.arcline-dialog[open],
+  dialog.arcline-theme-dialog[open] {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    @starting-style {
+      opacity: 0;
+      transform: translateY(8px) scale(0.96);
+    }
+  }
+  dialog.arcline-dialog::backdrop,
+  dialog.arcline-theme-dialog::backdrop {
+    opacity: 0;
+    transition:
+      opacity 150ms ease,
+      display 150ms allow-discrete,
+      overlay 150ms allow-discrete;
+  }
+  dialog.arcline-dialog[open]::backdrop,
+  dialog.arcline-theme-dialog[open]::backdrop {
+    opacity: 1;
+    @starting-style {
+      opacity: 0;
+    }
+  }
+}
+
+/* Window-Centered Responsive Settings Dialog (2-Pane Desktop / Compact Side Panel) */
+dialog.arcline-settings-dialog {
+  width: min(92vw, 660px);
+  height: min(84vh, 540px);
+}
+
+.arcline-settings-layout {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+
+.arcline-settings-rail {
+  width: 186px;
+  flex-shrink: 0;
+}
+
+.arcline-settings-compact-tabs {
+  display: none;
+}
+
+.arcline-settings-card {
+  border-radius: 12px;
+  border: 0.5px solid var(--border-subtle);
+  background: var(--bg-canvas);
+  padding: 12px 14px;
+}
+
+@media (max-width: 539px) {
+  dialog.arcline-settings-dialog {
+    width: min(94vw, 380px);
+    height: min(88vh, 580px);
+  }
+  .arcline-settings-rail,
+  .arcline-settings-subtitle {
+    display: none;
+  }
+  .arcline-settings-compact-tabs {
+    display: flex;
+  }
+}
+
+dialog.arcline-space-dialog {
+  width: min(92vw, 436px);
+}
+
+/* macOS / Arc-style Smooth Toggle Switch */
+.arcline-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 36px;
+  height: 20px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--rule);
+  transition: background-color 160ms ease;
+}
+
+.arcline-switch[data-checked="true"] {
+  background: var(--accent);
+}
+
+.arcline-switch-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transform: translateX(0);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.arcline-switch[data-checked="true"] .arcline-switch-thumb {
+  transform: translateX(16px);
+}
+
+/* Arc-style Space Theme Studio Dialog (adapts to Light & Dark mode) */
+dialog.arcline-theme-dialog {
+  padding: 0;
+  border: 0.5px solid var(--rule);
+  border-radius: 16px;
+  background: color-mix(in oklch, var(--menu) 96%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  color: var(--ink);
+  box-shadow:
+    0 24px 64px rgb(0 0 0 / 0.45),
+    inset 0 0.5px 0 rgb(255 255 255 / 0.12);
+  width: min(94vw, 296px);
+  max-height: 92vh;
+  margin: auto;
+  overflow-y: auto;
+}
+
+dialog.arcline-theme-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.arcline-theme-dialog::backdrop {
+  background: rgb(0 0 0 / 0.14);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* In wide overlay stage mode, dock Theme Studio cleanly beside the left sidebar so live color updates stay unobstructed */
+@media (min-width: 680px) {
+  .arcline-shell[data-arcline-mode="overlay"][data-stage-expanded="true"]
+    dialog.arcline-theme-dialog {
+    margin: auto auto auto calc(var(--arcline-sidebar-w, 290px) + 20px);
+  }
+}
+
+/* Viewport-safe centered Space Swipe Preview Pill (follows Light/Dark mode) */
+.arcline-swipe-pill {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 38;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 0.5px solid var(--rule);
+  background: color-mix(in oklch, var(--menu) 94%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  box-shadow:
+    0 10px 26px rgb(0 0 0 / 0.28),
+    inset 0 0.5px 0 rgb(255 255 255 / 0.14);
+  pointer-events: none;
+}
+
+/* Tactile Toast Feedback Pill */
+@keyframes arcline-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.arcline-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 52px;
+  z-index: 40;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 0.5px solid var(--rule);
+  background: color-mix(in oklch, var(--menu) 94%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 500;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.34);
+  pointer-events: none;
+  animation: arcline-toast-in 170ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Enhanced Arc-Style Drag & Drop Insertion Beams (leading anchor dot + accent bar) */
+.drop-line-top,
+.drop-line-bottom {
+  position: relative;
+}
+
+.drop-line-top::before,
+.drop-line-bottom::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 0 8px color-mix(in oklch, var(--accent) 55%, transparent);
+}
+
+.drop-line-top::before {
+  top: -1px;
+}
+
+.drop-line-bottom::after {
+  bottom: -1px;
+}
+
+.drop-line-top::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 11;
+}
+
+.drop-line-bottom::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  bottom: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 11;
+}
+
+.drop-folder-target {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
+  background-color: color-mix(in oklch, var(--accent) 16%, var(--hover));
+}

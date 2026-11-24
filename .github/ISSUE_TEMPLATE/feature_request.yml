@@ -1,0 +1,26 @@
+name: Feature Request / 機能リクエスト・感想
+description: Suggest a new feature, improvement, or share feedback / 欲しい機能や改善案・感想を送る
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make Arcline better? Both English and Japanese are welcome!
+        こんな機能があると嬉しい・ここをこうしたい、など気軽に送ってください！
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to see? / どんな機能・改善が欲しいですか？
+      placeholder: Describe your idea or feedback...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Why is this helpful? (Optional) / どんな場面で使いたいですか？（任意）
+      placeholder: e.g., When switching between work and personal Spaces...
+    validations:
+      required: false

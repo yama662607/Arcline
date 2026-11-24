@@ -1,0 +1,105 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "arcline",
+  "title": "Arcline",
+  "description": "Global Command Bar for Arcline: search Favorites, Space pinned folders, and browser History from anywhere, browse Spaces, or jump into a new tab.",
+  "icon": "command-icon.png",
+  "author": "yama662607",
+  "categories": [
+    "Productivity",
+    "Web"
+  ],
+  "license": "GPL-3.0",
+  "platforms": [
+    "macOS",
+    "Windows"
+  ],
+  "preferences": [
+    {
+      "name": "browser",
+      "title": "Browser",
+      "description": "Which Chromium browser profile Arcline should read and open links in.",
+      "type": "dropdown",
+      "required": true,
+      "default": "brave",
+      "data": [
+        { "title": "Brave Browser", "value": "brave" },
+        { "title": "Google Chrome", "value": "chrome" },
+        { "title": "Chromium", "value": "chromium" }
+      ]
+    },
+    {
+      "name": "profile",
+      "title": "Profile Directory",
+      "description": "Browser profile folder name (usually Default, Profile 1, Profile 2).",
+      "type": "textfield",
+      "required": true,
+      "default": "Default"
+    },
+    {
+      "name": "searchEngine",
+      "title": "Fallback Web Search Engine",
+      "description": "Search engine used when pressing Enter on a plain text query.",
+      "type": "dropdown",
+      "required": true,
+      "default": "google",
+      "data": [
+        { "title": "Google", "value": "google" },
+        { "title": "DuckDuckGo", "value": "duckduckgo" },
+        { "title": "Brave Search", "value": "brave" }
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "name": "search-arcline",
+      "title": "Search Arcline Command Bar",
+      "subtitle": "Arcline",
+      "description": "Search Global Favorites (with aliases), Space pinned links, browser History, and AI/Web Site Search shortcuts from anywhere.",
+      "mode": "view"
+    },
+    {
+      "name": "favorites",
+      "title": "Arcline Favorites",
+      "subtitle": "Arcline",
+      "description": "List all Arcline Favorites automatically and create individual Raycast Quicklinks to bind global hotkeys.",
+      "mode": "view"
+    },
+    {
+      "name": "browse-spaces",
+      "title": "Browse Arcline Spaces",
+      "subtitle": "Arcline",
+      "description": "Browse all Arcline Spaces, nested folders, and Favorites.",
+      "mode": "view"
+    },
+    {
+      "name": "open-new-tab",
+      "title": "Open Arcline New Tab",
+      "subtitle": "Arcline",
+      "description": "Focus your browser and open a fresh Arcline Command Bar new tab via a global hotkey.",
+      "mode": "no-view"
+    },
+    {
+      "name": "add-pin",
+      "title": "Add Pin to Arcline Space",
+      "subtitle": "Arcline",
+      "description": "Save a URL directly into any Arcline Space folder.",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^2.13.1"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.2.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "extName": {
+    "message": "Arcline"
+  },
+  "extDescription": {
+    "message": "Arc-style vertical sidebar with Spaces, global Favorites, left-edge hover, and a unified Command Bar new tab page."
+  },
+  "actionTitle": {
+    "message": "Open Arcline Sidebar"
+  },
+  "cmdToggleSidebar": {
+    "message": "Open Arcline sidebar"
+  },
+  "cmdNextSpace": {
+    "message": "Switch to next Space"
+  },
+  "cmdPreviousSpace": {
+    "message": "Switch to previous Space"
+  },
+  "cmdTogglePin": {
+    "message": "Pin or unpin the active tab"
+  },
+  "cmdOpenCommandBar": {
+    "message": "Open Arcline Command Bar from anywhere"
+  }
+}
