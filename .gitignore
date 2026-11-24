@@ -82,4 +82,5 @@ test_output.txt
 # Reference repositories (local only)
 refs/
 release/
+.playwright-mcp/
 integrations/raycast/raycast-env.d.ts
