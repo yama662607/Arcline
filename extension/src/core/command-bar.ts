@@ -169,6 +169,8 @@ export interface CommandBarInput {
   customSiteSearches?: readonly CustomSiteSearch[];
   /** Per-Favorite alias & shortcut map keyed by Favorite URL. */
   favoriteShortcuts?: Readonly<Record<string, FavoriteShortcut>>;
+  /** Currently active tab ID in the focused window; excluded (along with its exact URL) from candidates. */
+  activeTabId?: number;
   /** Epoch ms used for the history recency bonus. Defaults to `Date.now()`. */
   now?: number;
   /** Maximum number of returned items. Default `DEFAULT_RESULT_LIMIT`. */
@@ -860,10 +862,23 @@ function collectCandidates(input: CommandBarInput): Candidate[] {
     out.push({ item, fields, seq: seq++ });
   };
   const tabSpaces = buildTabSpaceIndex(input.spaces);
+  const activeTab =
+    input.activeTabId !== undefined
+      ? input.openTabs.find((t) => t.id === input.activeTabId)
+      : undefined;
+  const activeUrlKey =
+    activeTab && isNavigableUrl(activeTab.url) && !isCommandBarPageUrl(activeTab.url)
+      ? normalizeUrlKey(activeTab.url)
+      : undefined;
 
   // Open tabs ------------------------------------------------------------------------------
   for (const tab of input.openTabs) {
-    if (!isNavigableUrl(tab.url) || isCommandBarPageUrl(tab.url) || tab.url === 'about:blank') {
+    if (
+      tab.id === input.activeTabId ||
+      !isNavigableUrl(tab.url) ||
+      isCommandBarPageUrl(tab.url) ||
+      tab.url === 'about:blank'
+    ) {
       continue;
     }
     const space = tabSpaces.get(tab.id);
@@ -895,6 +910,7 @@ function collectCandidates(input: CommandBarInput): Candidate[] {
   }
   for (const fav of input.favorites) {
     if (!isNavigableUrl(fav.url)) continue;
+    if (activeUrlKey && normalizeUrlKey(fav.url) === activeUrlKey) continue;
     const title = titleOrHost(fav.title, fav.url);
     const meta =
       normalizedFavShortcuts.get(fav.url) ?? normalizedFavShortcuts.get(normalizeUrlKey(fav.url));
@@ -927,6 +943,7 @@ function collectCandidates(input: CommandBarInput): Candidate[] {
   for (const space of orderedSpaces) {
     for (const pin of flattenPinsWithPath(space.pinned)) {
       if (!isNavigableUrl(pin.url)) continue;
+      if (activeUrlKey && normalizeUrlKey(pin.url) === activeUrlKey) continue;
       const title = titleOrHost(pin.title, pin.url);
       const fields = urlFields(title, pin.url);
       fields.push({ text: foldText(space.name), weight: FIELD_WEIGHT_PATH });
@@ -956,6 +973,7 @@ function collectCandidates(input: CommandBarInput): Candidate[] {
   // History ----------------------------------------------------------------------------------
   for (const entry of input.history) {
     if (!isNavigableUrl(entry.url)) continue;
+    if (activeUrlKey && normalizeUrlKey(entry.url) === activeUrlKey) continue;
     const title = titleOrHost(entry.title, entry.url);
     push(
       {
@@ -976,6 +994,7 @@ function collectCandidates(input: CommandBarInput): Candidate[] {
   // Archived tabs ----------------------------------------------------------------------------
   for (const archived of input.archived) {
     if (!isNavigableUrl(archived.url)) continue;
+    if (activeUrlKey && normalizeUrlKey(archived.url) === activeUrlKey) continue;
     const space =
       input.spaces.find((s) => s.name === archived.spaceName) ??
       input.spaces.find((s) => s.id === input.activeSpaceId) ??

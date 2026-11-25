@@ -123,6 +123,7 @@ function EmptySpaceCanvas() {
   const initialBarVisible = isModal || isPopup || isCommandBarExplicit || !requestedSpaceId;
 
   const [barVisible, setBarVisible] = useState(initialBarVisible);
+  const [initialLoaded, setInitialLoaded] = useState(!isModal);
   const [windowId, setWindowId] = useState<number | null>(null);
   const [state, setState] = useState<SidebarState | null>(null);
   const [openTabs, setOpenTabs] = useState<CommandBarTab[]>([]);
@@ -139,6 +140,13 @@ function EmptySpaceCanvas() {
   const inputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const pointerHoverEnabledRef = useRef(false);
+  const lastPointerPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const resetPointerHover = useCallback(() => {
+    pointerHoverEnabledRef.current = false;
+    lastPointerPosRef.current = null;
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -187,6 +195,8 @@ function EmptySpaceCanvas() {
       if (!active) return;
       setState(loaded);
       await refreshTabsAndArchive();
+      if (!active) return;
+      setInitialLoaded(true);
 
       cleanup = subscribeToWindowUpdates(winId, {
         onReload: () => {
@@ -234,6 +244,16 @@ function EmptySpaceCanvas() {
     document.body.style.background = 'transparent';
   }, [isModal]);
 
+  // Signal parent overlay to reveal the modal iframe only once initial state + tabs are painted
+  useEffect(() => {
+    if (!isModal || !initialLoaded) return;
+    const rafId = requestAnimationFrame(() => {
+      window.parent.postMessage({ type: 'arcline:command-bar-ready' }, '*');
+      inputRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [isModal, initialLoaded]);
+
   // Dismiss Command Bar when clicking outside the floating card (in modal or empty-space overlay)
   useEffect(() => {
     if (!barVisible || (!isModal && !requestedSpaceId)) return;
@@ -271,6 +291,8 @@ function EmptySpaceCanvas() {
       setBarVisible((prev) => {
         const next = action === 'toggle' ? !prev : true;
         if (next) {
+          setSelectedIdx(0);
+          resetPointerHover();
           requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
         }
         return next;
@@ -278,7 +300,7 @@ function EmptySpaceCanvas() {
     };
     window.addEventListener('arcline:empty-space-command-bar', onCommandBarEvent);
     return () => window.removeEventListener('arcline:empty-space-command-bar', onCommandBarEvent);
-  }, [isModal]);
+  }, [isModal, resetPointerHover]);
 
   // Ensure the Command Bar search box receives keyboard focus on open, tab switch, and Cmd+T
   useEffect(() => {
@@ -422,6 +444,14 @@ function EmptySpaceCanvas() {
     [t],
   );
 
+  const activeTabId = useMemo(
+    () =>
+      windowId !== null
+        ? openTabs.find((tab) => tab.windowId === windowId && tab.active)?.id
+        : undefined,
+    [openTabs, windowId],
+  );
+
   const commandResult = useMemo(
     () =>
       buildCommandBarResults({
@@ -434,6 +464,7 @@ function EmptySpaceCanvas() {
         searchEngine: settings.searchEngine,
         activeSpaceId: space?.id,
         activeSiteSearchId,
+        activeTabId,
         actionLabels,
         customSiteSearches: settings.customSiteSearches,
         favoriteShortcuts: settings.favoriteShortcuts,
@@ -450,6 +481,7 @@ function EmptySpaceCanvas() {
       settings.favoriteShortcuts,
       space?.id,
       activeSiteSearchId,
+      activeTabId,
       actionLabels,
     ],
   );
@@ -626,6 +658,7 @@ function EmptySpaceCanvas() {
     const isCtrlOnly = e.ctrlKey && !e.metaKey && !e.altKey;
     if (e.key === 'ArrowDown' || (isCtrlOnly && (e.key === 'n' || e.key === 'N'))) {
       e.preventDefault();
+      resetPointerHover();
       if (commandResult.items.length > 0) {
         setSelectedIdx((i) => (i + 1) % commandResult.items.length);
       }
@@ -633,6 +666,7 @@ function EmptySpaceCanvas() {
     }
     if (e.key === 'ArrowUp' || (isCtrlOnly && (e.key === 'p' || e.key === 'P'))) {
       e.preventDefault();
+      resetPointerHover();
       if (commandResult.items.length > 0) {
         setSelectedIdx((i) => (i - 1 + commandResult.items.length) % commandResult.items.length);
       }
@@ -640,6 +674,7 @@ function EmptySpaceCanvas() {
     }
     if (e.key === 'Tab' && suggestion) {
       e.preventDefault();
+      resetPointerHover();
       setActiveSiteSearchId(suggestion.id);
       setQuery('');
       setSelectedIdx(0);
@@ -769,6 +804,7 @@ function EmptySpaceCanvas() {
                 type="text"
                 value={query}
                 onChange={(e) => {
+                  resetPointerHover();
                   setQuery(e.target.value);
                   setSelectedIdx(0);
                 }}
@@ -820,7 +856,20 @@ function EmptySpaceCanvas() {
             </div>
 
             {/* Fused Live Results */}
-            <div className="arcline-scroll flex max-h-[354px] flex-col gap-0.5 p-2">
+            <div
+              className="arcline-scroll flex max-h-[354px] flex-col gap-0.5 p-2"
+              onPointerMove={(e) => {
+                const prev = lastPointerPosRef.current;
+                if (!prev) {
+                  lastPointerPosRef.current = { x: e.clientX, y: e.clientY };
+                  return;
+                }
+                if (Math.abs(e.clientX - prev.x) >= 2 || Math.abs(e.clientY - prev.y) >= 2) {
+                  lastPointerPosRef.current = { x: e.clientX, y: e.clientY };
+                  pointerHoverEnabledRef.current = true;
+                }
+              }}
+            >
               {commandResult.items.length === 0 ? (
                 <div className="py-8 text-center text-[13px]" style={{ color: cardMuted }}>
                   {t('commandBar.noResults')}
@@ -839,7 +888,11 @@ function EmptySpaceCanvas() {
                       type="button"
                       data-command-item-kind={item.kind}
                       data-selected={selected ? 'true' : 'false'}
-                      onMouseEnter={() => setSelectedIdx(idx)}
+                      onPointerMove={() => {
+                        if (pointerHoverEnabledRef.current && selectedIdx !== idx) {
+                          setSelectedIdx(idx);
+                        }
+                      }}
                       onClick={() => void executeItem(item)}
                       className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-left transition-colors"
                       style={{
@@ -945,6 +998,12 @@ function EmptySpaceCanvas() {
       )}
     </div>
   );
+}
+
+// Apply transparent modal canvas synchronously before React/token verification to avoid any flash
+if (new URLSearchParams(window.location.search).get('mode') === 'modal') {
+  document.documentElement.style.background = 'transparent';
+  document.body.style.background = 'transparent';
 }
 
 const rootEl = document.getElementById('root');

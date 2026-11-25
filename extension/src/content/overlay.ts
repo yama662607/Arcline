@@ -34,6 +34,7 @@ import type { Settings } from '../core/types';
   let stageExpanded = false;
   let iframeLoaded = false;
   let commandBarOpen = false;
+  let commandBarOpenSeq = 0;
   let tabHidden = false;
   let hostEl: HTMLDivElement | null = null;
   let shadow: ShadowRoot | null = null;
@@ -47,6 +48,7 @@ import type { Settings } from '../core/types';
   let resizeBadgeEl: HTMLDivElement | null = null;
   let unloadTimer: ReturnType<typeof setTimeout> | undefined;
   let repairTimer: ReturnType<typeof setTimeout> | undefined;
+  let cmdRevealTimer: ReturnType<typeof setTimeout> | undefined;
   let forceOpenGraceUntil = 0;
   let suppressStateReport = false;
   let observer: MutationObserver | null = null;
@@ -243,7 +245,10 @@ import type { Settings } from '../core/types';
         height: 100%;
         border: 0;
         background: transparent;
-        color-scheme: dark;
+        opacity: 0;
+      }
+      .arcline-cmd-frame.ready {
+        opacity: 1;
       }
       @media (prefers-reduced-motion: reduce) {
         .arcline-panel,
@@ -546,34 +551,55 @@ import type { Settings } from '../core/types';
     reportOverlayState('closed');
   }
 
+  function revealCommandBarFrame(): void {
+    if (cmdRevealTimer) {
+      clearTimeout(cmdRevealTimer);
+      cmdRevealTimer = undefined;
+    }
+    if (!commandBarOpen || !cmdIframeEl) return;
+    cmdIframeEl.classList.add('ready');
+    cmdIframeEl.focus();
+  }
+
   function openCommandBarModal(): void {
     ensureHostMounted();
     if (!cmdBackdropEl || !COMMAND_BAR_MODAL_URL) return;
+    const seq = ++commandBarOpenSeq;
+    if (cmdRevealTimer) {
+      clearTimeout(cmdRevealTimer);
+      cmdRevealTimer = undefined;
+    }
     commandBarOpen = true;
     cmdBackdropEl.classList.add('open');
     applyZoomCompensation();
     void requestFrameToken('modal').then((token) => {
-      if (disposed || !commandBarOpen || !cmdBackdropEl || !token) return;
-      const src = `${COMMAND_BAR_MODAL_URL}&t=${Date.now()}#arclineToken=${token}`;
-      if (!cmdIframeEl?.isConnected) {
-        const cmdFrame = document.createElement('iframe');
-        cmdFrame.className = 'arcline-cmd-frame';
-        cmdFrame.setAttribute('title', 'Arcline Command Bar');
-        cmdFrame.setAttribute('allow', 'clipboard-write');
-        cmdFrame.src = src;
-        cmdBackdropEl.append(cmdFrame);
-        cmdIframeEl = cmdFrame;
-      } else {
-        cmdIframeEl.src = src;
+      if (disposed || !commandBarOpen || seq !== commandBarOpenSeq || !cmdBackdropEl || !token) {
+        return;
       }
-      const targetFrame = cmdIframeEl;
-      requestAnimationFrame(() => {
-        if (cmdIframeEl === targetFrame) targetFrame.focus();
-      });
+      const src = `${COMMAND_BAR_MODAL_URL}&t=${Date.now()}#arclineToken=${token}`;
+      if (cmdIframeEl) {
+        cmdIframeEl.remove();
+        cmdIframeEl = null;
+      }
+      const cmdFrame = document.createElement('iframe');
+      cmdFrame.className = 'arcline-cmd-frame';
+      cmdFrame.setAttribute('title', 'Arcline Command Bar');
+      cmdFrame.setAttribute('allow', 'clipboard-write');
+      cmdFrame.src = src;
+      cmdBackdropEl.append(cmdFrame);
+      cmdIframeEl = cmdFrame;
+      cmdRevealTimer = setTimeout(() => {
+        if (seq === commandBarOpenSeq) revealCommandBarFrame();
+      }, 220);
     });
   }
 
   function closeCommandBarModal(): void {
+    commandBarOpenSeq += 1;
+    if (cmdRevealTimer) {
+      clearTimeout(cmdRevealTimer);
+      cmdRevealTimer = undefined;
+    }
     if (!commandBarOpen) return;
     commandBarOpen = false;
     cmdBackdropEl?.classList.remove('open');
@@ -665,6 +691,7 @@ import type { Settings } from '../core/types';
     machine.dispose();
     if (unloadTimer) clearTimeout(unloadTimer);
     if (repairTimer) clearTimeout(repairTimer);
+    if (cmdRevealTimer) clearTimeout(cmdRevealTimer);
     observer?.disconnect();
     window.removeEventListener('pointermove', onPointerMove, true);
     window.removeEventListener('pointerdown', onPointerDown, true);
@@ -740,6 +767,10 @@ import type { Settings } from '../core/types';
           backdrop?: string;
         }
       | undefined;
+    if (fromCommandBar && msg?.type === 'arcline:command-bar-ready') {
+      revealCommandBarFrame();
+      return;
+    }
     if (fromCommandBar && msg?.type === 'arcline:command-bar-close') {
       closeCommandBarModal();
       return;

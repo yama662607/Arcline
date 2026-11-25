@@ -903,4 +903,49 @@ describe('robustness', () => {
     expect(multiWord.items[0]?.kind).toBe('webSearch');
     expect(multiWord.items.some((item) => item.kind === 'pin')).toBe(true);
   });
+
+  it('excludes the currently active tab and exact-URL favorite/pin/history from candidates', () => {
+    const spaces: Space[] = [
+      {
+        id: 's1',
+        name: 'Work',
+        hue: 220,
+        pinned: [
+          { kind: 'pin', id: 'p-gh', title: 'GitHub', url: 'https://github.com/' },
+          { kind: 'pin', id: 'p-docs', title: 'Docs', url: 'https://docs.example.com/' },
+        ],
+        tabIds: [1, 2],
+      },
+    ];
+    const common = {
+      openTabs: [
+        { id: 1, windowId: 1, title: 'GitHub', url: 'https://github.com/', active: true },
+        { id: 2, windowId: 1, title: 'Other Tab', url: 'https://other.example.com/' },
+      ],
+      favorites: [
+        { id: 'f-gh', title: 'GitHub', url: 'https://github.com/' },
+        { id: 'f-mail', title: 'Gmail', url: 'https://mail.google.com/' },
+      ],
+      history: [
+        { url: 'https://github.com/', title: 'GitHub' },
+        { url: 'https://github.com/yama662607/Arcline', title: 'Arcline Repo' },
+      ],
+      spaces,
+      activeSpaceId: 's1',
+      activeTabId: 1,
+    };
+
+    // Empty query default list must not include the active tab or its matching favorite
+    const emptyRes = buildCommandBarResults(base({ ...common, query: '' }));
+    expect(emptyRes.items.some((i) => i.url === 'https://github.com/')).toBe(false);
+    expect(emptyRes.items.some((i) => i.id === 'tab:2')).toBe(true);
+    expect(emptyRes.items.some((i) => i.id === 'favorite:f-mail')).toBe(true);
+
+    // Querying "github" excludes exact current URL, but still surfaces subpage history
+    const queryRes = buildCommandBarResults(base({ ...common, query: 'github' }));
+    expect(queryRes.items.some((i) => i.url === 'https://github.com/')).toBe(false);
+    expect(queryRes.items.some((i) => i.url === 'https://github.com/yama662607/Arcline')).toBe(
+      true,
+    );
+  });
 });
