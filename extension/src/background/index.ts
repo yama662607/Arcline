@@ -154,25 +154,30 @@ chrome.commands.onCommand.addListener((command, tab) => {
         const normalWin = await chrome.windows
           .getLastFocused({ windowTypes: ['normal'], populate: true })
           .catch(() => undefined);
-        if (normalWin?.id !== undefined) {
-          await chrome.windows.update(normalWin.id, { focused: true }).catch(() => undefined);
-          const activeTab = normalWin.tabs?.find((t) => t.active);
+        const activeTab =
+          tab?.id !== undefined && tab.windowId !== undefined
+            ? tab
+            : normalWin?.tabs?.find((t) => t.active);
+        const targetWinId = activeTab?.windowId ?? normalWin?.id;
+        if (targetWinId !== undefined) {
+          await chrome.windows.update(targetWinId, { focused: true }).catch(() => undefined);
+          const activeUrl = activeTab?.url ?? activeTab?.pendingUrl;
           if (
             activeTab?.id !== undefined &&
-            (isOverlayCapableUrl(activeTab.url) || activeTab.url?.includes('/empty-space.html'))
+            (isOverlayCapableUrl(activeUrl) || activeUrl?.includes('/empty-space.html'))
           ) {
             try {
               await chrome.tabs.sendMessage(activeTab.id, { arclineCommandBar: 'toggle' });
               return;
             } catch {
-              // Content script not ready; fall back to opening Command Bar tab
+              // Content script not ready (e.g. tab opened before extension reload); fall back to Command Bar tab
             }
           }
-          overlayContinuity.setWindowOpen(normalWin.id, false);
-          if (activeTab?.id !== undefined && activeTab.url?.includes('/empty-space.html')) {
+          overlayContinuity.setWindowOpen(targetWinId, false);
+          if (activeTab?.id !== undefined && activeUrl?.includes('/empty-space.html')) {
             await chrome.tabs.update(activeTab.id, { url: commandUrl, active: true });
           } else {
-            await chrome.tabs.create({ windowId: normalWin.id, url: commandUrl, active: true });
+            await chrome.tabs.create({ windowId: targetWinId, url: commandUrl, active: true });
           }
           return;
         }

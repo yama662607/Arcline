@@ -362,22 +362,45 @@ test.describe('Sidebar workflows, Arc import, context menu geometry & themes', (
     await expect(cmdPage.getByRole('textbox', { name: 'Arcline Command Bar' })).toBeHidden();
     await cmdPage.close();
 
-    // Over an active webpage, arclineCommandBar: 'open' renders the centered modal popup directly
-    // on top of the page, and Escape dismisses and removes the lazy modal iframe cleanly.
+    // Over an active webpage, arclineCommandBar: 'toggle' renders the centered modal popup directly
+    // on top of the page (without opening a new tab), excludes the active tab from candidates,
+    // keeps item #0 highlighted even under a stationary cursor, handles rapid toggling cleanly,
+    // and Escape dismisses and removes the lazy modal iframe cleanly.
     await page.bringToFront();
+    // Place stationary cursor near the center where candidate rows appear
+    await page.mouse.move(640, 320);
+    const tabsBefore = await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length);
     await arcline.worker.evaluate(async () => {
       const tabs = await chrome.tabs.query({ url: 'http://127.0.0.1/*' });
       const target = tabs.find((t) => t.id !== undefined);
       if (target?.id !== undefined) {
-        await chrome.tabs.sendMessage(target.id, { arclineCommandBar: 'open' });
+        // Rapid toggle sequence (open -> close -> open) must settle cleanly with zero duplicate iframes
+        await chrome.tabs.sendMessage(target.id, { arclineCommandBar: 'toggle' });
+        await chrome.tabs.sendMessage(target.id, { arclineCommandBar: 'toggle' });
+        await chrome.tabs.sendMessage(target.id, { arclineCommandBar: 'toggle' });
       }
     });
+    const modalIframeEl = page.locator('#arcline-overlay-host iframe[title="Arcline Command Bar"]');
+    await expect(modalIframeEl).toHaveCount(1);
+    await expect(modalIframeEl).toHaveClass(/ready/);
     const modalFrame = page.frameLocator('#arcline-overlay-host iframe[title="Arcline Command Bar"]');
     await expect(modalFrame.getByRole('textbox', { name: 'Arcline Command Bar' })).toBeVisible();
-    await modalFrame.getByRole('textbox', { name: 'Arcline Command Bar' }).press('Escape');
+    // No extra tab should have been created
+    const tabsAfter = await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length);
+    expect(tabsAfter).toBe(tabsBefore);
+    // First candidate row must stay selected (#0), never stolen by stationary cursor
+    const selectedItems = modalFrame.locator('button[data-selected="true"]');
+    await expect(selectedItems).toHaveCount(1);
+    await expect(modalFrame.locator('button[data-command-item-kind]').first()).toHaveAttribute(
+      'data-selected',
+      'true',
+    );
+    // Active tab URL (127.0.0.1 fixture) must not appear in any candidate row
     await expect(
-      page.locator('#arcline-overlay-host iframe[title="Arcline Command Bar"]'),
+      modalFrame.locator('button[data-command-item-kind]', { hasText: '127.0.0.1' }),
     ).toHaveCount(0);
+    await modalFrame.getByRole('textbox', { name: 'Arcline Command Bar' }).press('Escape');
+    await expect(modalIframeEl).toHaveCount(0);
 
     expect(errors).toEqual([]);
   });

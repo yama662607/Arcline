@@ -25,7 +25,12 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 ### 🤖 基本方針
 
 - **デフォルト動作**: `just`（引数なし） = `just check`
-- **AI エージェント必須手順**: **ファイル編集・生成後は必ず `just check` を実行**し、結果をレポートに記載
+- **AI エージェント必須手順**:
+  1. **ファイル編集・生成後は必ず `just check` を実行**し、結果をレポートに記載する。
+  2. **UI・ショートカット・オーバーレイ・Command Bar・Background/Content Script に触れた実装後は、ユニットテストだけで完了とせず、実機検証ツールを駆使して動作を確認すること**:
+     - `just check-extension`（実機 Brave/Chromium で manifest / runtime / console 0 エラー＆reload 確認）
+     - `just e2e [spec]`（Playwright 実機 E2E で対象シナリオを検証。該当テストが無ければ追加してから実行する）
+     - 見た目・ちらつき・フォーカス・ポップアップ挙動など微妙な体感バグは `just debug-browser`（隔離 Brave + CDP port 9222）または Playwright スクショ / DOM 計測で実画面を直接確認してから完了報告する
 - **第一手**: エラー時は `just fix` で自動修正を適用してから `just check` で再検証
 
 ### 📋 標準インターフェース
