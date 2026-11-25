@@ -211,43 +211,73 @@ chrome.commands.onCommand.addListener((command, tab) => {
   })();
 });
 
-const lastContentTabByWindow = new Map<number, number>();
+const lastContentTabByWindow = new Map<number, { tabId: number; url: string }>();
+const transientNewTabIds = new Set<number>();
 const NATIVE_NEWTAB_RE = /^(?:chrome|brave):\/\/newtab\/?$/i;
 
 function isNativeNewTabUrl(url?: string): boolean {
   return Boolean(url && NATIVE_NEWTAB_RE.test(url));
 }
 
+function canPopupCommandBarOnUrl(url?: string): boolean {
+  return Boolean(url && (isOverlayCapableUrl(url) || url.includes('/empty-space.html')));
+}
+
 chrome.tabs.onCreated.addListener((tab) => {
   const initialUrl = tab.pendingUrl ?? tab.url;
   if (tab.id !== undefined && tab.active && isNativeNewTabUrl(initialUrl)) {
-    const prevTabId = lastContentTabByWindow.get(tab.windowId) ?? tab.openerTabId;
-    if (prevTabId !== undefined && prevTabId !== tab.id) {
-      const createdTabId = tab.id;
-      const winId = tab.windowId;
+    const createdTabId = tab.id;
+    const winId = tab.windowId;
+    const cachedPrev = lastContentTabByWindow.get(winId);
+    // Fast synchronous path (0 IPC roundtrips before switching back): minimizes visual flicker on Cmd+T.
+    if (
+      cachedPrev &&
+      cachedPrev.tabId !== createdTabId &&
+      canPopupCommandBarOnUrl(cachedPrev.url)
+    ) {
+      transientNewTabIds.add(createdTabId);
+      setTimeout(() => transientNewTabIds.delete(createdTabId), 2000);
+      const prevTabId = cachedPrev.tabId;
+      void chrome.tabs.update(prevTabId, { active: true }).catch(() => undefined);
+      void chrome.tabs.remove(createdTabId).catch(() => undefined);
+      void chrome.tabs.sendMessage(prevTabId, { arclineCommandBar: 'open' }).catch(() => {
+        // Content script not ready (e.g. tab loaded before extension install); fall back to Command Bar tab
+        void chrome.tabs
+          .create({
+            windowId: winId,
+            url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
+            active: true,
+          })
+          .catch(() => undefined);
+      });
+      return;
+    }
+    // Cold-start fallback when Service Worker just woke up and cache is empty
+    const openerId = tab.openerTabId;
+    if (openerId !== undefined && openerId !== createdTabId) {
+      transientNewTabIds.add(createdTabId);
+      setTimeout(() => transientNewTabIds.delete(createdTabId), 2000);
       void (async () => {
         try {
-          const prevTab = await chrome.tabs.get(prevTabId).catch(() => undefined);
+          const prevTab = await chrome.tabs.get(openerId).catch(() => undefined);
           const prevUrl = prevTab?.url ?? prevTab?.pendingUrl;
-          const canPopupOverPrev =
-            prevTab !== undefined &&
-            prevTab.windowId === winId &&
-            (isOverlayCapableUrl(prevUrl) || Boolean(prevUrl?.includes('/empty-space.html')));
-          if (!canPopupOverPrev) return;
-          await chrome.tabs.update(prevTabId, { active: true }).catch(() => undefined);
-          await chrome.tabs.remove(createdTabId).catch(() => undefined);
-          try {
-            await chrome.tabs.sendMessage(prevTabId, { arclineCommandBar: 'open' });
-          } catch {
-            // Content script not ready (e.g. tab loaded before extension install); fall back to Command Bar tab
-            await chrome.tabs.create({
-              windowId: winId,
-              url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
-              active: true,
-            });
+          if (!prevTab || prevTab.windowId !== winId || !canPopupCommandBarOnUrl(prevUrl)) {
+            transientNewTabIds.delete(createdTabId);
+            return;
           }
+          void chrome.tabs.update(openerId, { active: true }).catch(() => undefined);
+          void chrome.tabs.remove(createdTabId).catch(() => undefined);
+          void chrome.tabs.sendMessage(openerId, { arclineCommandBar: 'open' }).catch(() => {
+            void chrome.tabs
+              .create({
+                windowId: winId,
+                url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
+                active: true,
+              })
+              .catch(() => undefined);
+          });
         } catch {
-          // Leave default new tab open if interception fails
+          transientNewTabIds.delete(createdTabId);
         }
       })();
       return;
@@ -261,6 +291,7 @@ chrome.tabs.onCreated.addListener((tab) => {
 });
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
+  if (transientNewTabIds.has(tabId)) return;
   const prevTabId = lastActiveTabByWindow.get(windowId);
   lastActiveTabByWindow.set(windowId, tabId);
   if (prevTabId !== undefined && prevTabId !== tabId) {
@@ -282,8 +313,8 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
     .get(tabId)
     .then((t) => {
       const url = t.url ?? t.pendingUrl;
-      if (!isNativeNewTabUrl(url)) {
-        lastContentTabByWindow.set(windowId, tabId);
+      if (url && !isNativeNewTabUrl(url)) {
+        lastContentTabByWindow.set(windowId, { tabId, url });
       }
       updateActionHintForTab(tabId, url);
       const { shouldOpenOverlay, shouldCloseNativeSidePanel } = overlayContinuity.onTabActivated(
@@ -306,6 +337,9 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.url) {
+    if (tab.active && !isNativeNewTabUrl(changeInfo.url)) {
+      lastContentTabByWindow.set(tab.windowId, { tabId, url: changeInfo.url });
+    }
     updateActionHintForTab(tabId, changeInfo.url);
     engine.onTabUpdated(tabId, changeInfo.url).catch(() => undefined);
   }
@@ -320,6 +354,10 @@ chrome.tabs.onZoomChange.addListener(({ tabId, newZoomFactor }) => {
 });
 
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  transientNewTabIds.delete(tabId);
+  if (lastContentTabByWindow.get(removeInfo.windowId)?.tabId === tabId) {
+    lastContentTabByWindow.delete(removeInfo.windowId);
+  }
   engine.onTabRemoved(tabId).catch(() => undefined);
   if (!removeInfo.isWindowClosing) {
     engine.scheduleReconcile(removeInfo.windowId);
