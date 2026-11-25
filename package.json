@@ -14,7 +14,6 @@
     "check": "pnpm --filter arcline-extension run check"
   },
   "devDependencies": {
-    "@arcline/openspec-cli": "workspace:*",
     "@biomejs/biome": "^2.6.8",
     "turbo": "^2.11.13",
     "typescript": "^7.0.2"

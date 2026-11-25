@@ -4,7 +4,6 @@
     "includes": [
       "extension/**/*.{ts,tsx,js,jsx}",
       "docs/**/*.md",
-      "openspec/**/*.md",
       "!**/dist/**",
       "!**/playwright-report/**",
       "!**/playwright-report*/**",
