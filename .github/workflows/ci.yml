@@ -15,8 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -35,7 +33,7 @@ jobs:
       - name: Build MV3 bundle
         run: pnpm --dir extension build
       - name: Install Playwright Chromium
-        run: pnpm --dir extension exec playwright install chromium
+        run: pnpm --dir extension exec playwright install --with-deps chromium
       - name: Real-browser extension diagnostics
         env:
           ARCLINE_BROWSER: chromium
