@@ -871,4 +871,36 @@ describe('robustness', () => {
       expect(result.items[0].shortcut).toBe('m');
     }
   });
+
+  it('promotes Web Search to #1 on trailing space or multi-word queries while keeping bookmarks below', () => {
+    const spaces: Space[] = [
+      {
+        id: 's1',
+        name: 'Work',
+        hue: 220,
+        pinned: [
+          {
+            kind: 'pin',
+            id: 'p1',
+            title: 'React Hooks Guide',
+            url: 'https://react.dev/reference/react/hooks',
+          },
+        ],
+        tabIds: [],
+      },
+    ];
+    // Single word without trailing space -> bookmark stays #1
+    const single = buildCommandBarResults(base({ query: 'react', spaces }));
+    expect(single.items[0]?.kind).toBe('pin');
+
+    // Word + trailing space -> Web Search jumps to #1 (Arc behavior), bookmark remains below
+    const trailingSpace = buildCommandBarResults(base({ query: 'react ', spaces }));
+    expect(trailingSpace.items[0]?.kind).toBe('webSearch');
+    expect(trailingSpace.items.some((item) => item.kind === 'pin')).toBe(true);
+
+    // Multi-word query -> Web Search jumps to #1
+    const multiWord = buildCommandBarResults(base({ query: 'react hooks', spaces }));
+    expect(multiWord.items[0]?.kind).toBe('webSearch');
+    expect(multiWord.items.some((item) => item.kind === 'pin')).toBe(true);
+  });
 });

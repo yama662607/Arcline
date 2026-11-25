@@ -470,6 +470,7 @@ const KIND_PRIORITY: Readonly<Record<CommandBarItemKind, number>> = {
 
 const ACTIVE_SPACE_TAB_BONUS = 10;
 const SITE_SEARCH_SCORE = 10_000;
+const WEB_SEARCH_BOOSTED_SCORE = 1_500;
 const NAVIGATE_SCORE = 950;
 /** Below prefix / word-prefix / open-tab matches, above weak history and fuzzy matches. */
 const WEB_SEARCH_SCORE = 450;
@@ -1259,6 +1260,8 @@ export function buildCommandBarResults(input: CommandBarInput): CommandBarResult
     });
   }
 
+  const hasTrailingSpace = /\s$/.test(input.query);
+  const preferWebSearch = !destination && (hasTrailingSpace || tokens.length >= 2);
   const searchUrl = buildSearchUrl(engine, term);
   ranked.push({
     seq,
@@ -1269,7 +1272,7 @@ export function buildCommandBarResults(input: CommandBarInput): CommandBarResult
       subtitle: SEARCH_ENGINE_URLS[engine].label,
       badge: 'search',
       badges: ['search'],
-      score: destination ? 1 : WEB_SEARCH_SCORE,
+      score: destination ? 1 : preferWebSearch ? WEB_SEARCH_BOOSTED_SCORE : WEB_SEARCH_SCORE,
       action: { type: 'openUrl', url: searchUrl },
       engine,
       term,

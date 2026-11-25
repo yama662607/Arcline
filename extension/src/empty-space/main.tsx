@@ -15,6 +15,8 @@ import '../content/overlay';
 import { isNeutralHue } from '../core/colors';
 import {
   buildCommandBarResults,
+  buildSearchUrl,
+  buildSiteSearchUrl,
   type CommandBarBadge,
   type CommandBarHistoryEntry,
   type CommandBarItem,
@@ -618,15 +620,18 @@ function EmptySpaceCanvas() {
     : undefined;
   const grainOpacity = activeTheme ? Math.min(0.32, (activeTheme.grain / 100) * 0.28) : 0.08;
 
+  const isMac = useMemo(() => /Macintosh|Mac OS X|MacIntel/i.test(navigator.userAgent), []);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown') {
+    const isCtrlOnly = e.ctrlKey && !e.metaKey && !e.altKey;
+    if (e.key === 'ArrowDown' || (isCtrlOnly && (e.key === 'n' || e.key === 'N'))) {
       e.preventDefault();
       if (commandResult.items.length > 0) {
         setSelectedIdx((i) => (i + 1) % commandResult.items.length);
       }
       return;
     }
-    if (e.key === 'ArrowUp') {
+    if (e.key === 'ArrowUp' || (isCtrlOnly && (e.key === 'p' || e.key === 'P'))) {
       e.preventDefault();
       if (commandResult.items.length > 0) {
         setSelectedIdx((i) => (i - 1 + commandResult.items.length) % commandResult.items.length);
@@ -659,6 +664,14 @@ function EmptySpaceCanvas() {
     }
     if (e.key === 'Enter') {
       e.preventDefault();
+      const trimmed = query.trim();
+      if ((e.metaKey || e.ctrlKey) && trimmed) {
+        const directUrl = activeChip
+          ? buildSiteSearchUrl(activeChip, trimmed)
+          : buildSearchUrl(settings.searchEngine, trimmed);
+        void navigateUrl(directUrl);
+        return;
+      }
       const chosen = commandResult.items[selectedIdx] ?? commandResult.items[0];
       if (chosen) void executeItem(chosen);
     }
@@ -910,8 +923,11 @@ function EmptySpaceCanvas() {
               }}
             >
               <div className="flex items-center gap-3">
-                <span>↑↓ {t('commandBar.footer.navigate')}</span>
+                <span>↑↓ / ^P^N {t('commandBar.footer.navigate')}</span>
                 <span>Tab {t('commandBar.footer.siteSearch')}</span>
+                <span>
+                  {isMac ? '⌘↵' : 'Ctrl+↵'} {SEARCH_ENGINE_URLS[settings.searchEngine].label}
+                </span>
                 <span>↵ {t('commandBar.footer.open')}</span>
               </div>
               {space && (

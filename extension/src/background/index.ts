@@ -211,10 +211,51 @@ chrome.commands.onCommand.addListener((command, tab) => {
   })();
 });
 
+const lastContentTabByWindow = new Map<number, number>();
+const NATIVE_NEWTAB_RE = /^(?:chrome|brave):\/\/newtab\/?$/i;
+
+function isNativeNewTabUrl(url?: string): boolean {
+  return Boolean(url && NATIVE_NEWTAB_RE.test(url));
+}
+
 chrome.tabs.onCreated.addListener((tab) => {
+  const initialUrl = tab.pendingUrl ?? tab.url;
+  if (tab.id !== undefined && tab.active && isNativeNewTabUrl(initialUrl)) {
+    const prevTabId = lastContentTabByWindow.get(tab.windowId) ?? tab.openerTabId;
+    if (prevTabId !== undefined && prevTabId !== tab.id) {
+      const createdTabId = tab.id;
+      const winId = tab.windowId;
+      void (async () => {
+        try {
+          const prevTab = await chrome.tabs.get(prevTabId).catch(() => undefined);
+          const prevUrl = prevTab?.url ?? prevTab?.pendingUrl;
+          const canPopupOverPrev =
+            prevTab !== undefined &&
+            prevTab.windowId === winId &&
+            (isOverlayCapableUrl(prevUrl) || Boolean(prevUrl?.includes('/empty-space.html')));
+          if (!canPopupOverPrev) return;
+          await chrome.tabs.update(prevTabId, { active: true }).catch(() => undefined);
+          await chrome.tabs.remove(createdTabId).catch(() => undefined);
+          try {
+            await chrome.tabs.sendMessage(prevTabId, { arclineCommandBar: 'open' });
+          } catch {
+            // Content script not ready (e.g. tab loaded before extension install); fall back to Command Bar tab
+            await chrome.tabs.create({
+              windowId: winId,
+              url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
+              active: true,
+            });
+          }
+        } catch {
+          // Leave default new tab open if interception fails
+        }
+      })();
+      return;
+    }
+  }
   if (tab.id !== undefined) {
     stampTabActivity([tab.id]).catch(() => undefined);
-    updateActionHintForTab(tab.id, tab.url ?? tab.pendingUrl);
+    updateActionHintForTab(tab.id, initialUrl);
   }
   engine.scheduleReconcile(tab.windowId);
 });
@@ -241,6 +282,9 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
     .get(tabId)
     .then((t) => {
       const url = t.url ?? t.pendingUrl;
+      if (!isNativeNewTabUrl(url)) {
+        lastContentTabByWindow.set(windowId, tabId);
+      }
       updateActionHintForTab(tabId, url);
       const { shouldOpenOverlay, shouldCloseNativeSidePanel } = overlayContinuity.onTabActivated(
         windowId,
@@ -296,6 +340,7 @@ chrome.windows.onFocusChanged.addListener((focusedWindowId) => {
 
 chrome.windows.onRemoved.addListener((windowId) => {
   lastActiveTabByWindow.delete(windowId);
+  lastContentTabByWindow.delete(windowId);
   overlayContinuity.onWindowRemoved(windowId);
 });
 
