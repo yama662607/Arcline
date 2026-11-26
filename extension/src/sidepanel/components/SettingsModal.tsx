@@ -23,6 +23,7 @@ import { LANGUAGE_OPTIONS, type MessageKey, type Translator } from '../../core/i
 import type {
   ArchivedTab,
   AutoArchiveHours,
+  CommandBarOpenMode,
   ImportedSidebar,
   LanguagePreference,
   SearchEngine,
@@ -35,6 +36,7 @@ import { useT } from '../i18n';
 import { ArcImportPreview } from './ArcImportPreview';
 import { Favicon } from './Favicon';
 import { ShortcutSettingsPanel } from './ShortcutSettingsPanel';
+import { WallpaperSettingsCard } from './WallpaperSettingsCard';
 
 export type SettingsTabId = 'general' | 'interaction' | 'archive' | 'import' | 'shortcuts';
 
@@ -642,6 +644,46 @@ export function SettingsModal({
                     ))}
                   </div>
                 </div>
+
+                <div className="arcline-settings-card flex flex-col gap-2">
+                  <div>
+                    <div className="font-medium">{t('settings.commandBarMode.title')}</div>
+                    <div className="mt-0.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      {t('settings.commandBarMode.description')}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5" data-testid="command-bar-mode-selector">
+                    {(
+                      [
+                        ['popup', t('settings.commandBarMode.popup')],
+                        ['newtab', t('settings.commandBarMode.newtab')],
+                      ] as Array<[CommandBarOpenMode, string]>
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        data-testid={`command-bar-mode-${mode}`}
+                        aria-pressed={settings.commandBarOpenMode === mode}
+                        onClick={() => onUpdateSettings({ ...settings, commandBarOpenMode: mode })}
+                        className="flex cursor-pointer items-center justify-center rounded-lg border py-2 text-[12px] font-medium transition-all"
+                        style={{
+                          borderColor:
+                            settings.commandBarOpenMode === mode
+                              ? 'var(--accent)'
+                              : 'var(--border-subtle)',
+                          backgroundColor:
+                            settings.commandBarOpenMode === mode
+                              ? 'var(--bg-active)'
+                              : 'var(--bg-canvas)',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <WallpaperSettingsCard spaces={sidebarState.spaces} />
 
                 <div className="arcline-settings-card flex items-center justify-between gap-3">
                   <div>

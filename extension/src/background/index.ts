@@ -1,6 +1,13 @@
 import { isOverlayCapableUrl, OverlayContinuityTracker } from '../core/overlay-continuity';
 import { completeSettings } from '../core/settings';
-import type { Command, Settings } from '../core/types';
+import type { Command, CommandBarOpenMode, Settings } from '../core/types';
+import {
+  swLoadWallpaper,
+  swRemoveWallpaper,
+  swResolveWallpaper,
+  swSaveWallpaper,
+  type WallpaperRpcMessage,
+} from '../core/wallpapers';
 import { Engine } from './engine';
 import { ensureRoot } from './root';
 import { syncShortcutsToBookmarks } from './shortcut-sync';
@@ -12,6 +19,15 @@ const engine = new Engine();
 const lastActiveTabByWindow = new Map<number, number>();
 const overlayContinuity = new OverlayContinuityTracker();
 let nativeSidePanelConnections = 0;
+let cachedCommandBarOpenMode: CommandBarOpenMode = 'popup';
+
+// Hydrate cached commandBarOpenMode eagerly on Service Worker start for 0-await onCreated path
+void storage
+  .getSettings()
+  .then((s) => {
+    cachedCommandBarOpenMode = s.commandBarOpenMode;
+  })
+  .catch(() => undefined);
 
 function notifyOverlayOpen(tabId: number): void {
   chrome.tabs.sendMessage(tabId, { arclineOverlay: 'open' }).catch(() => undefined);
@@ -62,12 +78,14 @@ async function bootstrap(recover: boolean): Promise<void> {
   await stampTabActivity(tabIds);
   await chrome.alarms.create(AUTO_ARCHIVE_ALARM, { periodInMinutes: 30 });
   const settings = await storage.getSettings();
+  cachedCommandBarOpenMode = settings.commandBarOpenMode;
   await syncShortcutsToBookmarks(settings);
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !(STORAGE_KEYS.settings in changes)) return;
   const next = completeSettings(changes[STORAGE_KEYS.settings]?.newValue as Partial<Settings>);
+  cachedCommandBarOpenMode = next.commandBarOpenMode;
   void syncShortcutsToBookmarks(next);
 });
 
@@ -101,6 +119,79 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       .catch((err) => console.warn('[Arcline] auto-archive', err));
   }
 });
+
+async function runOpenCommandBar(tab?: chrome.tabs.Tab): Promise<void> {
+  const commandUrl = chrome.runtime.getURL('empty-space.html?commandBar=1');
+  try {
+    const [settings, normalWin] = await Promise.all([
+      storage.getSettings().catch(() => undefined),
+      chrome.windows
+        .getLastFocused({ windowTypes: ['normal'], populate: true })
+        .catch(() => undefined),
+    ]);
+    const openMode = settings?.commandBarOpenMode ?? cachedCommandBarOpenMode;
+    cachedCommandBarOpenMode = openMode;
+    const activeTab =
+      tab?.id !== undefined && tab.windowId !== undefined
+        ? tab
+        : normalWin?.tabs?.find((t) => t.active);
+    const targetWinId = activeTab?.windowId ?? normalWin?.id;
+    if (targetWinId !== undefined) {
+      await chrome.windows.update(targetWinId, { focused: true }).catch(() => undefined);
+      const activeUrl = activeTab?.url ?? activeTab?.pendingUrl;
+      if (
+        openMode === 'popup' &&
+        activeTab?.id !== undefined &&
+        (isOverlayCapableUrl(activeUrl) || activeUrl?.includes('/empty-space.html'))
+      ) {
+        try {
+          await chrome.tabs.sendMessage(activeTab.id, { arclineCommandBar: 'toggle' });
+          return;
+        } catch {
+          // Content script not ready (e.g. tab opened before extension reload); fall back to Command Bar tab
+        }
+      }
+      overlayContinuity.setWindowOpen(targetWinId, false);
+      if (activeTab?.id !== undefined && activeUrl?.includes('/empty-space.html')) {
+        await chrome.tabs.update(activeTab.id, { url: commandUrl, active: true });
+      } else {
+        await chrome.tabs.create({ windowId: targetWinId, url: commandUrl, active: true });
+      }
+      return;
+    }
+    await chrome.windows.create({
+      url: `${commandUrl}&popup=1`,
+      type: 'popup',
+      width: 760,
+      height: 580,
+      focused: true,
+    });
+  } catch (err) {
+    console.warn('[Arcline] open-command-bar failed', err);
+  }
+}
+
+async function runSpaceOrPinCommand(
+  command: 'next-space' | 'previous-space' | 'toggle-pin',
+  tab?: chrome.tabs.Tab,
+): Promise<void> {
+  const activeTab = tab ?? (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0];
+  const windowId = activeTab?.windowId;
+  if (windowId === undefined) return;
+  if (command === 'next-space') {
+    overlayContinuity.setWindowOpen(windowId, true);
+    await engine.run({ type: 'shiftSpace', windowId, offset: 1, keepOverlayOpen: true });
+    return;
+  }
+  if (command === 'previous-space') {
+    overlayContinuity.setWindowOpen(windowId, true);
+    await engine.run({ type: 'shiftSpace', windowId, offset: -1, keepOverlayOpen: true });
+    return;
+  }
+  if (command === 'toggle-pin' && activeTab?.id !== undefined) {
+    await engine.run({ type: 'togglePin', windowId, tabId: activeTab.id });
+  }
+}
 
 // NOTE: Do NOT mark this listener `async` before calling `chrome.sidePanel.open()` —
 // Chrome requires `sidePanel.open()` to be invoked synchronously within the user gesture turn.
@@ -148,72 +239,13 @@ chrome.commands.onCommand.addListener((command, tab) => {
   }
 
   if (command === 'open-command-bar') {
-    (async () => {
-      const commandUrl = chrome.runtime.getURL('empty-space.html?commandBar=1');
-      try {
-        const normalWin = await chrome.windows
-          .getLastFocused({ windowTypes: ['normal'], populate: true })
-          .catch(() => undefined);
-        const activeTab =
-          tab?.id !== undefined && tab.windowId !== undefined
-            ? tab
-            : normalWin?.tabs?.find((t) => t.active);
-        const targetWinId = activeTab?.windowId ?? normalWin?.id;
-        if (targetWinId !== undefined) {
-          await chrome.windows.update(targetWinId, { focused: true }).catch(() => undefined);
-          const activeUrl = activeTab?.url ?? activeTab?.pendingUrl;
-          if (
-            activeTab?.id !== undefined &&
-            (isOverlayCapableUrl(activeUrl) || activeUrl?.includes('/empty-space.html'))
-          ) {
-            try {
-              await chrome.tabs.sendMessage(activeTab.id, { arclineCommandBar: 'toggle' });
-              return;
-            } catch {
-              // Content script not ready (e.g. tab opened before extension reload); fall back to Command Bar tab
-            }
-          }
-          overlayContinuity.setWindowOpen(targetWinId, false);
-          if (activeTab?.id !== undefined && activeUrl?.includes('/empty-space.html')) {
-            await chrome.tabs.update(activeTab.id, { url: commandUrl, active: true });
-          } else {
-            await chrome.tabs.create({ windowId: targetWinId, url: commandUrl, active: true });
-          }
-          return;
-        }
-        await chrome.windows.create({
-          url: `${commandUrl}&popup=1`,
-          type: 'popup',
-          width: 760,
-          height: 580,
-          focused: true,
-        });
-      } catch (err) {
-        console.warn('[Arcline] open-command-bar failed', err);
-      }
-    })();
+    void runOpenCommandBar(tab);
     return;
   }
 
-  (async () => {
-    const activeTab =
-      tab ?? (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0];
-    const windowId = activeTab?.windowId;
-    if (windowId === undefined) return;
-    if (command === 'next-space') {
-      overlayContinuity.setWindowOpen(windowId, true);
-      await engine.run({ type: 'shiftSpace', windowId, offset: 1, keepOverlayOpen: true });
-      return;
-    }
-    if (command === 'previous-space') {
-      overlayContinuity.setWindowOpen(windowId, true);
-      await engine.run({ type: 'shiftSpace', windowId, offset: -1, keepOverlayOpen: true });
-      return;
-    }
-    if (command === 'toggle-pin' && activeTab?.id !== undefined) {
-      await engine.run({ type: 'togglePin', windowId, tabId: activeTab.id });
-    }
-  })();
+  if (command === 'next-space' || command === 'previous-space' || command === 'toggle-pin') {
+    void runSpaceOrPinCommand(command, tab);
+  }
 });
 
 const lastContentTabByWindow = new Map<number, { tabId: number; url: string }>();
@@ -233,6 +265,14 @@ chrome.tabs.onCreated.addListener((tab) => {
   if (tab.id !== undefined && tab.active && isNativeNewTabUrl(initialUrl)) {
     const createdTabId = tab.id;
     const winId = tab.windowId;
+    if (cachedCommandBarOpenMode === 'newtab') {
+      // Redirect native chrome://newtab / brave://newtab straight to our extension URL so
+      // Chromium never renders its bottom "Arcline | Customize" bar and focuses the Command Bar.
+      void chrome.tabs
+        .update(createdTabId, { url: chrome.runtime.getURL('empty-space.html?commandBar=1') })
+        .catch(() => undefined);
+      return;
+    }
     const cachedPrev = lastContentTabByWindow.get(winId);
     // Fast synchronous path (0 IPC roundtrips before switching back): minimizes visual flicker on Cmd+T.
     if (
@@ -490,6 +530,8 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
         arclineInit?: boolean;
         arclineOverlayState?: 'open' | 'closed';
         arclineOpenFavoriteUrl?: string;
+        arclineTriggerCommand?: 'open-command-bar' | 'next-space' | 'previous-space' | 'toggle-pin';
+        arclineWallpaper?: WallpaperRpcMessage;
         arclineIssueFrameToken?: 'overlay' | 'modal';
         arclineVerifyFrameToken?: { token: string; kind: 'overlay' | 'modal' };
       }
@@ -520,6 +562,58 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     void verifyFrameToken(token, kind, sender.tab?.id).then((valid) => {
       sendResponse({ ok: valid });
     });
+    return true;
+  }
+
+  if (payload?.arclineWallpaper) {
+    if (!sender.url?.startsWith(chrome.runtime.getURL(''))) {
+      sendResponse({ ok: false, error: 'Unauthorized wallpaper sender' });
+      return false;
+    }
+    const rpc = payload.arclineWallpaper;
+    void (async () => {
+      try {
+        if (rpc.op === 'save') {
+          await swSaveWallpaper(rpc.key, rpc.dataUrl, rpc.name, rpc.mime);
+          sendResponse({ ok: true });
+        } else if (rpc.op === 'remove') {
+          await swRemoveWallpaper(rpc.key);
+          sendResponse({ ok: true });
+        } else if (rpc.op === 'load') {
+          const result = await swLoadWallpaper(rpc.key);
+          sendResponse({ ok: true, result });
+        } else if (rpc.op === 'resolve') {
+          const result = await swResolveWallpaper(rpc.spaceId);
+          sendResponse({ ok: true, result });
+        } else {
+          sendResponse({ ok: false, error: 'Unknown wallpaper operation' });
+        }
+      } catch (err) {
+        sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
+      }
+    })();
+    return true;
+  }
+
+  if (
+    payload?.arclineTriggerCommand === 'open-command-bar' ||
+    payload?.arclineTriggerCommand === 'next-space' ||
+    payload?.arclineTriggerCommand === 'previous-space' ||
+    payload?.arclineTriggerCommand === 'toggle-pin'
+  ) {
+    const trigger = payload.arclineTriggerCommand;
+    void (async () => {
+      try {
+        if (trigger === 'open-command-bar') {
+          await runOpenCommandBar(sender.tab);
+        } else {
+          await runSpaceOrPinCommand(trigger, sender.tab);
+        }
+        sendResponse({ ok: true });
+      } catch {
+        sendResponse({ ok: false });
+      }
+    })();
     return true;
   }
 

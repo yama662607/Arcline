@@ -33,15 +33,26 @@ describe('completeSettings', () => {
       openEmptySpacePage: false,
       language: 'auto',
       searchEngine: 'google',
+      commandBarOpenMode: 'popup',
       customSiteSearches: [],
       favoriteShortcuts: {},
+      customShortcuts: {},
     });
   });
 
-  it('keeps valid language and search engine choices', () => {
-    expect(completeSettings({ language: 'ja', searchEngine: 'brave' })).toMatchObject({
+  it('keeps valid language, search engine, command bar mode, and custom shortcuts', () => {
+    expect(
+      completeSettings({
+        language: 'ja',
+        searchEngine: 'brave',
+        commandBarOpenMode: 'newtab',
+        customShortcuts: { openCommandBar: 'Alt+Space', toggleSidebar: 'Ctrl+B' },
+      }),
+    ).toMatchObject({
       language: 'ja',
       searchEngine: 'brave',
+      commandBarOpenMode: 'newtab',
+      customShortcuts: { openCommandBar: 'alt+space', toggleSidebar: 'ctrl+b' },
     });
   });
 });

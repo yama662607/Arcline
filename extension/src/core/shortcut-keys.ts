@@ -1,7 +1,9 @@
-import type { FavoriteShortcut } from './types';
+import type { CustomCommandAction, FavoriteShortcut } from './types';
 
-const CANONICAL_COMBO_RE = /^(?:ctrl\+)?(?:alt\+)?(?:shift\+)?(?:meta\+)?[a-z0-9]$/;
+const CANONICAL_COMBO_RE =
+  /^(?:ctrl\+)?(?:alt\+)?(?:shift\+)?(?:meta\+)?(?:[a-z0-9]|arrowleft|arrowright|space)$/;
 const SINGLE_KEY_RE = /^[a-z0-9]$/;
+const VALID_KEY_RE = /^(?:[a-z0-9]|arrowleft|arrowright|space)$/;
 
 function normalizeUrlKey(url: string): string {
   try {
@@ -29,7 +31,7 @@ export function normalizeShortcutCombo(raw: unknown): string | undefined {
   const parts = trimmed.split('+').filter(Boolean);
   if (parts.length < 2) return undefined;
   const key = parts[parts.length - 1] ?? '';
-  if (!SINGLE_KEY_RE.test(key)) return undefined;
+  if (!VALID_KEY_RE.test(key)) return undefined;
   const mods = new Set(parts.slice(0, -1));
   if (!mods.has('ctrl') && !mods.has('alt') && !mods.has('meta')) return undefined;
   const ordered: string[] = [];
@@ -55,8 +57,14 @@ export function parseShortcutFromEvent(e: {
     ? e.code.slice(3).toLowerCase()
     : e.code.startsWith('Digit')
       ? e.code.slice(5)
-      : '';
-  if (!SINGLE_KEY_RE.test(key)) return null;
+      : e.code === 'ArrowLeft'
+        ? 'arrowleft'
+        : e.code === 'ArrowRight'
+          ? 'arrowright'
+          : e.code === 'Space'
+            ? 'space'
+            : '';
+  if (!VALID_KEY_RE.test(key)) return null;
   const parts: string[] = [];
   if (e.ctrlKey) parts.push('ctrl');
   if (e.altKey) parts.push('alt');
@@ -71,7 +79,15 @@ export function formatShortcutCombo(combo: string, isMac: boolean): string {
   const normalized = normalizeShortcutCombo(combo);
   if (!normalized) return combo;
   const parts = normalized.split('+');
-  const key = (parts.pop() ?? '').toUpperCase();
+  const rawKey = parts.pop() ?? '';
+  const key =
+    rawKey === 'arrowleft'
+      ? '←'
+      : rawKey === 'arrowright'
+        ? '→'
+        : rawKey === 'space'
+          ? 'Space'
+          : rawKey.toUpperCase();
   if (isMac) {
     const glyphs = parts.map((m) =>
       m === 'ctrl' ? '⌃' : m === 'alt' ? '⌥' : m === 'shift' ? '⇧' : '⌘',
@@ -109,6 +125,26 @@ export function matchFavoriteShortcut(
     if (!meta.shortcut) continue;
     if (normalizeShortcutCombo(meta.shortcut) === combo) {
       return url;
+    }
+  }
+  return null;
+}
+
+export function matchCustomShortcut(
+  e: KeyboardEvent,
+  customShortcuts: Readonly<Partial<Record<CustomCommandAction, string>>> | undefined,
+  options: { allowInInput?: boolean } = {},
+): CustomCommandAction | null {
+  if (!customShortcuts) return null;
+  if (!options.allowInInput && isEditableElement(e.target)) {
+    return null;
+  }
+  const combo = parseShortcutFromEvent(e);
+  if (!combo) return null;
+  for (const [action, configured] of Object.entries(customShortcuts)) {
+    if (!configured) continue;
+    if (normalizeShortcutCombo(configured) === combo) {
+      return action as CustomCommandAction;
     }
   }
   return null;

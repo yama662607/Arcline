@@ -1,15 +1,61 @@
-import { Plus, Search, Star, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { ExternalLink, Keyboard, Plus, Search, Star, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { SITE_SEARCHES } from '../../core/command-bar';
+import type { MessageKey } from '../../core/i18n';
 import { sanitizeCustomSiteSearch } from '../../core/settings';
 import {
   formatShortcutCombo,
   normalizeShortcutCombo,
   parseShortcutFromEvent,
 } from '../../core/shortcut-keys';
-import type { CustomSiteSearch, Favorite, FavoriteShortcut, Settings } from '../../core/types';
+import type {
+  CustomCommandAction,
+  CustomSiteSearch,
+  Favorite,
+  FavoriteShortcut,
+  Settings,
+} from '../../core/types';
+import {
+  BRAVE_EXT_SHORTCUTS_URL,
+  BRAVE_SHORTCUTS_URL,
+  detectBrave,
+  openBrowserPage,
+  SHORTCUTS_URL,
+} from '../../onboarding/platform';
 import { useT } from '../i18n';
 import { Favicon } from './Favicon';
+
+const CUSTOM_ACTION_ROWS: ReadonlyArray<{
+  action: CustomCommandAction;
+  commandName: string;
+  labelKey: MessageKey;
+}> = [
+  {
+    action: 'openCommandBar',
+    commandName: 'open-command-bar',
+    labelKey: 'settings.shortcuts.openCommandBar',
+  },
+  {
+    action: 'toggleSidebar',
+    commandName: 'toggle-sidebar',
+    labelKey: 'settings.shortcuts.toggleSidebar',
+  },
+  {
+    action: 'nextSpace',
+    commandName: 'next-space',
+    labelKey: 'settings.shortcuts.nextSpace',
+  },
+  {
+    action: 'previousSpace',
+    commandName: 'previous-space',
+    labelKey: 'settings.shortcuts.previousSpace',
+  },
+  {
+    action: 'togglePin',
+    commandName: 'toggle-pin',
+    labelKey: 'settings.shortcuts.pin',
+  },
+];
 
 interface ShortcutSettingsPanelProps {
   settings: Settings;
@@ -27,10 +73,72 @@ export function ShortcutSettingsPanel({
 }: ShortcutSettingsPanelProps) {
   const t = useT();
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [recordingAction, setRecordingAction] = useState<CustomCommandAction | null>(null);
+  const [browserCommands, setBrowserCommands] = useState<Record<string, string>>({});
+  const [isBrave, setIsBrave] = useState(false);
   const [prefix, setPrefix] = useState('');
   const [label, setLabel] = useState('');
   const [urlTemplate, setUrlTemplate] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void detectBrave().then((b) => {
+      if (active) setIsBrave(b);
+    });
+    if (typeof chrome !== 'undefined' && chrome.commands?.getAll) {
+      void chrome.commands
+        .getAll()
+        .then((list) => {
+          if (!active) return;
+          const map: Record<string, string> = {};
+          for (const cmd of list) {
+            if (cmd.name) map[cmd.name] = cmd.shortcut ?? '';
+          }
+          setBrowserCommands(map);
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const updateCustomShortcut = (action: CustomCommandAction, combo: string) => {
+    const normalized = normalizeShortcutCombo(combo);
+    const next = { ...settings.customShortcuts };
+    if (!normalized) {
+      delete next[action];
+    } else {
+      next[action] = normalized;
+    }
+    onUpdateSettings({ ...settings, customShortcuts: next });
+  };
+
+  const handleRecordActionKeyDown = (
+    action: CustomCommandAction,
+    e: React.KeyboardEvent<HTMLButtonElement>,
+  ) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setRecordingAction(null);
+      return;
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      e.stopPropagation();
+      updateCustomShortcut(action, '');
+      setRecordingAction(null);
+      return;
+    }
+    const combo = parseShortcutFromEvent(e);
+    if (!combo) return;
+    e.preventDefault();
+    e.stopPropagation();
+    updateCustomShortcut(action, combo);
+    setRecordingAction(null);
+  };
 
   const updateFavoriteMeta = (url: string, patch: Partial<FavoriteShortcut>) => {
     const current = settings.favoriteShortcuts[url] ?? {};
@@ -112,6 +220,113 @@ export function ShortcutSettingsPanel({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Editable In-App Arcline Shortcuts + Live Browser Shortcuts */}
+      <section
+        className="arcline-settings-card flex flex-col gap-2.5"
+        data-testid="custom-shortcuts-section"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <Keyboard size={13} style={{ color: 'var(--accent)' }} aria-hidden="true" />
+            <div className="text-[12.5px] font-semibold">{t('settings.shortcuts.customTitle')}</div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {isBrave && (
+              <button
+                type="button"
+                onClick={() => void openBrowserPage(BRAVE_SHORTCUTS_URL)}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-[10.5px] font-medium transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ borderColor: 'var(--border-subtle)' }}
+              >
+                <ExternalLink size={11} aria-hidden="true" />
+                <span>{t('settings.shortcuts.openBraveShortcuts')}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              data-testid="open-browser-shortcuts-btn"
+              onClick={() =>
+                void openBrowserPage(isBrave ? BRAVE_EXT_SHORTCUTS_URL : SHORTCUTS_URL)
+              }
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-[10.5px] font-medium transition-colors hover:bg-[var(--bg-hover)]"
+              style={{ borderColor: 'var(--border-subtle)' }}
+            >
+              <ExternalLink size={11} aria-hidden="true" />
+              <span>{t('settings.shortcuts.openBrowserShortcuts')}</span>
+            </button>
+          </div>
+        </div>
+        <p className="m-0 text-[11px] leading-[1.5]" style={{ color: 'var(--text-muted)' }}>
+          {t('settings.shortcuts.customHint')}
+        </p>
+
+        <div className="flex flex-col gap-1.5">
+          {CUSTOM_ACTION_ROWS.map((row) => {
+            const customCombo = settings.customShortcuts?.[row.action];
+            const browserKey = browserCommands[row.commandName];
+            const isRecording = recordingAction === row.action;
+            return (
+              <div
+                key={row.action}
+                className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5"
+                style={{
+                  borderColor: 'var(--border-subtle)',
+                  backgroundColor: 'var(--bg-canvas)',
+                }}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12px] font-medium">{t(row.labelKey)}</div>
+                  {browserKey && (
+                    <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                      Browser: <kbd className="font-mono">{browserKey}</kbd>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    data-testid={`custom-shortcut-${row.action}`}
+                    onClick={() => setRecordingAction(isRecording ? null : row.action)}
+                    onBlur={() => {
+                      if (isRecording) setRecordingAction(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (isRecording) handleRecordActionKeyDown(row.action, e);
+                    }}
+                    className="h-7 min-w-[88px] cursor-pointer rounded-md border px-2 font-mono text-[11px] transition-colors outline-none"
+                    style={{
+                      borderColor: isRecording ? 'var(--accent)' : 'var(--border-subtle)',
+                      backgroundColor: isRecording
+                        ? 'color-mix(in oklch, var(--accent) 14%, var(--bg-surface))'
+                        : 'var(--bg-surface)',
+                      color:
+                        isRecording || customCombo ? 'var(--text-primary)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {isRecording
+                      ? t('settings.favShortcuts.recording')
+                      : customCombo
+                        ? formatShortcutCombo(customCombo, IS_MAC)
+                        : t('settings.favShortcuts.keyPlaceholder')}
+                  </button>
+                  {customCombo && !isRecording && (
+                    <button
+                      type="button"
+                      onClick={() => updateCustomShortcut(row.action, '')}
+                      aria-label={`Clear ${row.action}`}
+                      className="flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-[var(--bg-hover)]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Favorite Aliases & Browser-wide Shortcuts */}
       <section className="arcline-settings-card flex flex-col gap-2.5">
         <div className="flex items-center gap-1.5">

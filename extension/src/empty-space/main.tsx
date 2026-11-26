@@ -32,6 +32,7 @@ import { formatShortcutCombo } from '../core/shortcut-keys';
 import { isSafeNavigableUrl } from '../core/snapshot';
 import { buildSpaceBackgroundCss, primaryHueFromTheme } from '../core/space-theme';
 import type { ArchivedTab, CustomSiteSearch, Settings, SidebarState, Space } from '../core/types';
+import { resolveEffectiveWallpaper, WALLPAPER_VERSION_KEY } from '../core/wallpapers';
 import {
   getCurrentWindowId,
   loadArchivedTabs,
@@ -133,6 +134,8 @@ function EmptySpaceCanvas() {
   const [query, setQuery] = useState('');
   const [activeSiteSearchId, setActiveSiteSearchId] = useState<SiteSearchId | undefined>(undefined);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
+  const [wallpaperVersion, setWallpaperVersion] = useState(0);
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches,
   );
@@ -311,30 +314,25 @@ function EmptySpaceCanvas() {
     focusInput();
     const rafId = requestAnimationFrame(() => {
       focusInput();
-      // On Cmd+T (chrome://newtab / brave://newtab override), Chromium locks initial focus in
-      // the Omnibox. Replacing that tab with an explicit extension tab moves focus directly into
-      // the Command Bar <input> instead of leaving the URL selected in the address bar.
+      // On chrome://newtab / brave://newtab override, Chromium locks initial focus in the Omnibox
+      // AND renders a browser-native "Arcline | Customize" bar along the bottom edge. Replacing
+      // the tab with our extension URL moves focus directly into the Command Bar and removes that bar.
       if (
         !isModal &&
         !location.search &&
-        !document.hasFocus() &&
         typeof chrome !== 'undefined' &&
         chrome.tabs?.getCurrent &&
-        chrome.tabs?.create
+        chrome.tabs?.update
       ) {
         void chrome.tabs
           .getCurrent()
           .then(async (tab) => {
-            if (tab?.id === undefined || document.hasFocus()) return;
+            if (tab?.id === undefined) return;
             const currentUrl = tab.url ?? tab.pendingUrl ?? '';
             if (!/^(?:chrome|brave):\/\/newtab\/?/i.test(currentUrl)) return;
-            await chrome.tabs.create({
-              windowId: tab.windowId,
-              index: tab.index,
+            await chrome.tabs.update(tab.id, {
               url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
-              active: true,
             });
-            await chrome.tabs.remove(tab.id).catch(() => undefined);
           })
           .catch(() => undefined);
       }
@@ -403,6 +401,31 @@ function EmptySpaceCanvas() {
     }
     return state.spaces.find((s) => s.id === state.activeSpaceId) ?? state.spaces[0];
   }, [state, requestedSpaceId]);
+
+  // Listen for live wallpaper changes from Settings so open empty-space tabs update immediately
+  useEffect(() => {
+    if (isModal || typeof chrome === 'undefined' || !chrome.storage?.onChanged) return;
+    const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === 'local' && WALLPAPER_VERSION_KEY in changes) {
+        setWallpaperVersion((v) => v + 1);
+      }
+    };
+    chrome.storage.onChanged.addListener(onChanged);
+    return () => chrome.storage.onChanged.removeListener(onChanged);
+  }, [isModal]);
+
+  // Load per-Space or global wallpaper (image / animated GIF) from unpartitioned SW IndexedDB
+  useEffect(() => {
+    if (isModal) return;
+    let active = true;
+    void resolveEffectiveWallpaper(space?.id).then((record) => {
+      if (!active) return;
+      setWallpaperUrl(record?.dataUrl ?? null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [isModal, space?.id, wallpaperVersion]);
 
   const activeTheme = space?.theme;
   const resolvedScheme: 'light' | 'dark' =
@@ -747,12 +770,32 @@ function EmptySpaceCanvas() {
       style={
         isModal
           ? { background: 'transparent' }
-          : customBackground
-            ? { backgroundImage: customBackground }
-            : undefined
+          : wallpaperUrl
+            ? { background: '#0e0e11' }
+            : customBackground
+              ? { backgroundImage: customBackground }
+              : undefined
       }
     >
-      {!isModal && grainOpacity > 0.01 && (
+      {!isModal && wallpaperUrl && (
+        <>
+          <img
+            src={wallpaperUrl}
+            alt=""
+            aria-hidden="true"
+            data-testid="empty-space-wallpaper"
+            className="pointer-events-none fixed inset-0 h-full w-full object-cover"
+          />
+          {barVisible && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none fixed inset-0"
+              style={{ background: 'rgba(10, 10, 14, 0.28)' }}
+            />
+          )}
+        </>
+      )}
+      {!isModal && !wallpaperUrl && grainOpacity > 0.01 && (
         <div aria-hidden="true" className="arcline-grain-layer" style={{ opacity: grainOpacity }} />
       )}
 

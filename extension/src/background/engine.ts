@@ -831,9 +831,11 @@ export class Engine {
       case 'openTab': {
         const ctx = await loadContext(cmd.windowId);
         if (!cmd.url) {
+          const settings = await storage.getSettings();
           const activeTab = ctx.tabs.find((t) => t.active);
           const activeUrl = activeTab ? tabUrl(activeTab) : undefined;
           const canShowModal =
+            settings.commandBarOpenMode === 'popup' &&
             activeTab?.id !== undefined &&
             typeof chrome.tabs.sendMessage === 'function' &&
             (isOverlayCapableUrl(activeUrl) || isEmptySpacePageUrl(activeUrl));

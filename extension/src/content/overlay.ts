@@ -1,6 +1,6 @@
 import { EdgeHoverMachine } from '../core/edge-hover';
 import { completeSettings, DEFAULT_SETTINGS } from '../core/settings';
-import { matchFavoriteShortcut } from '../core/shortcut-keys';
+import { matchCustomShortcut, matchFavoriteShortcut } from '../core/shortcut-keys';
 import type { Settings } from '../core/types';
 
 /**
@@ -757,10 +757,36 @@ import type { Settings } from '../core/types';
       closeCommandBarModal();
       return;
     }
-    const shortcuts = settings.favoriteShortcuts;
-    if (!shortcuts || Object.keys(shortcuts).length === 0) return;
     const isCommandBarPage =
       location.protocol === 'chrome-extension:' && location.pathname.endsWith('/empty-space.html');
+    const customAction = matchCustomShortcut(e, settings.customShortcuts, {
+      allowInInput: isCommandBarPage,
+    });
+    if (customAction && chrome.runtime?.id) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (customAction === 'toggleSidebar') {
+        if (machine.isOpen) {
+          machine.forceClose();
+        } else {
+          tabHidden = false;
+          machine.forceOpen();
+        }
+        return;
+      }
+      const cmdMap = {
+        openCommandBar: 'open-command-bar',
+        nextSpace: 'next-space',
+        previousSpace: 'previous-space',
+        togglePin: 'toggle-pin',
+      } as const;
+      chrome.runtime
+        .sendMessage({ arclineTriggerCommand: cmdMap[customAction] })
+        .catch(() => undefined);
+      return;
+    }
+    const shortcuts = settings.favoriteShortcuts;
+    if (!shortcuts || Object.keys(shortcuts).length === 0) return;
     const matchedUrl = matchFavoriteShortcut(e, shortcuts, { allowInInput: isCommandBarPage });
     if (!matchedUrl || !chrome.runtime?.id) return;
     e.preventDefault();

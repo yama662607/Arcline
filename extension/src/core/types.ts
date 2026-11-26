@@ -14,6 +14,13 @@ export type AutoArchiveHours = 0 | 12 | 24 | 168;
 export type Language = 'en' | 'ja';
 export type LanguagePreference = 'auto' | Language;
 export type SearchEngine = 'google' | 'duckduckgo' | 'brave';
+export type CommandBarOpenMode = 'popup' | 'newtab';
+export type CustomCommandAction =
+  | 'openCommandBar'
+  | 'toggleSidebar'
+  | 'nextSpace'
+  | 'previousSpace'
+  | 'togglePin';
 
 export interface CustomSiteSearch {
   id: string;
@@ -48,10 +55,14 @@ export interface Settings {
   language: LanguagePreference;
   /** Fallback web search provider used by the Command Bar / New Tab page. */
   searchEngine: SearchEngine;
+  /** How New Tab / Command Bar opens: 'popup' over current webpage or 'newtab' on empty page. */
+  commandBarOpenMode: CommandBarOpenMode;
   /** User-defined site-search shortcuts synced to Command Bar & Raycast. */
   customSiteSearches: CustomSiteSearch[];
   /** Per-Favorite alias & shortcut map keyed by Favorite URL. */
   favoriteShortcuts: Record<string, FavoriteShortcut>;
+  /** Custom in-page keyboard shortcuts editable directly in Arcline Settings. */
+  customShortcuts: Partial<Record<CustomCommandAction, string>>;
 }
 
 export interface ArchivedTab {

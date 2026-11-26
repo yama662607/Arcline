@@ -32,6 +32,20 @@ export const settingsEn = {
   'settings.theme.system': 'System',
   'settings.theme.light': 'Light',
   'settings.theme.dark': 'Dark',
+  'settings.commandBarMode.title': 'New Tab / Command Bar style',
+  'settings.commandBarMode.description':
+    'Choose whether New Tab pops the Command Bar over your current page or opens a full empty page.',
+  'settings.commandBarMode.popup': 'Popup overlay',
+  'settings.commandBarMode.newtab': 'Empty page',
+  'settings.wallpaper.title': 'Empty page wallpaper (Image / GIF)',
+  'settings.wallpaper.description':
+    'Set a custom image or animated GIF for all Spaces or each individual Space (stored 100% locally).',
+  'settings.wallpaper.scopeAria': 'Wallpaper target Space',
+  'settings.wallpaper.scopeAll': 'All Spaces (shared)',
+  'settings.wallpaper.defaultTheme': 'Theme color',
+  'settings.wallpaper.pick': 'Choose Image / GIF',
+  'settings.wallpaper.reset': 'Reset',
+  'settings.wallpaper.error': 'Could not save the image. Choose an image/GIF under 25 MB.',
   'settings.topBar.title': 'Show search / URL copy bar at the top',
   'settings.topBar.description':
     'Hidden by default, like current Arc. Turn it on if you want it (search is still available with ⌘K when off).',
@@ -120,8 +134,20 @@ export const settingsEn = {
   'settings.import.errorFailed': 'Import failed.',
 
   // Shortcuts tab
+  'settings.shortcuts.customTitle': 'Arcline Shortcuts (Custom)',
+  'settings.shortcuts.customHint':
+    'Click a key box and press any combo to customize directly inside Arcline. Works on all webpages.',
+  'settings.shortcuts.browserTitle': 'Browser Extension Shortcuts',
+  'settings.shortcuts.browserHint':
+    'System-level shortcuts (also work on brave:// and chrome:// pages). Edit in browser shortcut settings.',
+  'settings.shortcuts.openBrowserShortcuts': 'Open Extension Shortcuts',
+  'settings.shortcuts.openBraveShortcuts': 'Brave Shortcuts',
+  'settings.shortcuts.notSet': 'Not set',
+  'settings.shortcuts.openCommandBar': 'Open Command Bar',
   'settings.shortcuts.toggleSidebar': 'Open / close the sidebar',
   'settings.shortcuts.toggleSidebarNote': 'macOS: Control+B (not ⌘B) · Windows/Linux: Alt+Shift+B',
+  'settings.shortcuts.nextSpace': 'Next Space',
+  'settings.shortcuts.previousSpace': 'Previous Space',
   'settings.shortcuts.switchSpace': 'Switch to the previous / next Space',
   'settings.shortcuts.switchSpaceNote': 'Windows/Linux: Alt+Shift+←/→',
   'settings.shortcuts.swipeKey': 'Two-finger swipe',
@@ -193,6 +219,21 @@ export const settingsJa: Record<keyof typeof settingsEn, string> = {
   'settings.theme.system': 'システム',
   'settings.theme.light': 'ライト',
   'settings.theme.dark': 'ダーク',
+  'settings.commandBarMode.title': '新規タブ / コマンドバーの開き方',
+  'settings.commandBarMode.description':
+    '現在のページにポップアップで重ねるか、壁紙付きの空ページへ移動して開くかを選びます。',
+  'settings.commandBarMode.popup': 'ページ上にポップアップ',
+  'settings.commandBarMode.newtab': '空ページで開く',
+  'settings.wallpaper.title': '空ページの壁紙（画像・GIF）',
+  'settings.wallpaper.description':
+    '全 Space 共通または Space ごとに画像・アニメーション GIF を設定できます（完全ローカル保存）。',
+  'settings.wallpaper.scopeAria': '壁紙の適用先 Space',
+  'settings.wallpaper.scopeAll': '全 Space 共通',
+  'settings.wallpaper.defaultTheme': 'テーマカラー',
+  'settings.wallpaper.pick': '画像 / GIF を選択',
+  'settings.wallpaper.reset': 'リセット',
+  'settings.wallpaper.error':
+    '画像を保存できませんでした。25 MB 以下の画像 / GIF を選んでください。',
   'settings.topBar.title': '上部に検索・URLコピーバーを表示',
   'settings.topBar.description':
     '現在の Arc と同様に標準では非表示にし、必要な方だけ表示できます（オフ時も ⌘K で検索可能）',
@@ -274,9 +315,21 @@ export const settingsJa: Record<keyof typeof settingsEn, string> = {
   'settings.import.errorFile': '有効な JSON ファイルを選択してください。',
   'settings.import.errorFailed': 'インポートに失敗しました。',
 
+  'settings.shortcuts.customTitle': 'Arcline ショートカット（カスタム設定）',
+  'settings.shortcuts.customHint':
+    'キー欄をクリックして任意のキーを押すと、Arcline の設定画面から直接変更できます（全 Web ページで動作）。',
+  'settings.shortcuts.browserTitle': 'ブラウザ拡張ショートカット',
+  'settings.shortcuts.browserHint':
+    'brave:// などの特殊ページでも動作するシステムショートカットです。変更はブラウザのショートカット設定から行えます。',
+  'settings.shortcuts.openBrowserShortcuts': '拡張ショートカット設定を開く',
+  'settings.shortcuts.openBraveShortcuts': 'Brave ショートカット',
+  'settings.shortcuts.notSet': '未設定',
+  'settings.shortcuts.openCommandBar': 'コマンドバーを開く',
   'settings.shortcuts.toggleSidebar': 'サイドバーを開く / 閉じる',
   'settings.shortcuts.toggleSidebarNote':
     'macOS: Control+B（⌘B ではありません）· Win/Linux: Alt+Shift+B',
+  'settings.shortcuts.nextSpace': '次の Space へ移動',
+  'settings.shortcuts.previousSpace': '前の Space へ移動',
   'settings.shortcuts.switchSpace': '前後の Space へ切替',
   'settings.shortcuts.switchSpaceNote': 'Windows/Linux: Alt+Shift+←/→',
   'settings.shortcuts.swipeKey': '2本指スワイプ',

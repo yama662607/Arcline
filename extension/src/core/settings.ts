@@ -2,6 +2,8 @@ import { normalizeShortcutCombo } from './shortcut-keys';
 import { hasControlChar, isSafeNavigableUrl } from './snapshot';
 import type {
   AutoArchiveHours,
+  CommandBarOpenMode,
+  CustomCommandAction,
   CustomSiteSearch,
   FavoriteShortcut,
   LanguagePreference,
@@ -24,13 +26,23 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   openEmptySpacePage: true,
   language: 'auto',
   searchEngine: 'google',
+  commandBarOpenMode: 'popup',
   customSiteSearches: [],
   favoriteShortcuts: {},
+  customShortcuts: {},
 });
 
 const VALID_THEMES = new Set<ThemeMode>(['system', 'light', 'dark']);
 const VALID_LANGUAGES = new Set<LanguagePreference>(['auto', 'en', 'ja']);
 const VALID_SEARCH_ENGINES = new Set<SearchEngine>(['google', 'duckduckgo', 'brave']);
+const VALID_COMMAND_BAR_MODES = new Set<CommandBarOpenMode>(['popup', 'newtab']);
+const VALID_CUSTOM_ACTIONS: readonly CustomCommandAction[] = [
+  'openCommandBar',
+  'toggleSidebar',
+  'nextSpace',
+  'previousSpace',
+  'togglePin',
+];
 const VALID_ARCHIVE_HOURS = new Set<AutoArchiveHours>([0, 12, 24, 168]);
 const PREFIX_RE = /^[a-z0-9][a-z0-9_-]{0,15}$/;
 const ALIAS_RE = /^[a-z0-9][a-z0-9_-]{0,23}$/;
@@ -78,6 +90,19 @@ export function sanitizeFavoriteShortcuts(raw: unknown): Record<string, Favorite
   return result;
 }
 
+export function sanitizeCustomShortcuts(
+  raw: unknown,
+): Partial<Record<CustomCommandAction, string>> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const obj = raw as Record<string, unknown>;
+  const result: Partial<Record<CustomCommandAction, string>> = {};
+  for (const action of VALID_CUSTOM_ACTIONS) {
+    const combo = normalizeShortcutCombo(obj[action]);
+    if (combo) result[action] = combo;
+  }
+  return result;
+}
+
 function clampInt(value: unknown, min: number, max: number, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, Math.round(value)));
@@ -117,6 +142,10 @@ export function completeSettings(partial?: Partial<Settings> | null): Settings {
     partial?.searchEngine && VALID_SEARCH_ENGINES.has(partial.searchEngine)
       ? partial.searchEngine
       : DEFAULT_SETTINGS.searchEngine;
+  const commandBarOpenMode =
+    partial?.commandBarOpenMode && VALID_COMMAND_BAR_MODES.has(partial.commandBarOpenMode)
+      ? partial.commandBarOpenMode
+      : DEFAULT_SETTINGS.commandBarOpenMode;
 
   return {
     theme,
@@ -142,11 +171,13 @@ export function completeSettings(partial?: Partial<Settings> | null): Settings {
     openEmptySpacePage,
     language,
     searchEngine,
+    commandBarOpenMode,
     customSiteSearches: Array.isArray(partial?.customSiteSearches)
       ? partial.customSiteSearches
           .map(sanitizeCustomSiteSearch)
           .filter((item): item is CustomSiteSearch => item !== null)
       : [],
     favoriteShortcuts: sanitizeFavoriteShortcuts(partial?.favoriteShortcuts),
+    customShortcuts: sanitizeCustomShortcuts(partial?.customShortcuts),
   };
 }
