@@ -20,7 +20,11 @@ if (root) {
     mount();
   } else {
     void verifyFramedAccess('overlay').then((allowed) => {
-      if (allowed) mount();
+      if (allowed) {
+        mount();
+      } else if (window.parent !== window) {
+        window.parent.postMessage({ type: 'arcline:overlay-auth-failed' }, '*');
+      }
     });
   }
 }

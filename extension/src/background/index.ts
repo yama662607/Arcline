@@ -408,6 +408,8 @@ const FRAME_TOKEN_TTL_MS = 10 * 60 * 1000;
 const FRAME_TOKENS_SESSION_KEY = 'arcline:frameTokens';
 type FrameTokenEntry = { kind: 'overlay' | 'modal'; tabId: number; expiresAt: number };
 const issuedFrameTokens = new Map<string, FrameTokenEntry>();
+let frameTokensHydrated = false;
+let frameTokensHydrationPromise: Promise<void> | null = null;
 
 function pruneExpiredFrameTokens(now: number): void {
   for (const [token, entry] of issuedFrameTokens) {
@@ -427,31 +429,42 @@ async function persistFrameTokens(): Promise<void> {
   }
 }
 
-async function hydrateFrameTokensIfEmpty(): Promise<void> {
-  if (issuedFrameTokens.size > 0) return;
-  try {
-    const stored = await chrome.storage.session?.get?.(FRAME_TOKENS_SESSION_KEY);
-    const map = stored?.[FRAME_TOKENS_SESSION_KEY] as Record<string, FrameTokenEntry> | undefined;
-    if (!map || typeof map !== 'object') return;
-    const now = Date.now();
-    for (const [token, entry] of Object.entries(map)) {
-      if (entry && entry.expiresAt > now) {
-        issuedFrameTokens.set(token, entry);
+async function ensureFrameTokensHydrated(): Promise<void> {
+  if (frameTokensHydrated) return;
+  if (!frameTokensHydrationPromise) {
+    frameTokensHydrationPromise = (async () => {
+      try {
+        const stored = await chrome.storage.session?.get?.(FRAME_TOKENS_SESSION_KEY);
+        const map = stored?.[FRAME_TOKENS_SESSION_KEY] as
+          | Record<string, FrameTokenEntry>
+          | undefined;
+        if (map && typeof map === 'object') {
+          const now = Date.now();
+          for (const [token, entry] of Object.entries(map)) {
+            if (entry && entry.expiresAt > now && !issuedFrameTokens.has(token)) {
+              issuedFrameTokens.set(token, entry);
+            }
+          }
+        }
+      } catch {
+        // Ignore if session storage is unavailable
+      } finally {
+        frameTokensHydrated = true;
       }
-    }
-  } catch {
-    // Ignore if session storage is unavailable
+    })();
   }
+  await frameTokensHydrationPromise;
 }
 
-function issueFrameToken(kind: 'overlay' | 'modal', tabId: number): string {
+async function issueFrameToken(kind: 'overlay' | 'modal', tabId: number): Promise<string> {
+  await ensureFrameTokensHydrated();
   const now = Date.now();
   pruneExpiredFrameTokens(now);
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   const token = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   issuedFrameTokens.set(token, { kind, tabId, expiresAt: now + FRAME_TOKEN_TTL_MS });
-  void persistFrameTokens();
+  await persistFrameTokens();
   return token;
 }
 
@@ -460,7 +473,7 @@ async function verifyFrameToken(
   kind: 'overlay' | 'modal',
   tabId: number | undefined,
 ): Promise<boolean> {
-  await hydrateFrameTokensIfEmpty();
+  await ensureFrameTokensHydrated();
   const now = Date.now();
   pruneExpiredFrameTokens(now);
   const entry = issuedFrameTokens.get(token);
@@ -491,9 +504,10 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
       sendResponse({ ok: false });
       return false;
     }
-    const token = issueFrameToken(payload.arclineIssueFrameToken, tabId);
-    sendResponse({ ok: true, token });
-    return false;
+    void issueFrameToken(payload.arclineIssueFrameToken, tabId)
+      .then((token) => sendResponse({ ok: true, token }))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
   }
 
   if (payload?.arclineVerifyFrameToken) {

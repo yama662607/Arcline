@@ -203,4 +203,42 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
     // Host page JS heap delta must remain small (< 5MB)
     expect(after.heap - baseline.heap).toBeLessThan(5 * 1024 * 1024);
   });
+
+  test('overlay sidebar self-recovers instead of rendering blank when frame token expires or resets', async ({
+    arcline,
+  }) => {
+    await arcline.setSettings({
+      edgeHoverEnabled: true,
+      edgeTriggerWidthPx: 6,
+      edgeOpenDelayMs: 30,
+      edgeCloseDelayMs: 120,
+    });
+
+    const page = await arcline.context.newPage();
+    await page.goto(`${arcline.serverUrl}/normal`);
+    await page.waitForTimeout(200);
+
+    // Open overlay normally and confirm the React sidebar UI is mounted
+    await page.mouse.move(2, 300);
+    const sidebarFrame = page.frameLocator('#arcline-overlay-host iframe[title="Arcline Sidebar"]');
+    await expect(sidebarFrame.locator('[data-arcline-shell], .arcline-shell').first()).toBeVisible();
+
+    // Simulate an expired/invalid frame token (e.g. >10min TTL or OOPIF reload after SW restart)
+    // by navigating the existing sidebar iframe to an invalid token hash.
+    await page.evaluate(() => {
+      const host = document.getElementById('arcline-overlay-host');
+      const iframe = host?.shadowRoot?.querySelector<HTMLIFrameElement>(
+        'iframe[title="Arcline Sidebar"]',
+      );
+      if (iframe) {
+        const base = iframe.src.split('#')[0];
+        iframe.src = `${base}#arclineToken=00000000000000000000000000000000`;
+      }
+    });
+
+    // Self-recovery must detect auth failure, request a fresh token, and remount non-empty UI
+    await expect(
+      page.frameLocator('#arcline-overlay-host iframe[title="Arcline Sidebar"]').locator('.arcline-shell'),
+    ).toBeVisible({ timeout: 5000 });
+  });
 });

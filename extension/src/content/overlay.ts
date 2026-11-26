@@ -480,6 +480,8 @@ import type { Settings } from '../core/types';
   }
 
   let overlaySrcPending = false;
+  let overlayAuthRetries = 0;
+  let overlayRetryTimer: ReturnType<typeof setTimeout> | undefined;
 
   async function requestFrameToken(kind: 'overlay' | 'modal'): Promise<string | null> {
     if (!chrome.runtime?.id) return null;
@@ -525,6 +527,30 @@ import type { Settings } from '../core/types';
     iframeEl = iframe;
   }
 
+  function ensureSidebarIframeMounted(): void {
+    if (disposed || !panelEl || iframeEl?.isConnected || overlaySrcPending || !PANEL_URL) return;
+    overlaySrcPending = true;
+    void requestFrameToken('overlay').then((token) => {
+      overlaySrcPending = false;
+      if (disposed || !panelEl || iframeEl?.isConnected) return;
+      if (token) {
+        mountSidebarIframe(`${PANEL_URL}#arclineToken=${token}`);
+        return;
+      }
+      // Retry once if the MV3 Service Worker was restarting transiently while the panel stayed open
+      if (machine.isOpen && overlayAuthRetries < 2) {
+        overlayAuthRetries += 1;
+        if (overlayRetryTimer) clearTimeout(overlayRetryTimer);
+        overlayRetryTimer = setTimeout(() => {
+          overlayRetryTimer = undefined;
+          if (machine.isOpen && !iframeEl?.isConnected) {
+            ensureSidebarIframeMounted();
+          }
+        }, 250);
+      }
+    });
+  }
+
   function showPanel(): void {
     ensureHostMounted();
     if (!panelEl) return;
@@ -532,14 +558,8 @@ import type { Settings } from '../core/types';
       clearTimeout(unloadTimer);
       unloadTimer = undefined;
     }
-    if (!iframeEl?.isConnected && !overlaySrcPending && PANEL_URL) {
-      overlaySrcPending = true;
-      void requestFrameToken('overlay').then((token) => {
-        overlaySrcPending = false;
-        if (disposed || !panelEl || iframeEl?.isConnected || !token) return;
-        mountSidebarIframe(`${PANEL_URL}#arclineToken=${token}`);
-      });
-    }
+    overlayAuthRetries = 0;
+    ensureSidebarIframeMounted();
     panelEl.classList.add('open');
     postHostMetrics();
     reportOverlayState('open');
@@ -692,6 +712,7 @@ import type { Settings } from '../core/types';
     if (unloadTimer) clearTimeout(unloadTimer);
     if (repairTimer) clearTimeout(repairTimer);
     if (cmdRevealTimer) clearTimeout(cmdRevealTimer);
+    if (overlayRetryTimer) clearTimeout(overlayRetryTimer);
     observer?.disconnect();
     window.removeEventListener('pointermove', onPointerMove, true);
     window.removeEventListener('pointerdown', onPointerDown, true);
@@ -776,6 +797,19 @@ import type { Settings } from '../core/types';
       return;
     }
     if (!fromSidebar) return;
+    if (msg?.type === 'arcline:overlay-auth-failed') {
+      // Ephemeral token expired or was lost across a Service Worker restart: remount with a fresh token
+      if (iframeEl) {
+        iframeLoaded = false;
+        iframeEl.remove();
+        iframeEl = null;
+      }
+      if (machine.isOpen && overlayAuthRetries < 2) {
+        overlayAuthRetries += 1;
+        ensureSidebarIframeMounted();
+      }
+      return;
+    }
     if (msg?.type === 'arcline:overlay-lock') {
       machine.setLocked(Boolean(msg.locked));
     } else if (msg?.type === 'arcline:overlay-stage') {
@@ -803,6 +837,7 @@ import type { Settings } from '../core/types';
     } else if (msg?.type === 'arcline:overlay-close') {
       machine.forceClose();
     } else if (msg?.type === 'arcline:request-metrics') {
+      overlayAuthRetries = 0;
       postHostMetrics();
     }
   };
