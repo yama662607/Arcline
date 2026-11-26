@@ -15,13 +15,9 @@ export default defineConfig({
         sidepanel: resolve(import.meta.dirname, 'sidepanel.html'),
         emptySpace: resolve(import.meta.dirname, 'empty-space.html'),
         onboarding: resolve(import.meta.dirname, 'onboarding.html'),
-        background: resolve(import.meta.dirname, 'src/background/index.ts'),
       },
       output: {
-        entryFileNames: (chunkInfo) => {
-          if (chunkInfo.name === 'background') return 'background.js';
-          return 'assets/[name]-[hash].js';
-        },
+        entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]',
       },
