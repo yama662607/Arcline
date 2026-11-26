@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   Clock,
   ExternalLink,
   Globe,
@@ -9,9 +10,8 @@ import {
   Star,
   Terminal,
   X,
-  Zap,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildCommandBarResults,
   type CommandBarHistoryEntry,
@@ -20,9 +20,20 @@ import {
 } from '../../core/command-bar';
 import type { Favorite } from '../../core/types';
 import { useI18n } from '../../sidepanel/i18n';
-import { isMacPlatform, newTabKeys, openBrowserPage, openNewTab, SHORTCUTS_URL } from '../platform';
-import { CopyButton, Keycaps, StepHeading } from '../ui';
+import {
+  BRAVE_EXT_SHORTCUTS_URL,
+  BRAVE_SHORTCUTS_URL,
+  detectBrave,
+  isMacPlatform,
+  newTabKeys,
+  openBrowserPage,
+  openNewTab,
+  SHORTCUTS_URL,
+} from '../platform';
+import { CopyButton, Keycaps, Segmented, StepHeading } from '../ui';
 import type { StepProps } from './types';
+
+type Browser = 'brave' | 'chrome';
 
 const ARCLINE_GITHUB_URL = 'https://github.com/yama662607/Arcline#readme';
 const ARCLINE_FEEDBACK_FORM_URL =
@@ -47,8 +58,6 @@ const SITES = [
   { prefix: 'gh', name: 'GitHub' },
   { prefix: 'yt', name: 'YouTube' },
   { prefix: 'gpt', name: 'ChatGPT' },
-  { prefix: 'claude', name: 'Claude' },
-  { prefix: 'pplx', name: 'Perplexity' },
 ] as const;
 
 const DEMO_TABS: readonly CommandBarTab[] = [
@@ -69,7 +78,6 @@ const DEMO_TABS: readonly CommandBarTab[] = [
 const DEMO_FAVORITES: readonly Favorite[] = [
   { id: 'f1', title: 'GitHub', url: 'https://github.com' },
   { id: 'f2', title: 'Linear', url: 'https://linear.app' },
-  { id: 'f3', title: 'Figma', url: 'https://www.figma.com' },
 ];
 
 const DEMO_HISTORY: readonly CommandBarHistoryEntry[] = [
@@ -78,12 +86,6 @@ const DEMO_HISTORY: readonly CommandBarHistoryEntry[] = [
     url: 'https://playwright.dev/docs/intro',
     lastVisitTime: Date.now() - 3600_000,
     visitCount: 8,
-  },
-  {
-    title: 'TypeScript Release Notes',
-    url: 'https://www.typescriptlang.org/docs/',
-    lastVisitTime: Date.now() - 7200_000,
-    visitCount: 5,
   },
 ];
 
@@ -106,9 +108,20 @@ export function CommandBarStep({ headingRef }: StepProps) {
   const { t, lang } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
+  const [browser, setBrowser] = useState<Browser>('brave');
   const mac = isMacPlatform();
   const keys = newTabKeys(mac);
   const setupPrompt = lang === 'ja' ? AGENT_SETUP_PROMPT_JA : AGENT_SETUP_PROMPT_EN;
+
+  useEffect(() => {
+    let active = true;
+    void detectBrave().then((isBrave) => {
+      if (active) setBrowser(isBrave ? 'brave' : 'chrome');
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const result = useMemo(
     () =>
@@ -120,7 +133,7 @@ export function CommandBarStep({ headingRef }: StepProps) {
         history: DEMO_HISTORY,
         archived: [],
         searchEngine: 'google',
-        limit: 5,
+        limit: 4,
       }),
     [query],
   );
@@ -131,8 +144,8 @@ export function CommandBarStep({ headingRef }: StepProps) {
   };
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-10">
-      <div className="onb-rise flex min-w-0 flex-col gap-5">
+    <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:gap-10">
+      <div className="onb-rise flex min-w-0 flex-col gap-4">
         <StepHeading
           title={t('onboarding.command.title')}
           body={t('onboarding.command.body')}
@@ -214,21 +227,20 @@ export function CommandBarStep({ headingRef }: StepProps) {
           </div>
         </div>
 
-        <section className="onb-surface flex flex-col gap-3 p-4" aria-labelledby="onb-sites">
-          <div className="flex flex-col gap-0.5">
-            <h2 id="onb-sites" className="onb-h2">
-              {t('onboarding.command.sites.title')}
-            </h2>
-            <p className="onb-small">{t('onboarding.command.sites.clickHint')}</p>
+        {/* Compact site-search chips + 3 essential keyboard tips */}
+        <div className="onb-surface flex flex-col gap-3 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[13px] font-semibold">{t('onboarding.command.sites.title')}</span>
+            <span className="onb-small">{t('onboarding.command.sites.clickHint')}</span>
           </div>
-          <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-3">
+          <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-4">
             {SITES.map((site) => (
               <li key={site.prefix}>
                 <button
                   type="button"
                   onClick={() => applyPrefix(site.prefix)}
                   data-testid={`onboarding-site-chip-${site.prefix}`}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded-xl border-0 px-2.5 py-2 text-left text-[13px] transition-transform hover:scale-[1.02]"
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-xl border-0 px-2.5 py-1.5 text-left text-[12.5px] transition-transform hover:scale-[1.02]"
                   style={{ background: 'var(--tile)', color: 'inherit' }}
                 >
                   <code
@@ -242,94 +254,164 @@ export function CommandBarStep({ headingRef }: StepProps) {
               </li>
             ))}
           </ul>
-        </section>
+          <div
+            className="flex flex-wrap gap-1.5 pt-0.5 text-[11.5px]"
+            style={{ color: 'var(--ink-muted)' }}
+          >
+            <span className="rounded-lg px-2 py-1" style={{ background: 'var(--tile)' }}>
+              {t('onboarding.command.tips.space')}
+            </span>
+            <span className="rounded-lg px-2 py-1" style={{ background: 'var(--tile)' }}>
+              {t('onboarding.command.tips.cmdEnter')}
+            </span>
+            <span className="rounded-lg px-2 py-1" style={{ background: 'var(--tile)' }}>
+              {t('onboarding.command.tips.ctrlPN')}
+            </span>
+          </div>
+        </div>
       </div>
 
+      {/* Highlighted Recommended Setup: Zero-flicker Cmd+T */}
       <section
         aria-labelledby="onb-hotkey"
-        className="onb-surface onb-rise flex min-w-0 flex-col gap-4 self-start p-6"
+        className="onb-surface onb-rise flex min-w-0 flex-col gap-4 self-start p-5"
+        style={{
+          borderColor: 'var(--onb-accent-soft)',
+          boxShadow: '0 0 0 1px var(--onb-accent-soft)',
+        }}
       >
         <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="onb-badge"
+              style={{ background: 'var(--onb-accent-soft)', color: 'var(--onb-accent)' }}
+            >
+              {t('onboarding.command.hotkey.badge')}
+            </span>
+            <div className="flex items-center gap-1.5" data-testid="onboarding-hotkey">
+              <Keycaps keys={keys} />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
-            <Keyboard size={17} style={{ color: 'var(--onb-accent)' }} aria-hidden="true" />
+            <Keyboard size={16} style={{ color: 'var(--onb-accent)' }} aria-hidden="true" />
             <h2 id="onb-hotkey" className="onb-h2 text-[16px]">
-              {t('onboarding.command.hotkey.title')}
+              {browser === 'brave'
+                ? t('onboarding.command.hotkey.title')
+                : t('onboarding.command.hotkey.globalTitle')}
             </h2>
           </div>
-          <p className="onb-small">{t('onboarding.command.hotkey.body')}</p>
+          <p className="onb-small">
+            {browser === 'brave'
+              ? t('onboarding.command.hotkey.body')
+              : t('onboarding.command.hotkey.global')}
+          </p>
         </div>
 
-        <div className="flex flex-col items-center gap-1.5 py-1" data-testid="onboarding-hotkey">
-          <Keycaps keys={keys} />
-          <span className="onb-small">{t('onboarding.command.hotkey.newTabCaption')}</span>
-        </div>
+        <Segmented<Browser>
+          label={t('onboarding.command.hotkey.title')}
+          value={browser}
+          onChange={setBrowser}
+          testId="onboarding-command-browser-toggle"
+          options={[
+            { value: 'brave', label: t('onboarding.edge.browser.brave') },
+            { value: 'chrome', label: t('onboarding.edge.browser.chrome') },
+          ]}
+        />
 
-        {/* Global hotkey option 1: Browser shortcuts */}
-        <div
-          className="flex flex-col gap-1.5 rounded-xl border p-3"
-          style={{ borderColor: 'var(--onb-line)', background: 'var(--tile)' }}
-        >
-          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold">
-            <Zap size={13} style={{ color: 'var(--onb-accent)' }} aria-hidden="true" />
-            <span>{t('onboarding.command.hotkey.globalTitle')}</span>
-          </div>
-          <p className="onb-small">{t('onboarding.command.hotkey.global')}</p>
-        </div>
+        {browser === 'brave' ? (
+          <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
+            <li className="flex items-start gap-2.5">
+              <span className="onb-list-num shrink-0">1</span>
+              <span className="text-[13px] leading-[1.55]">
+                {t('onboarding.command.hotkey.braveStep1')}
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <span className="onb-list-num shrink-0">2</span>
+              <span className="text-[13px] leading-[1.55]">
+                {t('onboarding.command.hotkey.braveStep2')}
+              </span>
+            </li>
+          </ol>
+        ) : null}
 
-        {/* Companion tools: Raycast, CLI & AI Agent Skill with 1-click setup prompt */}
-        <div
-          className="flex flex-col gap-2.5 rounded-xl border p-3.5"
-          style={{ borderColor: 'var(--onb-line)', background: 'var(--tile)' }}
-        >
-          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold">
-            <Terminal size={13} style={{ color: 'var(--onb-accent)' }} aria-hidden="true" />
-            <span>{t('onboarding.command.raycast.title')}</span>
-          </div>
-          <p className="onb-small">{t('onboarding.command.raycast.body')}</p>
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            <CopyButton text={setupPrompt} label={t('onboarding.command.companion.copyPrompt')} />
-            <a
-              href={ARCLINE_GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="onb-btn onb-btn-soft onb-btn-sm no-underline"
+        <div className="flex flex-wrap items-center gap-2">
+          {browser === 'brave' && (
+            <button
+              type="button"
+              className="onb-btn onb-btn-soft onb-btn-sm"
+              data-testid="onboarding-open-brave-shortcuts"
+              onClick={() => void openBrowserPage(BRAVE_SHORTCUTS_URL)}
             >
-              <ExternalLink size={13} aria-hidden="true" />
-              <span>{t('onboarding.command.companion.openGithub')}</span>
-            </a>
-            <a
-              href={ARCLINE_FEEDBACK_FORM_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="onb-btn onb-btn-soft onb-btn-sm no-underline"
-            >
-              <ExternalLink size={13} aria-hidden="true" />
-              <span>{t('onboarding.command.companion.feedback')}</span>
-            </a>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2.5 sm:flex-row lg:flex-col xl:flex-row">
+              <Settings2 size={14} aria-hidden="true" />
+              <span>{t('onboarding.command.hotkey.openBraveShortcuts')}</span>
+            </button>
+          )}
           <button
             type="button"
-            className="onb-btn onb-btn-soft"
+            className="onb-btn onb-btn-accent onb-btn-sm"
             data-testid="onboarding-open-shortcuts"
-            onClick={() => void openBrowserPage(SHORTCUTS_URL)}
+            onClick={() =>
+              void openBrowserPage(browser === 'brave' ? BRAVE_EXT_SHORTCUTS_URL : SHORTCUTS_URL)
+            }
           >
-            <Settings2 size={15} aria-hidden="true" />
-            <span>{t('onboarding.command.openShortcuts')}</span>
+            <Settings2 size={14} aria-hidden="true" />
+            <span>
+              {browser === 'brave'
+                ? t('onboarding.command.openShortcuts')
+                : t('onboarding.command.openShortcutsChrome')}
+            </span>
           </button>
           <button
             type="button"
-            className="onb-btn onb-btn-accent"
+            className="onb-btn onb-btn-soft onb-btn-sm"
             data-testid="onboarding-try-command-bar"
             onClick={() => void openNewTab()}
           >
-            <Search size={15} aria-hidden="true" />
+            <Search size={14} aria-hidden="true" />
             <span>{t('onboarding.command.try')}</span>
           </button>
         </div>
-        <p className="onb-small">{t('onboarding.command.done')}</p>
+
+        {/* Optional Companion Tools tucked neatly into a collapsible disclosure */}
+        <details
+          className="rounded-xl border px-3.5 py-2.5"
+          style={{ borderColor: 'var(--onb-line)', background: 'var(--tile)' }}
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[12.5px] font-semibold">
+            <span className="flex items-center gap-1.5">
+              <Terminal size={13} style={{ color: 'var(--onb-accent)' }} aria-hidden="true" />
+              <span>{t('onboarding.command.raycast.title')}</span>
+            </span>
+            <ChevronDown size={14} style={{ color: 'var(--ink-muted)' }} aria-hidden="true" />
+          </summary>
+          <div className="flex flex-col gap-2.5 pt-2.5">
+            <p className="onb-small m-0">{t('onboarding.command.raycast.body')}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <CopyButton text={setupPrompt} label={t('onboarding.command.companion.copyPrompt')} />
+              <a
+                href={ARCLINE_GITHUB_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="onb-btn onb-btn-soft onb-btn-sm no-underline"
+              >
+                <ExternalLink size={13} aria-hidden="true" />
+                <span>{t('onboarding.command.companion.openGithub')}</span>
+              </a>
+              <a
+                href={ARCLINE_FEEDBACK_FORM_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="onb-btn onb-btn-soft onb-btn-sm no-underline"
+              >
+                <ExternalLink size={13} aria-hidden="true" />
+                <span>{t('onboarding.command.companion.feedback')}</span>
+              </a>
+            </div>
+          </div>
+        </details>
+
+        <p className="onb-small m-0">{t('onboarding.command.done')}</p>
       </section>
     </div>
   );

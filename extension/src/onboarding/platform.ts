@@ -12,6 +12,8 @@ export const ARC_SIDEBAR_PATHS: Record<ArcPathOs, string> = {
 export const ARC_SIDEBAR_PATH = ARC_SIDEBAR_PATHS.mac;
 
 export const SHORTCUTS_URL = 'chrome://extensions/shortcuts';
+export const BRAVE_SHORTCUTS_URL = 'brave://settings/system/shortcuts';
+export const BRAVE_EXT_SHORTCUTS_URL = 'brave://extensions/shortcuts';
 
 interface BraveNavigator extends Navigator {
   brave?: { isBrave?: () => Promise<boolean> };

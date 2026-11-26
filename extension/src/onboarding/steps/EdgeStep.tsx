@@ -38,8 +38,6 @@ const BRAVE_STEPS = [
   'onboarding.edge.brave.step1',
   'onboarding.edge.brave.step2',
   'onboarding.edge.brave.step3',
-  'onboarding.edge.brave.step4',
-  'onboarding.edge.brave.step5',
 ] as const;
 
 export function EdgeStep({ headingRef }: StepProps) {
@@ -119,21 +117,31 @@ export function EdgeStep({ headingRef }: StepProps) {
           />
         </div>
 
-        <div className="onb-surface flex flex-wrap items-center gap-x-5 gap-y-3 p-4">
-          <div className="flex flex-col gap-1">
+        <div className="onb-surface flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+          <Keycaps keys={keys} />
+          <div className="min-w-[180px] flex-1">
             <span className="text-[13px] font-semibold">{t('onboarding.edge.shortcut.label')}</span>
-            <Keycaps keys={keys} />
+            <p className="onb-small m-0">{t('onboarding.edge.shortcut.hint')}</p>
           </div>
-          <p className="onb-small min-w-[200px] flex-1">{t('onboarding.edge.shortcut.hint')}</p>
         </div>
       </div>
 
       <section
         aria-labelledby="onb-setup-title"
         className="onb-surface onb-rise flex min-w-0 flex-col gap-4 self-start p-5"
+        style={{
+          borderColor: 'var(--onb-accent-soft)',
+          boxShadow: '0 0 0 1px var(--onb-accent-soft)',
+        }}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-1">
+            <span
+              className="onb-badge self-start"
+              style={{ background: 'var(--onb-accent-soft)', color: 'var(--onb-accent)' }}
+            >
+              {t('onboarding.edge.setup.badge')}
+            </span>
             <h2 id="onb-setup-title" className="onb-h2 text-[16px]">
               {t('onboarding.edge.setup.title')}
             </h2>
@@ -196,10 +204,10 @@ export function EdgeStep({ headingRef }: StepProps) {
           <p className="onb-small text-[13px]">{t('onboarding.edge.chrome.body')}</p>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
             type="button"
-            className="onb-btn onb-btn-soft onb-btn-sm"
+            className="onb-btn onb-btn-accent onb-btn-sm"
             data-testid="onboarding-open-settings"
             onClick={() => void openSettings()}
           >
