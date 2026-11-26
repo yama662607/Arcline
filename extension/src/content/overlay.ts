@@ -20,6 +20,8 @@ import type { Settings } from '../core/types';
   // Skip CSP-sandboxed opaque-origin documents (e.g. raw CDN images served with `CSP: sandbox`),
   // where Chromium blocks script execution in any child iframe and logs a sandbox console error.
   if (window.origin === 'null') return;
+  // Bail cleanly if extension APIs are unavailable (e.g. invalidated context during reload)
+  if (typeof chrome === 'undefined' || !chrome.runtime?.id) return;
   const HOST_ID = 'arcline-overlay-host';
   if (document.getElementById(HOST_ID)) return;
 
@@ -919,14 +921,14 @@ import type { Settings } from '../core/types';
   });
   observer.observe(document.documentElement, { childList: true });
 
-  chrome.storage.onChanged.addListener((changes, area) => {
+  chrome.storage?.onChanged?.addListener((changes, area) => {
     if (disposed || area !== 'local' || !changes[SETTINGS_KEY]) return;
     settings = completeSettings(changes[SETTINGS_KEY].newValue as Partial<Settings> | undefined);
     machine.updateConfig(currentConfig());
     applyDimensions();
   });
 
-  chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  chrome.runtime?.onMessage?.addListener((message: unknown, _sender, sendResponse) => {
     const msg = message as
       | {
           arclineOverlay?: 'toggle' | 'open' | 'close' | 'tab-hidden';
