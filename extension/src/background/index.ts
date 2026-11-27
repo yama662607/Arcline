@@ -54,11 +54,24 @@ function broadcastNativeSidePanelState(open: boolean): void {
     .catch(() => undefined);
 }
 
-// Hydrate cached commandBarOpenMode eagerly on Service Worker start for 0-await onCreated path
+// Hydrate cached commandBarOpenMode and active content tabs eagerly on Service Worker start
+// for 0-await Cmd+T popup interception
 void storage
   .getSettings()
   .then((s) => {
     cachedCommandBarOpenMode = s.commandBarOpenMode;
+  })
+  .catch(() => undefined);
+
+void chrome.tabs
+  .query({ active: true })
+  .then((activeTabs) => {
+    for (const t of activeTabs) {
+      const url = t.url ?? t.pendingUrl;
+      if (t.id !== undefined && url && !isNativeNewTabUrl(url)) {
+        lastContentTabByWindow.set(t.windowId, { tabId: t.id, url });
+      }
+    }
   })
   .catch(() => undefined);
 
@@ -340,9 +353,12 @@ chrome.tabs.onCreated.addListener((tab) => {
     if (cachedCommandBarOpenMode === 'newtab') {
       // Redirect native chrome://newtab / brave://newtab straight to our extension URL so
       // Chromium never renders its bottom "Arcline | Customize" bar and focuses the Command Bar.
-      void chrome.tabs
-        .update(createdTabId, { url: chrome.runtime.getURL('empty-space.html?commandBar=1') })
-        .catch(() => undefined);
+      const targetUrl = chrome.runtime.getURL('empty-space.html?commandBar=1');
+      void chrome.tabs.update(createdTabId, { url: targetUrl }).catch(() => {
+        setTimeout(() => {
+          void chrome.tabs.update(createdTabId, { url: targetUrl }).catch(() => undefined);
+        }, 60);
+      });
       return;
     }
     const cachedPrev = lastContentTabByWindow.get(winId);
@@ -369,36 +385,57 @@ chrome.tabs.onCreated.addListener((tab) => {
       });
       return;
     }
-    // Cold-start fallback when Service Worker just woke up and cache is empty
-    const openerId = tab.openerTabId;
-    if (openerId !== undefined && openerId !== createdTabId) {
-      transientNewTabIds.add(createdTabId);
-      setTimeout(() => transientNewTabIds.delete(createdTabId), 2000);
-      void (async () => {
-        try {
-          const prevTab = await chrome.tabs.get(openerId).catch(() => undefined);
-          const prevUrl = prevTab?.url ?? prevTab?.pendingUrl;
-          if (!prevTab || prevTab.windowId !== winId || !canPopupCommandBarOnUrl(prevUrl)) {
-            transientNewTabIds.delete(createdTabId);
-            return;
-          }
-          void chrome.tabs.update(openerId, { active: true }).catch(() => undefined);
-          void chrome.tabs.remove(createdTabId).catch(() => undefined);
-          void chrome.tabs.sendMessage(openerId, { arclineCommandBar: 'open' }).catch(() => {
-            void chrome.tabs
-              .create({
-                windowId: winId,
-                url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
-                active: true,
-              })
-              .catch(() => undefined);
-          });
-        } catch {
+    // Cold-start fallback when Service Worker just woke up or Brave omitted openerTabId on Cmd+T
+    transientNewTabIds.add(createdTabId);
+    setTimeout(() => transientNewTabIds.delete(createdTabId), 2000);
+    void (async () => {
+      try {
+        const settings = await storage.getSettings();
+        cachedCommandBarOpenMode = settings.commandBarOpenMode;
+        if (settings.commandBarOpenMode === 'newtab') {
           transientNewTabIds.delete(createdTabId);
+          await chrome.tabs
+            .update(createdTabId, { url: chrome.runtime.getURL('empty-space.html?commandBar=1') })
+            .catch(() => undefined);
+          return;
         }
-      })();
-      return;
-    }
+        let prevTab: chrome.tabs.Tab | undefined;
+        if (tab.openerTabId !== undefined && tab.openerTabId !== createdTabId) {
+          prevTab = await chrome.tabs.get(tab.openerTabId).catch(() => undefined);
+        }
+        if (!prevTab || prevTab.windowId !== winId) {
+          const allTabs = await chrome.tabs.query({ windowId: winId }).catch(() => []);
+          prevTab = allTabs
+            .filter((t) => t.id !== undefined && t.id !== createdTabId && !isNativeNewTabUrl(t.url))
+            .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0];
+        }
+        const prevUrl = prevTab?.url ?? prevTab?.pendingUrl;
+        if (!prevTab?.id || !prevUrl || !canPopupCommandBarOnUrl(prevUrl)) {
+          transientNewTabIds.delete(createdTabId);
+          // Even when falling back to a tab (e.g. from brave://), redirect away from brave://newtab so Customize bar never shows
+          await chrome.tabs
+            .update(createdTabId, { url: chrome.runtime.getURL('empty-space.html?commandBar=1') })
+            .catch(() => undefined);
+          return;
+        }
+        const prevId = prevTab.id;
+        lastContentTabByWindow.set(winId, { tabId: prevId, url: prevUrl });
+        void chrome.tabs.update(prevId, { active: true }).catch(() => undefined);
+        void chrome.tabs.remove(createdTabId).catch(() => undefined);
+        void chrome.tabs.sendMessage(prevId, { arclineCommandBar: 'open' }).catch(() => {
+          void chrome.tabs
+            .create({
+              windowId: winId,
+              url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
+              active: true,
+            })
+            .catch(() => undefined);
+        });
+      } catch {
+        transientNewTabIds.delete(createdTabId);
+      }
+    })();
+    return;
   }
   if (tab.id !== undefined) {
     stampTabActivity([tab.id]).catch(() => undefined);

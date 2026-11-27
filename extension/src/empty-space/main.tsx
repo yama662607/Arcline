@@ -230,6 +230,24 @@ function EmptySpaceCanvas() {
     };
   }, [refreshTabsAndArchive]);
 
+  // Guarantee native chrome://newtab / brave://newtab never lingers with Brave's bottom
+  // "Arcline | Customize Brave" bar by redirecting to our extension URL when opened directly.
+  useEffect(() => {
+    if (isModal || isPopup || requestedSpaceId || isCommandBarExplicit) return;
+    if (typeof chrome === 'undefined' || !chrome.tabs?.getCurrent) return;
+    void chrome.tabs
+      .getCurrent()
+      .then((tab) => {
+        if (tab?.id !== undefined && /^(?:chrome|brave):\/\/newtab\/?$/i.test(tab.url ?? '')) {
+          return chrome.tabs.update(tab.id, {
+            url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
+          });
+        }
+        return undefined;
+      })
+      .catch(() => undefined);
+  }, [isModal, isPopup, requestedSpaceId, isCommandBarExplicit]);
+
   const closeModal = useCallback(() => {
     if (isModal) {
       window.parent.postMessage({ type: 'arcline:command-bar-close' }, '*');
@@ -237,6 +255,22 @@ function EmptySpaceCanvas() {
       window.close();
     } else if (requestedSpaceId && !isCommandBarExplicit) {
       setBarVisible(false);
+    } else {
+      // Opened as a New Tab Command Bar (Cmd+T in "newtab" mode): pressing Esc closes this
+      // empty tab to return to the previous page, unless it's the only tab in the window.
+      if (typeof chrome !== 'undefined' && chrome.tabs?.getCurrent && chrome.tabs?.query) {
+        void Promise.all([chrome.tabs.getCurrent(), chrome.tabs.query({ currentWindow: true })])
+          .then(([cur, all]) => {
+            if (cur?.id !== undefined && all.length > 1) {
+              return chrome.tabs.remove(cur.id);
+            }
+            setBarVisible(false);
+            return undefined;
+          })
+          .catch(() => setBarVisible(false));
+      } else {
+        setBarVisible(false);
+      }
     }
   }, [isModal, isPopup, requestedSpaceId, isCommandBarExplicit]);
 
@@ -257,17 +291,21 @@ function EmptySpaceCanvas() {
     return () => cancelAnimationFrame(rafId);
   }, [isModal, initialLoaded]);
 
-  // Dismiss Command Bar when clicking outside the floating card (in modal or empty-space overlay)
+  // Dismiss Command Bar when clicking outside the floating card
   useEffect(() => {
-    if (!barVisible || (!isModal && !requestedSpaceId)) return;
+    if (!barVisible) return;
     const onOutsidePointerDown = (e: PointerEvent) => {
       if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        closeModal();
+        if (isModal || isPopup) {
+          closeModal();
+        } else {
+          setBarVisible(false);
+        }
       }
     };
     window.addEventListener('pointerdown', onOutsidePointerDown);
     return () => window.removeEventListener('pointerdown', onOutsidePointerDown);
-  }, [barVisible, isModal, requestedSpaceId, closeModal]);
+  }, [barVisible, isModal, isPopup, closeModal]);
 
   // Dismiss Command Bar on Escape even when focus moved to a result button or clear button
   useEffect(() => {
