@@ -44,6 +44,7 @@ import type { Settings } from '../core/types';
   let glassBackdropEl: HTMLDivElement | null = null;
   let panelEl: HTMLDivElement | null = null;
   let iframeEl: HTMLIFrameElement | null = null;
+  let reloadCardEl: HTMLDivElement | null = null;
   let cmdBackdropEl: HTMLDivElement | null = null;
   let cmdIframeEl: HTMLIFrameElement | null = null;
   let resizeEl: HTMLDivElement | null = null;
@@ -51,7 +52,9 @@ import type { Settings } from '../core/types';
   let unloadTimer: ReturnType<typeof setTimeout> | undefined;
   let repairTimer: ReturnType<typeof setTimeout> | undefined;
   let cmdRevealTimer: ReturnType<typeof setTimeout> | undefined;
+  let graceCheckTimer: ReturnType<typeof setTimeout> | undefined;
   let forceOpenGraceUntil = 0;
+  let lastKnownPointerX: number | null = null;
   let suppressStateReport = false;
   let observer: MutationObserver | null = null;
 
@@ -176,6 +179,88 @@ import type { Settings } from '../core/types';
         height: 100%;
         border: 0;
         background: transparent;
+      }
+      .arcline-reload-card {
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        padding: 24px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 12px;
+        background: rgba(24, 25, 32, 0.88);
+        color: #f4f4f6;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      }
+      @media (prefers-color-scheme: light) {
+        .arcline-reload-card {
+          background: rgba(250, 250, 252, 0.92);
+          color: #18181b;
+        }
+      }
+      .arcline-reload-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(99, 102, 241, 0.18);
+        color: #818cf8;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .arcline-reload-title {
+        margin: 0;
+        font-size: 13.5px;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+      .arcline-reload-desc {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.55;
+        opacity: 0.78;
+        max-width: 220px;
+      }
+      .arcline-reload-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        max-width: 210px;
+        margin-top: 4px;
+      }
+      .arcline-reload-btn {
+        appearance: none;
+        border: 0;
+        border-radius: 9px;
+        padding: 9px 14px;
+        font: 600 12.5px/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+        cursor: pointer;
+        background: #6366f1;
+        color: #ffffff;
+        transition: opacity 120ms ease;
+      }
+      .arcline-reload-btn:hover {
+        opacity: 0.92;
+      }
+      .arcline-reload-dismiss {
+        appearance: none;
+        border: 0;
+        border-radius: 8px;
+        padding: 6px 12px;
+        font: 500 11.5px/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+        cursor: pointer;
+        background: transparent;
+        color: inherit;
+        opacity: 0.65;
+      }
+      .arcline-reload-dismiss:hover {
+        opacity: 1;
       }
       .arcline-resize {
         position: absolute;
@@ -485,8 +570,95 @@ import type { Settings } from '../core/types';
   let overlayAuthRetries = 0;
   let overlayRetryTimer: ReturnType<typeof setTimeout> | undefined;
 
+  function isExtensionInvalidated(): boolean {
+    try {
+      return typeof chrome === 'undefined' || !chrome.runtime?.id;
+    } catch {
+      return true;
+    }
+  }
+
+  function clearReloadNotice(): void {
+    if (reloadCardEl) {
+      reloadCardEl.remove();
+      reloadCardEl = null;
+    }
+  }
+
+  function showReloadNotice(): void {
+    ensureHostMounted();
+    if (!panelEl) return;
+    if (iframeEl) {
+      iframeLoaded = false;
+      iframeEl.remove();
+      iframeEl = null;
+    }
+    if (reloadCardEl?.isConnected) return;
+
+    const isJa = typeof navigator !== 'undefined' && /^ja/i.test(navigator.language || '');
+    const card = document.createElement('div');
+    card.className = 'arcline-reload-card';
+    card.setAttribute('data-arcline-reload-notice', 'true');
+    card.setAttribute('role', 'status');
+
+    const icon = document.createElement('div');
+    icon.className = 'arcline-reload-icon';
+    icon.textContent = '↻';
+
+    const title = document.createElement('p');
+    title.className = 'arcline-reload-title';
+    title.textContent = isJa ? 'Arcline が更新されました' : 'Arcline was updated';
+
+    const desc = document.createElement('p');
+    desc.className = 'arcline-reload-desc';
+    desc.textContent = isJa
+      ? 'サイドバーを再表示するには、このページを再読み込みしてください。'
+      : 'Reload this page to reconnect the Arcline sidebar.';
+
+    const actions = document.createElement('div');
+    actions.className = 'arcline-reload-actions';
+
+    const reloadBtn = document.createElement('button');
+    reloadBtn.type = 'button';
+    reloadBtn.className = 'arcline-reload-btn';
+    reloadBtn.textContent = isJa ? 'ページを再読み込み' : 'Reload page';
+    reloadBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+
+    const dismissBtn = document.createElement('button');
+    dismissBtn.type = 'button';
+    dismissBtn.className = 'arcline-reload-dismiss';
+    dismissBtn.textContent = isJa ? '閉じる' : 'Close';
+    dismissBtn.addEventListener('click', () => {
+      machine.forceClose();
+    });
+
+    actions.append(reloadBtn, dismissBtn);
+    card.append(icon, title, desc, actions);
+    panelEl.prepend(card);
+    reloadCardEl = card;
+  }
+
+  function armForceOpenGrace(durationMs: number): void {
+    forceOpenGraceUntil = Date.now() + durationMs;
+    if (graceCheckTimer) clearTimeout(graceCheckTimer);
+    graceCheckTimer = setTimeout(() => {
+      graceCheckTimer = undefined;
+      if (
+        machine.isOpen &&
+        !machine.isLocked &&
+        !stageExpanded &&
+        lastKnownPointerX !== null &&
+        lastKnownPointerX > settings.overlayWidthPx + 12
+      ) {
+        machine.handlePointerLeavePanel();
+      }
+    }, durationMs + 24);
+  }
+
   async function requestFrameToken(kind: 'overlay' | 'modal'): Promise<string | null> {
-    if (!chrome.runtime?.id) return null;
+    if (isExtensionInvalidated()) return null;
     try {
       const res = (await chrome.runtime.sendMessage({ arclineIssueFrameToken: kind })) as
         | { ok?: boolean; token?: string }
@@ -511,6 +683,7 @@ import type { Settings } from '../core/types';
 
   function mountSidebarIframe(src: string): void {
     if (!panelEl || iframeEl?.isConnected) return;
+    clearReloadNotice();
     const iframe = document.createElement('iframe');
     iframe.className = 'arcline-frame';
     iframe.style.colorScheme = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -530,11 +703,21 @@ import type { Settings } from '../core/types';
   }
 
   function ensureSidebarIframeMounted(): void {
-    if (disposed || !panelEl || iframeEl?.isConnected || overlaySrcPending || !PANEL_URL) return;
+    if (disposed || !panelEl) return;
+    if (isExtensionInvalidated()) {
+      showReloadNotice();
+      return;
+    }
+    if (iframeEl?.isConnected || overlaySrcPending || !PANEL_URL) return;
     overlaySrcPending = true;
     void requestFrameToken('overlay').then((token) => {
       overlaySrcPending = false;
-      if (disposed || !panelEl || iframeEl?.isConnected) return;
+      if (disposed || !panelEl) return;
+      if (isExtensionInvalidated()) {
+        if (machine.isOpen) showReloadNotice();
+        return;
+      }
+      if (iframeEl?.isConnected) return;
       if (token) {
         mountSidebarIframe(`${PANEL_URL}#arclineToken=${token}`);
         return;
@@ -549,6 +732,8 @@ import type { Settings } from '../core/types';
             ensureSidebarIframeMounted();
           }
         }, 250);
+      } else if (machine.isOpen) {
+        showReloadNotice();
       }
     });
   }
@@ -696,14 +881,14 @@ import type { Settings } from '../core/types';
       location.protocol === 'chrome-extension:' &&
       new URLSearchParams(location.search).get('openOverlay') === '1';
     if (explicitEmptySpaceOpen || init.autoOpen) {
-      forceOpenGraceUntil = Date.now() + 360;
+      armForceOpenGrace(360);
       machine.forceOpen();
     }
   }
 
   function teardownIfInvalidated(): void {
-    if (!chrome.runtime?.id) {
-      cleanup();
+    if (isExtensionInvalidated() && machine.isOpen) {
+      showReloadNotice();
     }
   }
 
@@ -715,10 +900,14 @@ import type { Settings } from '../core/types';
     if (repairTimer) clearTimeout(repairTimer);
     if (cmdRevealTimer) clearTimeout(cmdRevealTimer);
     if (overlayRetryTimer) clearTimeout(overlayRetryTimer);
+    if (graceCheckTimer) clearTimeout(graceCheckTimer);
     observer?.disconnect();
     window.removeEventListener('pointermove', onPointerMove, true);
     window.removeEventListener('pointerdown', onPointerDown, true);
+    window.removeEventListener('mousedown', onMouseDown, true);
+    window.removeEventListener('touchstart', onTouchStart, true);
     window.removeEventListener('pointerup', onPointerUp, true);
+    window.removeEventListener('blur', onWindowBlur);
     window.removeEventListener('keydown', onKeyDown, true);
     window.removeEventListener('message', onWindowMessage);
     document.documentElement.removeEventListener('pointerleave', onDocumentPointerLeave);
@@ -730,6 +919,7 @@ import type { Settings } from '../core/types';
     glassBackdropEl = null;
     panelEl = null;
     iframeEl = null;
+    reloadCardEl = null;
     cmdBackdropEl = null;
     cmdIframeEl = null;
     commandBarOpen = false;
@@ -739,13 +929,53 @@ import type { Settings } from '../core/types';
 
   const onPointerMove = (e: PointerEvent) => {
     tabHidden = false;
+    const unzoomedX = toUnzoomedPx(e.clientX);
+    lastKnownPointerX = unzoomedX;
     if (machine.isOpen && Date.now() < forceOpenGraceUntil) return;
-    machine.handlePointerMove(toUnzoomedPx(e.clientX), e.buttons);
+    machine.handlePointerMove(unzoomedX, e.buttons);
   };
 
+  function handleOutsideInteraction(target: EventTarget | null, clientX: number): void {
+    if (target === hostEl) return;
+    const unzoomedX = toUnzoomedPx(clientX);
+    lastKnownPointerX = unzoomedX;
+    forceOpenGraceUntil = 0;
+    if (graceCheckTimer) {
+      clearTimeout(graceCheckTimer);
+      graceCheckTimer = undefined;
+    }
+    if (machine.isOpen && !machine.isLocked && !stageExpanded) {
+      machine.forceClose();
+      return;
+    }
+    machine.handleOutsidePointerDown(unzoomedX);
+  }
+
   const onPointerDown = (e: PointerEvent) => {
-    if (e.target === hostEl) return;
-    machine.handleOutsidePointerDown(toUnzoomedPx(e.clientX));
+    handleOutsideInteraction(e.target, e.clientX);
+  };
+
+  const onMouseDown = (e: MouseEvent) => {
+    handleOutsideInteraction(e.target, e.clientX);
+  };
+
+  const onTouchStart = (e: TouchEvent) => {
+    const touch = e.touches[0];
+    handleOutsideInteraction(e.target, touch ? touch.clientX : settings.overlayWidthPx + 100);
+  };
+
+  const onWindowBlur = () => {
+    // Clicking inside an embedded cross-origin webpage iframe (YouTube, Google Docs, etc.)
+    // blurs the host window without firing pointerdown on it. Keep open only if focus moved
+    // into Arcline's own overlay host.
+    if (
+      machine.isOpen &&
+      !machine.isLocked &&
+      !stageExpanded &&
+      document.activeElement !== hostEl
+    ) {
+      machine.forceClose();
+    }
   };
 
   const onPointerUp = (e: PointerEvent) => {
@@ -901,7 +1131,11 @@ import type { Settings } from '../core/types';
 
   window.addEventListener('pointermove', onPointerMove, true);
   window.addEventListener('pointerdown', onPointerDown, true);
+  window.addEventListener('mousedown', onMouseDown, true);
+  window.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
   window.addEventListener('pointerup', onPointerUp, true);
+  window.addEventListener('blur', onWindowBlur);
+  window.addEventListener('pagehide', cleanup);
   window.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('message', onWindowMessage);
   window.addEventListener('resize', () => {
@@ -969,7 +1203,7 @@ import type { Settings } from '../core/types';
       performTabHiddenUnload();
     } else if (msg.arclineOverlay === 'open') {
       tabHidden = false;
-      forceOpenGraceUntil = Date.now() + 320;
+      armForceOpenGrace(320);
       machine.forceOpen();
     } else if (msg.arclineOverlay === 'close') {
       machine.forceClose();
