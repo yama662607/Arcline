@@ -21,7 +21,9 @@ export async function syncShortcutsToBookmarks(settings: Settings): Promise<void
     );
 
     const hasEntries =
-      settings.customSiteSearches.length > 0 || Object.keys(settings.favoriteShortcuts).length > 0;
+      settings.customSiteSearches.length > 0 ||
+      settings.disabledSiteSearchIds.length > 0 ||
+      Object.keys(settings.favoriteShortcuts).length > 0;
 
     if (!hasEntries) {
       if (existing) {
@@ -32,6 +34,7 @@ export async function syncShortcutsToBookmarks(settings: Settings): Promise<void
 
     const payload = JSON.stringify({
       customSiteSearches: settings.customSiteSearches,
+      disabledSiteSearchIds: settings.disabledSiteSearchIds,
       favoriteShortcuts: settings.favoriteShortcuts,
     });
     const encodedUrl = `${SHORTCUT_CONFIG_URL_PREFIX}${encodeURIComponent(payload)}`;

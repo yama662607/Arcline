@@ -167,6 +167,8 @@ export interface CommandBarInput {
   actionLabels?: Partial<Record<QuickActionId, string>>;
   /** User-defined custom site searches merged with built-in SITE_SEARCHES. */
   customSiteSearches?: readonly CustomSiteSearch[];
+  /** Built-in or custom site-search IDs disabled by the user. */
+  disabledSiteSearchIds?: readonly string[];
   /** Per-Favorite alias & shortcut map keyed by Favorite URL. */
   favoriteShortcuts?: Readonly<Record<string, FavoriteShortcut>>;
   /** Currently active tab ID in the focused window; excluded (along with its exact URL) from candidates. */
@@ -705,19 +707,28 @@ export function isCommandBarPageUrl(url: string | undefined): boolean {
 // Site-search prefix handling
 // ---------------------------------------------------------------------------------------------
 
-/** Merges built-in and user-defined custom site searches (custom prefix overrides built-in). */
-export function getAllSiteSearches(custom?: readonly CustomSiteSearch[]): SiteSearch[] {
-  if (!custom || custom.length === 0) return [...SITE_SEARCHES];
+/** Merges built-in and user-defined custom site searches (custom prefix overrides built-in), excluding disabled IDs. */
+export function getAllSiteSearches(
+  custom?: readonly CustomSiteSearch[],
+  disabledIds?: readonly string[],
+): SiteSearch[] {
+  const disabled = disabledIds && disabledIds.length > 0 ? new Set(disabledIds) : null;
   const byPrefix = new Map<string, SiteSearch>();
   for (const s of SITE_SEARCHES) {
+    if (disabled?.has(s.id)) continue;
     byPrefix.set(s.prefix.toLowerCase(), s);
   }
-  for (const c of custom) {
+  for (const c of custom ?? []) {
     const prefix = c.prefix.trim().toLowerCase();
+    const id = c.id || `custom:${prefix}`;
     if (!prefix || !c.urlTemplate.includes('%s')) continue;
+    if (disabled?.has(id)) {
+      byPrefix.delete(prefix);
+      continue;
+    }
     const host = hostOf(c.urlTemplate.replace('%s', 'query'));
     byPrefix.set(prefix, {
-      id: c.id || `custom:${prefix}`,
+      id,
       prefix,
       label: c.label.trim() || prefix,
       urlTemplate: c.urlTemplate,
@@ -748,11 +759,12 @@ export interface SiteSearchMatch {
 export function matchSiteSearchPrefix(
   input: string,
   custom?: readonly CustomSiteSearch[],
+  disabledIds?: readonly string[],
 ): SiteSearchMatch | undefined {
   const m = /^\s*(\S+)\s(.*)$/s.exec(input);
   if (!m) return undefined;
   const typed = (m[1] ?? '').toLowerCase();
-  const siteSearch = getAllSiteSearches(custom).find((s) => s.prefix === typed);
+  const siteSearch = getAllSiteSearches(custom, disabledIds).find((s) => s.prefix === typed);
   if (!siteSearch) return undefined;
   return { siteSearch, term: (m[2] ?? '').replace(/^\s+/, '') };
 }
@@ -764,10 +776,11 @@ export function matchSiteSearchPrefix(
 export function suggestSiteSearch(
   input: string,
   custom?: readonly CustomSiteSearch[],
+  disabledIds?: readonly string[],
 ): SiteSearch | undefined {
   if (!input || /\s/.test(input)) return undefined;
   const typed = input.toLowerCase();
-  const all = getAllSiteSearches(custom);
+  const all = getAllSiteSearches(custom, disabledIds);
   return all.find((s) => s.prefix === typed) ?? all.find((s) => s.prefix.startsWith(typed));
 }
 
@@ -1190,7 +1203,11 @@ function resolveSiteSearch(input: CommandBarInput): { siteSearch?: SiteSearch; t
       return { term: input.query.trim() };
     }
   }
-  const match = matchSiteSearchPrefix(input.query, input.customSiteSearches);
+  const match = matchSiteSearchPrefix(
+    input.query,
+    input.customSiteSearches,
+    input.disabledSiteSearchIds,
+  );
   if (match) return { siteSearch: match.siteSearch, term: match.term.trim() };
   return { term: input.query.trim() };
 }
@@ -1226,7 +1243,11 @@ export function buildCommandBarResults(input: CommandBarInput): CommandBarResult
     return { items: items.slice(0, limit), activeSiteSearch: siteSearch, term };
   }
 
-  const suggestion = suggestSiteSearch(input.query, input.customSiteSearches);
+  const suggestion = suggestSiteSearch(
+    input.query,
+    input.customSiteSearches,
+    input.disabledSiteSearchIds,
+  );
 
   // Empty query ------------------------------------------------------------------------------
   if (!term) {

@@ -9,6 +9,7 @@ import {
   type WallpaperRpcMessage,
 } from '../core/wallpapers';
 import { Engine } from './engine';
+import { startNativeBridge } from './native-bridge';
 import { ensureRoot } from './root';
 import { syncShortcutsToBookmarks } from './shortcut-sync';
 import { STORAGE_KEYS, stampTabActivity, storage } from './storage';
@@ -16,6 +17,7 @@ import { STORAGE_KEYS, stampTabActivity, storage } from './storage';
 const AUTO_ARCHIVE_ALARM = 'arcline:auto-archive';
 const ONBOARDING_SEEN_KEY = 'arcline:onboardingSeen';
 const engine = new Engine();
+startNativeBridge(engine);
 const lastActiveTabByWindow = new Map<number, number>();
 const overlayContinuity = new OverlayContinuityTracker();
 let nativeSidePanelConnections = 0;

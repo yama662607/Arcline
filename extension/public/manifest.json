@@ -62,7 +62,8 @@
     "storage",
     "alarms",
     "favicon",
-    "history"
+    "history",
+    "nativeMessaging"
   ],
   "commands": {
     "toggle-sidebar": {

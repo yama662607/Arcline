@@ -1,4 +1,4 @@
-import { ExternalLink, Keyboard, Plus, Search, Star, Trash2, X } from 'lucide-react';
+import { Check, ExternalLink, Keyboard, Pencil, Plus, Search, Star, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { SITE_SEARCHES } from '../../core/command-bar';
 import type { MessageKey } from '../../core/i18n';
@@ -79,6 +79,7 @@ export function ShortcutSettingsPanel({
   const [prefix, setPrefix] = useState('');
   const [label, setLabel] = useState('');
   const [urlTemplate, setUrlTemplate] = useState('');
+  const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -189,7 +190,7 @@ export function ShortcutSettingsPanel({
   const handleAddSiteSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const cleaned = sanitizeCustomSiteSearch({
-      id: `custom:${prefix.trim().toLowerCase()}`,
+      id: editingSiteId ?? `custom:${prefix.trim().toLowerCase()}`,
       prefix,
       label,
       urlTemplate,
@@ -200,7 +201,8 @@ export function ShortcutSettingsPanel({
     }
     setFormError(null);
     const rest = settings.customSiteSearches.filter(
-      (item) => item.prefix.toLowerCase() !== cleaned.prefix.toLowerCase(),
+      (item) =>
+        item.id !== editingSiteId && item.prefix.toLowerCase() !== cleaned.prefix.toLowerCase(),
     );
     onUpdateSettings({
       ...settings,
@@ -209,12 +211,41 @@ export function ShortcutSettingsPanel({
     setPrefix('');
     setLabel('');
     setUrlTemplate('');
+    setEditingSiteId(null);
+  };
+
+  const handleStartEditSiteSearch = (item: CustomSiteSearch) => {
+    setEditingSiteId(item.id);
+    setPrefix(item.prefix);
+    setLabel(item.label);
+    setUrlTemplate(item.urlTemplate);
+    setFormError(null);
+  };
+
+  const handleCancelEditSiteSearch = () => {
+    setEditingSiteId(null);
+    setPrefix('');
+    setLabel('');
+    setUrlTemplate('');
+    setFormError(null);
   };
 
   const handleRemoveSiteSearch = (target: CustomSiteSearch) => {
+    if (editingSiteId === target.id) handleCancelEditSiteSearch();
     onUpdateSettings({
       ...settings,
       customSiteSearches: settings.customSiteSearches.filter((s) => s.id !== target.id),
+      disabledSiteSearchIds: settings.disabledSiteSearchIds.filter((id) => id !== target.id),
+    });
+  };
+
+  const handleToggleSiteSearchEnabled = (siteId: string) => {
+    const disabled = new Set(settings.disabledSiteSearchIds);
+    if (disabled.has(siteId)) disabled.delete(siteId);
+    else disabled.add(siteId);
+    onUpdateSettings({
+      ...settings,
+      disabledSiteSearchIds: [...disabled],
     });
   };
 
@@ -434,42 +465,67 @@ export function ShortcutSettingsPanel({
 
         {settings.customSiteSearches.length > 0 && (
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-            {settings.customSiteSearches.map((item) => (
-              <li
-                key={item.id}
-                className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11.5px]"
-                style={{
-                  borderColor: 'var(--border-subtle)',
-                  backgroundColor: 'var(--bg-canvas)',
-                }}
-              >
-                <code
-                  className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold"
+            {settings.customSiteSearches.map((item) => {
+              const enabled = !settings.disabledSiteSearchIds.includes(item.id);
+              return (
+                <li
+                  key={item.id}
+                  className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11.5px]"
                   style={{
-                    backgroundColor: 'color-mix(in oklch, var(--accent) 16%, transparent)',
-                    color: 'var(--accent)',
+                    borderColor:
+                      editingSiteId === item.id ? 'var(--accent)' : 'var(--border-subtle)',
+                    backgroundColor: 'var(--bg-canvas)',
+                    opacity: enabled ? 1 : 0.55,
                   }}
                 >
-                  {item.prefix}
-                </code>
-                <span className="shrink-0 font-medium">{item.label}</span>
-                <span
-                  className="min-w-0 flex-1 truncate font-mono text-[10.5px]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  {item.urlTemplate}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveSiteSearch(item)}
-                  aria-label={t('settings.siteSearch.removeAria', { label: item.label })}
-                  className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-[var(--bg-hover)]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </li>
-            ))}
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={() => handleToggleSiteSearchEnabled(item.id)}
+                    aria-label={t('settings.siteSearch.toggleAria', { label: item.label })}
+                    data-testid={`custom-site-toggle-${item.prefix}`}
+                    className="size-3.5 shrink-0 cursor-pointer accent-[var(--accent)]"
+                  />
+                  <code
+                    className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold"
+                    style={{
+                      backgroundColor: 'color-mix(in oklch, var(--accent) 16%, transparent)',
+                      color: 'var(--accent)',
+                    }}
+                  >
+                    {item.prefix}
+                  </code>
+                  <span className={`shrink-0 font-medium ${enabled ? '' : 'line-through'}`}>
+                    {item.label}
+                  </span>
+                  <span
+                    className="min-w-0 flex-1 truncate font-mono text-[10.5px]"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    {item.urlTemplate}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleStartEditSiteSearch(item)}
+                    aria-label={t('settings.siteSearch.editAria', { label: item.label })}
+                    data-testid={`custom-site-edit-${item.prefix}`}
+                    className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-[var(--bg-hover)]"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSiteSearch(item)}
+                    aria-label={t('settings.siteSearch.removeAria', { label: item.label })}
+                    className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-[var(--bg-hover)]"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
 
@@ -525,34 +581,59 @@ export function ShortcutSettingsPanel({
               className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-lg px-3 text-[11.5px] font-medium text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: 'var(--accent)' }}
             >
-              <Plus size={13} />
-              <span>{t('settings.siteSearch.add')}</span>
+              {editingSiteId ? <Check size={13} /> : <Plus size={13} />}
+              <span>
+                {editingSiteId ? t('settings.siteSearch.save') : t('settings.siteSearch.add')}
+              </span>
             </button>
+            {editingSiteId && (
+              <button
+                type="button"
+                onClick={handleCancelEditSiteSearch}
+                className="flex h-8 shrink-0 cursor-pointer items-center rounded-lg border px-2.5 text-[11.5px] transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
+              >
+                {t('settings.siteSearch.cancel')}
+              </button>
+            )}
           </div>
           {formError && <p className="m-0 text-[11px] text-red-500">{formError}</p>}
         </form>
 
-        {/* Built-in AI & Web Site Searches quick reference */}
+        {/* Built-in AI & Web Site Searches toggleable chips */}
         <div className="pt-1">
           <div className="mb-1.5 text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>
             {t('settings.siteSearch.builtInTitle')}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {SITE_SEARCHES.map((s) => (
-              <span
-                key={s.id}
-                className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px]"
-                style={{
-                  borderColor: 'var(--border-subtle)',
-                  backgroundColor: 'var(--bg-canvas)',
-                }}
-              >
-                <code className="font-mono font-semibold" style={{ color: s.accent }}>
-                  {s.prefix}
-                </code>
-                <span style={{ color: 'var(--text-muted)' }}>{s.label}</span>
-              </span>
-            ))}
+            {SITE_SEARCHES.map((s) => {
+              const enabled = !settings.disabledSiteSearchIds.includes(s.id);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-pressed={enabled}
+                  data-testid={`builtin-site-toggle-${s.id}`}
+                  onClick={() => handleToggleSiteSearchEnabled(s.id)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] transition-opacity"
+                  style={{
+                    borderColor: enabled ? 'var(--border-subtle)' : 'transparent',
+                    backgroundColor: 'var(--bg-canvas)',
+                    opacity: enabled ? 1 : 0.42,
+                  }}
+                >
+                  <code className="font-mono font-semibold" style={{ color: s.accent }}>
+                    {s.prefix}
+                  </code>
+                  <span
+                    className={enabled ? '' : 'line-through'}
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    {s.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>

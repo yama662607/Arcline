@@ -352,13 +352,17 @@ function EmptySpaceCanvas() {
   // Auto-detect prefix + space (e.g. "gh " or "yt ") and promote to a colored chip immediately
   useEffect(() => {
     if (activeSiteSearchId) return;
-    const match = matchSiteSearchPrefix(query, settings.customSiteSearches);
+    const match = matchSiteSearchPrefix(
+      query,
+      settings.customSiteSearches,
+      settings.disabledSiteSearchIds,
+    );
     if (match) {
       setActiveSiteSearchId(match.siteSearch.id);
       setQuery(match.term);
       setSelectedIdx(0);
     }
-  }, [query, activeSiteSearchId]);
+  }, [query, activeSiteSearchId, settings.customSiteSearches, settings.disabledSiteSearchIds]);
 
   // Debounced native browser History query merged live into Command Bar results
   useEffect(() => {
@@ -490,6 +494,7 @@ function EmptySpaceCanvas() {
         activeTabId,
         actionLabels,
         customSiteSearches: settings.customSiteSearches,
+        disabledSiteSearchIds: settings.disabledSiteSearchIds,
         favoriteShortcuts: settings.favoriteShortcuts,
       }),
     [
@@ -501,6 +506,7 @@ function EmptySpaceCanvas() {
       archived,
       settings.searchEngine,
       settings.customSiteSearches,
+      settings.disabledSiteSearchIds,
       settings.favoriteShortcuts,
       space?.id,
       activeSiteSearchId,

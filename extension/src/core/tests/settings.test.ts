@@ -35,6 +35,7 @@ describe('completeSettings', () => {
       searchEngine: 'google',
       commandBarOpenMode: 'popup',
       customSiteSearches: [],
+      disabledSiteSearchIds: [],
       favoriteShortcuts: {},
       customShortcuts: {},
     });
@@ -46,12 +47,14 @@ describe('completeSettings', () => {
         language: 'ja',
         searchEngine: 'brave',
         commandBarOpenMode: 'newtab',
+        disabledSiteSearchIds: ['reddit', 'custom:docs'],
         customShortcuts: { openCommandBar: 'Alt+Space', toggleSidebar: 'Ctrl+B' },
       }),
     ).toMatchObject({
       language: 'ja',
       searchEngine: 'brave',
       commandBarOpenMode: 'newtab',
+      disabledSiteSearchIds: ['reddit', 'custom:docs'],
       customShortcuts: { openCommandBar: 'alt+space', toggleSidebar: 'ctrl+b' },
     });
   });

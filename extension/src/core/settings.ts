@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   searchEngine: 'google',
   commandBarOpenMode: 'popup',
   customSiteSearches: [],
+  disabledSiteSearchIds: [],
   favoriteShortcuts: {},
   customShortcuts: {},
 });
@@ -176,6 +177,15 @@ export function completeSettings(partial?: Partial<Settings> | null): Settings {
       ? partial.customSiteSearches
           .map(sanitizeCustomSiteSearch)
           .filter((item): item is CustomSiteSearch => item !== null)
+      : [],
+    disabledSiteSearchIds: Array.isArray(partial?.disabledSiteSearchIds)
+      ? Array.from(
+          new Set(
+            partial.disabledSiteSearchIds
+              .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+              .map((id) => id.trim().slice(0, 64)),
+          ),
+        )
       : [],
     favoriteShortcuts: sanitizeFavoriteShortcuts(partial?.favoriteShortcuts),
     customShortcuts: sanitizeCustomShortcuts(partial?.customShortcuts),

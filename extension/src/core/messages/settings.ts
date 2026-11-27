@@ -178,10 +178,14 @@ export const settingsEn = {
   'settings.siteSearch.labelPlaceholder': 'Site name (e.g. Docs)',
   'settings.siteSearch.urlPlaceholder': 'URL template with %s',
   'settings.siteSearch.add': 'Add',
+  'settings.siteSearch.save': 'Save',
+  'settings.siteSearch.cancel': 'Cancel',
+  'settings.siteSearch.editAria': 'Edit {label} site search',
+  'settings.siteSearch.toggleAria': 'Toggle {label} site search',
   'settings.siteSearch.invalid':
     'Enter a lowercase prefix (a-z/0-9), a label, and an http(s):// URL containing %s.',
   'settings.siteSearch.removeAria': 'Remove {label} site search',
-  'settings.siteSearch.builtInTitle': 'Built-in AI & web shortcuts',
+  'settings.siteSearch.builtInTitle': 'Built-in AI & web shortcuts (click to enable / disable)',
 
   // Feedback & support
   'settings.feedback.title': 'Feedback & Support',
@@ -360,10 +364,15 @@ export const settingsJa: Record<keyof typeof settingsEn, string> = {
   'settings.siteSearch.labelPlaceholder': 'サイト名（例: 社内Wiki）',
   'settings.siteSearch.urlPlaceholder': '%s を含む検索 URL',
   'settings.siteSearch.add': '追加',
+  'settings.siteSearch.save': '保存',
+  'settings.siteSearch.cancel': 'キャンセル',
+  'settings.siteSearch.editAria': '{label} のサイト検索を編集',
+  'settings.siteSearch.toggleAria': '{label} のサイト検索を有効/無効切替',
   'settings.siteSearch.invalid':
     '半角英数字の接頭辞、サイト名、および %s を含む http(s):// URL を入力してください。',
   'settings.siteSearch.removeAria': '{label} のサイト検索を削除',
-  'settings.siteSearch.builtInTitle': 'ビルトイン AI・Web ショートカット',
+  'settings.siteSearch.builtInTitle':
+    'ビルトイン AI・Web ショートカット（クリックで有効 / 無効切替）',
 
   // Feedback & support
   'settings.feedback.title': 'フィードバック・バグ報告',

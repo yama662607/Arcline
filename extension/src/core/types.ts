@@ -59,6 +59,8 @@ export interface Settings {
   commandBarOpenMode: CommandBarOpenMode;
   /** User-defined site-search shortcuts synced to Command Bar & Raycast. */
   customSiteSearches: CustomSiteSearch[];
+  /** Built-in or custom site-search IDs toggled off by the user. */
+  disabledSiteSearchIds: string[];
   /** Per-Favorite alias & shortcut map keyed by Favorite URL. */
   favoriteShortcuts: Record<string, FavoriteShortcut>;
   /** Custom in-page keyboard shortcuts editable directly in Arcline Settings. */

@@ -948,4 +948,39 @@ describe('robustness', () => {
       true,
     );
   });
+
+  it('ignores disabled built-in and custom site-search shortcuts', () => {
+    const custom = [
+      {
+        id: 'custom:docs',
+        prefix: 'docs',
+        label: 'Docs',
+        urlTemplate: 'https://docs.example.com/?q=%s',
+      },
+    ];
+    // Enabled by default
+    const enabledBuiltIn = buildCommandBarResults(
+      base({ query: 'gh react', customSiteSearches: custom }),
+    );
+    expect(enabledBuiltIn.activeSiteSearch?.id).toBe('github');
+
+    // Disabled built-in ("github") and disabled custom ("custom:docs") must not trigger
+    const disabledBuiltIn = buildCommandBarResults(
+      base({
+        query: 'gh react',
+        customSiteSearches: custom,
+        disabledSiteSearchIds: ['github', 'custom:docs'],
+      }),
+    );
+    expect(disabledBuiltIn.activeSiteSearch).toBeUndefined();
+
+    const disabledCustom = buildCommandBarResults(
+      base({
+        query: 'docs hooks',
+        customSiteSearches: custom,
+        disabledSiteSearchIds: ['github', 'custom:docs'],
+      }),
+    );
+    expect(disabledCustom.activeSiteSearch).toBeUndefined();
+  });
 });

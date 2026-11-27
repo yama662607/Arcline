@@ -41,7 +41,45 @@ arcline import-arc --file '/path/to/StorableSidebar.json' --out /tmp/arc-context
 
 Omit `--file` to try standard Arc locations reported by doctor. Parsing converts Top Apps to Favorites and Space pinned trees to the same portable format. Read `data.stats` for counts of skipped unsafe URLs, broken mobile file URLs, Google search tabs, empty folders, duplicate URLs and invalid/cyclic references. It preserves Space names and available icons; it does not export Arc themes or temporary tabs. This command only produces JSON; it does not install the data into a browser or the extension.
 
-## Add a pin
+## Live editing via Native Messaging bridge (recommended)
+
+For safe, live editing while Brave or Chrome is running—with instant sidebar updates and official Brave Sync / Chrome Sync propagation—install the local Native Messaging bridge once per machine:
+
+```sh
+arcline bridge install --browser brave --json
+# Reload Arcline in brave://extensions once, then verify:
+arcline bridge status --json
+```
+
+Once connected, use these live CRUD commands (all go through official `chrome.bookmarks` / `chrome.storage` APIs):
+
+```sh
+# Spaces
+arcline space create --name Research --hue 220 --json
+arcline space rename --space Research --name Papers --json
+arcline space delete --space Papers --json
+
+# Pins & folders
+arcline pin add --space Research --url 'https://example.com/paper' --title 'Paper' --folder 'Reading/Physics' --json
+arcline pin rename --id 42 --title 'Updated Title' --json
+arcline pin move --id 42 --space Work --folder 'Refs' --json
+arcline pin delete --id 42 --json
+arcline folder create --space Research --title 'Archive' --parent 'Reading' --json
+
+# Favorites
+arcline favorite add --url 'https://github.com/' --title 'GitHub' --json
+arcline favorite delete --url 'https://github.com/' --json
+
+# Site-search shortcuts (built-in & custom: list, add, edit, delete, enable, disable)
+arcline site-search list --json
+arcline site-search add --prefix docs --label Docs --url 'https://docs.example.com/?q=%s' --json
+arcline site-search edit --prefix docs --label 'Internal Docs' --url 'https://docs.example.com/search?q=%s' --json
+arcline site-search disable --id reddit --json
+arcline site-search enable --id reddit --json
+arcline site-search delete --prefix docs --json
+```
+
+## Add a pin (bridge-first, offline fallback)
 
 ```sh
 arcline add-pin --browser brave --profile Default --space Research \
