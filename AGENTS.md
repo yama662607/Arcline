@@ -7,6 +7,7 @@
   - `just check-extension`（実機 Brave/Chromium で 0 エラー＆reload 確認）
   - `just e2e [spec]`（Playwright 実機 E2E で対象シナリオを検証。未カバーなら追加する）
   - ちらつき・フォーカス・ポップアップ挙動など体感バグは `just debug-browser`（CDP port 9222）や Playwright DOM/スクショ計測で実画面を確認してから完了報告する。
+- **プッシュ後の `mbp` 反映**: `main` へプッシュしたら、毎回 `mbp` に SSH して `git pull --ff-only origin main && just build` で最新ビルドを反映する。
 
 ## 主要コマンド
 
