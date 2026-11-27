@@ -103,12 +103,6 @@ export const SITE_SEARCHES: readonly SiteSearchDef[] = [
   },
   { id: 'grok', prefix: 'grok', label: 'Grok', urlTemplate: 'https://grok.com/?q=%s' },
   {
-    id: 'google-ai',
-    prefix: 'ai',
-    label: 'Google AI',
-    urlTemplate: 'https://www.google.com/search?udm=50&q=%s',
-  },
-  {
     id: 'mdn',
     prefix: 'mdn',
     label: 'MDN',

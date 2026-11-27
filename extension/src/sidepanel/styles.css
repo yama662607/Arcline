@@ -491,9 +491,7 @@ dialog.arcline-dialog:modal {
 }
 
 dialog.arcline-dialog::backdrop {
-  background: rgb(0 0 0 / 0.44);
-  -webkit-backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
+  background: rgb(0 0 0 / 0.52);
   overflow: hidden;
   overscroll-behavior: contain;
 }
@@ -539,6 +537,15 @@ dialog.arcline-dialog::backdrop {
 dialog.arcline-settings-dialog {
   width: min(92vw, 660px);
   height: min(84vh, 540px);
+  contain: layout paint;
+  isolation: isolate;
+  backface-visibility: hidden;
+}
+
+.arcline-settings-body {
+  contain: layout paint;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .arcline-settings-layout {

@@ -269,14 +269,6 @@ export const SITE_SEARCHES: readonly SiteSearch[] = [
     accent: '#52525b',
     hosts: ['grok.com'],
   },
-  {
-    id: 'google-ai',
-    prefix: 'ai',
-    label: 'Google AI',
-    urlTemplate: 'https://www.google.com/search?udm=50&q=%s',
-    accent: '#6366f1',
-    hosts: ['google.com'],
-  },
   // Developer, research & daily utilities
   {
     id: 'mdn',

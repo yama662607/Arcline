@@ -523,7 +523,7 @@ export function SettingsModal({
           </div>
 
           {/* Scrollable Body */}
-          <div className="arcline-scroll flex min-h-0 flex-1 flex-col gap-3.5 p-4 text-[12.5px]">
+          <div className="arcline-scroll arcline-settings-body flex min-h-0 flex-1 flex-col gap-3.5 p-4 text-[12.5px]">
             {tab === 'general' && (
               <>
                 <div className="arcline-settings-card flex flex-col gap-2">

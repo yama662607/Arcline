@@ -170,7 +170,6 @@ describe('site searches', () => {
       'cl',
       'gem',
       'grok',
-      'ai',
       'mdn',
       'npm',
       'arx',
