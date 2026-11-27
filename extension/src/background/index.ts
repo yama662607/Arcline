@@ -365,7 +365,9 @@ const transientNewTabIds = new Set<number>();
 const NATIVE_NEWTAB_RE = /^(?:chrome|brave):\/\/newtab\/?$/i;
 
 function isNativeNewTabUrl(url?: string): boolean {
-  return Boolean(url && NATIVE_NEWTAB_RE.test(url));
+  if (!url) return false;
+  if (NATIVE_NEWTAB_RE.test(url)) return true;
+  return url === chrome.runtime.getURL('newtab.html');
 }
 
 function canPopupCommandBarOnUrl(url?: string): boolean {

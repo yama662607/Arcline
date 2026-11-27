@@ -142,7 +142,7 @@ test.describe('Left-edge auto-hide hover overlay', () => {
       edgeHoverEnabled: true,
       edgeTriggerWidthPx: 6,
       edgeOpenDelayMs: 50,
-      edgeCloseDelayMs: 260,
+      edgeCloseDelayMs: 400,
       overlayWidthPx: 270,
       swipeToSwitchSpace: true,
       openEmptySpacePage: false,

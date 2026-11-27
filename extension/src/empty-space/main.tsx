@@ -47,6 +47,20 @@ import { SpaceGlyph } from '../sidepanel/components/SpaceGlyph';
 import { I18nProvider, useT } from '../sidepanel/i18n';
 import '../sidepanel/styles.css';
 
+// Prevent Chromium's iframe color-scheme mismatch rule from painting an opaque canvas over
+// light-mode host webpages when OS Dark Mode is active. Both the parent <iframe class="arcline-cmd-frame">
+// and this modal document declare color-scheme: light while the floating card itself stays dark.
+if (
+  typeof document !== 'undefined' &&
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('mode') === 'modal'
+) {
+  document.querySelector('meta[name="color-scheme"]')?.remove();
+  document.documentElement.style.colorScheme = 'light';
+  document.documentElement.style.background = 'transparent';
+  document.body?.style.setProperty('background', 'transparent');
+}
+
 const BADGE_KEY: Record<CommandBarBadge, `commandBar.badge.${CommandBarBadge}`> = {
   switchTab: 'commandBar.badge.switchTab',
   favorite: 'commandBar.badge.favorite',
@@ -851,6 +865,7 @@ function EmptySpaceCanvas() {
             aria-label={t('commandBar.inputLabel')}
             className="flex flex-col overflow-hidden rounded-[16px]"
             style={{
+              colorScheme: 'dark',
               backgroundColor: cardBg,
               WebkitBackdropFilter: 'blur(28px) saturate(1.25)',
               backdropFilter: 'blur(28px) saturate(1.25)',

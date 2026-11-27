@@ -260,7 +260,13 @@ test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
 
     const tabA = await arcline.context.newPage();
     await tabA.setViewportSize({ width: 1280, height: 800 });
+    await tabA.emulateMedia({ colorScheme: 'dark' });
     await tabA.goto(`${arcline.serverUrl}/page/cmd-t-host`);
+    // Paint host webpage bright red (light-mode default) under OS dark mode to verify
+    // Chromium's iframe color-scheme mismatch never paints an opaque backdrop over the webpage!
+    await tabA.evaluate(() => {
+      document.body.style.background = '#e11d48';
+    });
     await expect
       .poll(() => tabA.evaluate(() => Boolean(document.getElementById('arcline-overlay-host'))))
       .toBe(true);
@@ -287,11 +293,25 @@ test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
       '#arcline-overlay-host iframe[title="Arcline Command Bar"]',
     );
     await expect(modalFrame.locator('[data-arcline-command-mode="modal"]')).toBeVisible();
-    // Transparent modal backdrop lets the active webpage show directly behind it
-    const modalBg = await modalFrame
-      .locator('[data-arcline-empty-space="true"]')
-      .evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(modalBg).toBe('rgba(0, 0, 0, 0)');
+    // Pixel-level transparency verification: corner pixel (20, 20) MUST still show bright red host page (#e11d48)!
+    const shotBuf = await tabA.screenshot();
+    const cornerRgb = await tabA.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await new Promise((r) => {
+        img.onload = r;
+      });
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx2 = c.getContext('2d');
+      ctx2?.drawImage(img, 0, 0);
+      const [r, g, b] = ctx2?.getImageData(20, 20, 1, 1).data ?? [0, 0, 0];
+      return { r, g, b };
+    }, shotBuf.toString('base64'));
+    expect(cornerRgb.r).toBeGreaterThan(180);
+    expect(cornerRgb.g).toBeLessThan(80);
+    expect(cornerRgb.b).toBeLessThan(110);
     // #0 stays highlighted and active tab URL is excluded from candidates
     await expect(modalFrame.locator('button[data-command-item-kind]').first()).toHaveAttribute(
       'data-selected',
@@ -335,6 +355,13 @@ test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
       })
       .toContain(`chrome-extension://${arcline.extensionId}/empty-space.html?commandBar=1`);
     expect(newTabUrl).not.toMatch(/^(?:chrome|brave):\/\/newtab/i);
+    // Ensure chrome_url_overrides.newtab uses a separate redirector path (newtab.html),
+    // never empty-space.html, so Chromium/Brave's NewTabFooter ("Customize") never attaches.
+    const manifestNtp = await arcline.worker.evaluate(
+      () => chrome.runtime.getManifest().chrome_url_overrides?.newtab ?? '',
+    );
+    expect(manifestNtp).toBe('newtab.html');
+    expect(newTabUrl).not.toContain(`/${manifestNtp}`);
 
     const newTabPage = arcline.context
       .pages()

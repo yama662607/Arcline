@@ -332,6 +332,7 @@ import type { Settings } from '../core/types';
         width: 100%;
         height: 100%;
         border: 0;
+        color-scheme: light;
         background: transparent;
         opacity: 0;
       }
@@ -771,10 +772,13 @@ import type { Settings } from '../core/types';
     cmdIframeEl.focus();
   }
 
+  let commandBarOpenGraceUntil = 0;
+
   function openCommandBarModal(): void {
     ensureHostMounted();
     if (!cmdBackdropEl || !COMMAND_BAR_MODAL_URL) return;
     const seq = ++commandBarOpenSeq;
+    commandBarOpenGraceUntil = Date.now() + 450;
     if (cmdRevealTimer) {
       clearTimeout(cmdRevealTimer);
       cmdRevealTimer = undefined;
@@ -793,6 +797,7 @@ import type { Settings } from '../core/types';
       }
       const cmdFrame = document.createElement('iframe');
       cmdFrame.className = 'arcline-cmd-frame';
+      cmdFrame.style.colorScheme = 'light';
       cmdFrame.setAttribute('title', 'Arcline Command Bar');
       cmdFrame.setAttribute('allow', 'clipboard-write');
       cmdFrame.src = src;
@@ -1120,7 +1125,9 @@ import type { Settings } from '../core/types';
 
   function performTabHiddenUnload(): void {
     tabHidden = true;
-    closeCommandBarModal();
+    if (Date.now() >= commandBarOpenGraceUntil) {
+      closeCommandBarModal();
+    }
     if (machine.isLocked) return;
     suppressStateReport = true;
     try {
