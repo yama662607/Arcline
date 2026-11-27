@@ -74,10 +74,10 @@ check-extension: build
     @echo "🩺 Running real-browser extension diagnostics..."
     {{pm}} --dir extension run check:extension
 
-# Real-browser Playwright E2E suite (edge-hover, workflows, resilience, visual screenshots)
+# Real-browser Playwright E2E suite (edge-hover, workflows, resilience)
 e2e *args="": build
     @echo "🎭 Running Playwright real-browser E2E suite..."
-    {{pm}} --dir extension run e2e -- {{args}}
+    {{pm}} --dir extension exec playwright test {{args}}
 
 # Real-data visual comparison on Brave using local Arc StorableSidebar.json (ARCLINE_HEADED=1 for visible window)
 visual-arc: build

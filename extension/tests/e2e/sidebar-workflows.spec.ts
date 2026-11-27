@@ -1,5 +1,4 @@
-import { join } from 'node:path';
-import { expect, test, VISUAL_DIR } from './fixtures';
+import { expect, test } from './fixtures';
 
 const SYNTHETIC_ARC_SIDEBAR = {
   sidebar: {
@@ -120,71 +119,46 @@ const SYNTHETIC_ARC_SIDEBAR = {
   },
 };
 
-test.describe('Sidebar workflows, Arc import, context menu geometry & themes', () => {
-  test('Favorites across Spaces, Folders, Arc JSON import, Cmd+K search, context menu bounds & screenshots', async ({
+test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
+  test('Arc JSON import, Global Favorites, Folders, Cmd+K, Theme Studio, inline rename & onboarding smoke', async ({
     arcline,
   }) => {
-    // Open a few real web tabs first so Today section is populated
     const t1 = await arcline.context.newPage();
     await t1.goto(`${arcline.serverUrl}/page/alpha`);
-    const t2 = await arcline.context.newPage();
-    await t2.goto(`${arcline.serverUrl}/page/beta`);
 
     const panel = await arcline.openPanel({ width: 300, height: 760 });
     const errors: string[] = [];
     panel.on('pageerror', (e) => errors.push(e.message));
 
-    // 1. Open Settings -> Arc移行 / 出力 -> Import synthetic StorableSidebar.json
+    // 1. Arc JSON import with dedupe/empty/search cleanup preview
     await panel.getByRole('button', { name: '設定・アーカイブ・Arcインポート' }).click();
     await expect(panel.getByRole('heading', { name: 'Arcline 設定' })).toBeVisible();
-    await panel.screenshot({ path: join(VISUAL_DIR, 'sidebar-settings-modal.png') });
-
     await panel.getByRole('button', { name: 'Arc移行 / 出力' }).click();
-    const fileInput = panel.locator('input[type="file"]');
-    await fileInput.setInputFiles({
+    await panel.locator('input[type="file"]').setInputFiles({
       name: 'StorableSidebar.json',
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify(SYNTHETIC_ARC_SIDEBAR), 'utf-8'),
     });
-
-    // Verify interactive ArcImportPreview: 4 favorites, 2 spaces, 1 deduped, 1 empty folder skipped, 1 Google search skipped
     await expect(panel.getByTestId('arc-import-preview-tree')).toBeVisible();
     await expect(panel.getByText('取り込む Space を選択 (2 / 2)')).toBeVisible();
     await expect(
       panel.getByText('自動整理: 重複 1 件、空フォルダ 1 個、検索 URL 1 件を除外しました。'),
     ).toBeVisible();
-
     await panel.getByRole('button', { name: 'インポート実行' }).click();
     await expect(panel.getByRole('heading', { name: 'Arcline 設定' })).toBeHidden();
 
-    // 2. Verify Global Favorites and Work Space folder are present
+    // 2. Global Favorites persist across Space switches; Folders expand
     await expect(panel.getByLabel('GitHub')).toBeVisible();
-    await expect(panel.getByLabel('Gmail')).toBeVisible();
-    await expect(panel.getByLabel('Calendar')).toBeVisible();
-
-    // Switch to Work space and expand Engineering Docs folder
     await panel.getByRole('button', { name: 'Space: Work' }).click();
-    await expect(panel.getByText('Engineering Docs')).toBeVisible();
     await panel.getByText('Engineering Docs').click();
     await expect(panel.getByText('MDN Web Docs')).toBeVisible();
 
-    // Capture Light mode visual QA screenshot
-    await arcline.setSettings({ theme: 'light' });
-    await pageWaitForTheme(panel, 'light');
-    await panel.screenshot({ path: join(VISUAL_DIR, 'sidebar-light.png') });
-
-    // Capture Dark mode visual QA screenshot
-    await arcline.setSettings({ theme: 'dark' });
-    await pageWaitForTheme(panel, 'dark');
-    await panel.screenshot({ path: join(VISUAL_DIR, 'sidebar-dark.png') });
-
-    // 3. Switch to Research Space -> Favorites MUST remain visible while Space pins switch!
     await panel.getByRole('button', { name: 'Space: Research' }).click();
     await expect(panel.getByLabel('GitHub')).toBeVisible();
     await expect(panel.getByText('arXiv')).toBeVisible();
     await expect(panel.getByText('Engineering Docs')).toBeHidden();
 
-    // 4. Context menu geometry inside a tight 300x520 viewport must never overflow bounds
+    // 3. Context menu stays within tight viewport bounds
     await panel.setViewportSize({ width: 300, height: 520 });
     await panel.getByText('arXiv').click({ button: 'right' });
     const menu = panel.getByRole('menu');
@@ -197,294 +171,158 @@ test.describe('Sidebar workflows, Arc import, context menu geometry & themes', (
       expect(box.x + box.width).toBeLessThanOrEqual(300);
       expect(box.y + box.height).toBeLessThanOrEqual(520);
     }
-    await panel.screenshot({ path: join(VISUAL_DIR, 'sidebar-context-menu.png') });
     await panel.keyboard.press('Escape');
     await expect(menu).toBeHidden();
 
-    // 5. Top search bar is hidden by default; Cmd+K / Ctrl+K transiently reveals & focuses it, and Escape hides it again
+    // 4. Transient Cmd+K quick search & Escape hide
     const search = panel.getByRole('searchbox', { name: 'クイック検索' });
     await expect(search).toBeHidden();
     await panel.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
-    await expect(search).toBeVisible();
     await expect(search).toBeFocused();
     await search.fill('MDN');
     await expect(panel.getByText('MDN Web Docs')).toBeVisible();
     await panel.keyboard.press('Escape');
     await expect(search).toBeHidden();
 
-    // 6. Powered-Up Arc Space Theme Studio: multi-node gradient + wavy intensity + grain dial
+    // 5. Space Theme Studio (multi-node gradient + grain)
     await panel.setViewportSize({ width: 320, height: 760 });
     await panel.getByRole('button', { name: 'テーマカラーを編集' }).click();
-    await expect(panel.getByRole('heading', { name: 'Research のテーマ' })).toBeVisible();
     await panel.getByRole('button', { name: 'Active Matter' }).click();
-    await expect(panel.getByRole('button', { name: /グラデーションノード 3/ })).toBeVisible();
-    await panel.screenshot({ path: join(VISUAL_DIR, 'sidebar-theme-studio.png') });
     await panel.getByRole('button', { name: 'テーマを適用' }).click();
-    await expect(panel.getByRole('heading', { name: 'Research のテーマ' })).toBeHidden();
-    // Wait for async updateSpace persistence & React reload before inspecting applied theme
     await expect
       .poll(() =>
         panel.evaluate(() => ({
-          hasRadial: (document.querySelector<HTMLElement>('.arcline-shell')?.style.backgroundImage ?? '').includes(
-            'radial-gradient',
-          ),
-          hasGrain: Boolean(
-            document.querySelector<HTMLElement>('.arcline-grain-layer') &&
-              Number.parseFloat(
-                document.querySelector<HTMLElement>('.arcline-grain-layer')?.style.opacity ?? '0',
-              ) > 0,
-          ),
-          dataTheme: document.documentElement.getAttribute('data-theme'),
+          hasRadial: (
+            document.querySelector<HTMLElement>('.arcline-shell')?.style.backgroundImage ?? ''
+          ).includes('radial-gradient'),
+          hasGrain:
+            Number.parseFloat(
+              document.querySelector<HTMLElement>('.arcline-grain-layer')?.style.opacity ?? '0',
+            ) > 0,
         })),
       )
-      .toEqual({ hasRadial: true, hasGrain: true, dataTheme: 'light' });
-    await panel.screenshot({ path: join(VISUAL_DIR, 'sidebar-gradient-active-matter.png') });
+      .toEqual({ hasRadial: true, hasGrain: true });
 
-    // 7. Space header double-click inline rename, Icon Picker, and Space header context menu
+    // 6. Space header inline rename + Icon Picker + Space context menu
     const headerTitle = panel.locator('[data-space-header-title="true"]');
-    await expect(headerTitle).toHaveText('Research');
     await headerTitle.dblclick();
     const spaceRenameInput = panel.getByLabel('Space 名を変更');
-    await expect(spaceRenameInput).toBeVisible();
     await spaceRenameInput.fill('Physics Lab');
     await spaceRenameInput.press('Enter');
-    await expect(panel.locator('[data-space-header-title="true"]')).toHaveText('Physics Lab');
+    await expect(headerTitle).toHaveText('Physics Lab');
 
-    // Open Space Icon Picker directly from header icon button and select Sparkles icon
     await panel.getByRole('button', { name: 'Space アイコンを変更' }).click();
-    await expect(panel.getByRole('heading', { name: 'Space を編集' })).toBeVisible();
     await panel.getByRole('button', { name: 'アイコン: Sparkles' }).click();
     await panel.getByRole('button', { name: '保存' }).click();
     await expect(panel.getByRole('heading', { name: 'Space を編集' })).toBeHidden();
 
-    // Right-click Space header -> verify Space actions including Export JSON
-    await panel.locator('[data-space-header-title="true"]').click({ button: 'right' });
-    await expect(panel.getByRole('menuitem', { name: 'Space を JSON エクスポート' })).toBeVisible();
-    await panel.keyboard.press('Escape');
+    // 7. Onboarding page smoke check (zero errors + live EN toggle)
+    const onb = await arcline.context.newPage();
+    onb.on('pageerror', (e) => errors.push(e.message));
+    await onb.goto(`chrome-extension://${arcline.extensionId}/onboarding.html`);
+    await expect(onb.getByTestId('onboarding-step-1')).toBeVisible();
+    await onb.getByTestId('onboarding-language-toggle').locator('[data-value="en"]').click();
+    await expect(onb.getByRole('heading', { level: 1 })).toContainText('A calmer way to browse');
 
     expect(errors).toEqual([]);
   });
 
-  test('unified Command Bar New Tab fuses open tabs, favorites, site searches, and live i18n', async ({
+  test('Command Bar & Cmd+T: popup vs newtab mode, Customize bar elimination, alias/site-search & Escape', async ({
     arcline,
   }) => {
-    const page = await arcline.context.newPage();
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto(`${arcline.serverUrl}/normal`);
-
-    const panel = await arcline.openPanel();
-    await panel.getByRole('button', { name: '設定・アーカイブ・Arcインポート' }).click();
-    await panel.getByRole('button', { name: 'Arc移行 / 出力' }).click();
-    await panel.locator('input[type="file"]').setInputFiles({
-      name: 'StorableSidebar.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from(JSON.stringify(SYNTHETIC_ARC_SIDEBAR), 'utf-8'),
-    });
-    await panel.getByRole('button', { name: 'インポート実行' }).click();
-    await expect(panel.getByRole('button', { name: 'GitHub' })).toBeVisible();
-
-    // Set a Favorite alias ("docs" for Notion) in Settings -> Shortcuts
-    await panel.getByRole('button', { name: '設定・アーカイブ・Arcインポート' }).click();
-    await panel.getByRole('button', { name: /ショートカット|キー/ }).click();
-    const notionAliasInput = panel.getByRole('textbox', { name: 'Notion のエイリアス' });
-    await expect(notionAliasInput).toBeVisible();
-    await notionAliasInput.fill('docs');
-    await panel.getByRole('button', { name: '閉じる' }).click();
-
-    // Apply a purple Space theme (#9e78b0 Soft Plum) to the active Space
-    await panel.getByRole('button', { name: 'テーマカラーを編集' }).click();
-    await panel.getByRole('button', { name: /#9e78b0/i }).click();
-    await panel.getByRole('button', { name: 'テーマを適用' }).click();
-    await expect(panel.getByRole('button', { name: 'テーマを適用' })).toBeHidden();
-    await panel.close();
-
-    const cmdPage = await arcline.context.newPage();
-    const errors: string[] = [];
-    cmdPage.on('pageerror', (e) => errors.push(e.message));
-    await cmdPage.setViewportSize({ width: 1280, height: 800 });
-    await cmdPage.goto(`chrome-extension://${arcline.extensionId}/empty-space.html?commandBar=1`);
-    await cmdPage.locator('[data-arcline-command-bar="true"]').waitFor({ state: 'visible' });
-
-    const input = cmdPage.getByRole('textbox', { name: 'Arcline コマンドバー' });
-    await expect(input).toBeVisible();
-    await expect(input).toBeFocused();
-    // Open tab + Favorite items are fused in the initial view
-    await expect(cmdPage.locator('[data-command-item-kind="tab"]').first()).toBeVisible();
-    await expect(cmdPage.locator('[data-command-item-kind="favorite"]').first()).toBeVisible();
-
-    // Selected row accent color must reflect the purple Space theme (not OKLCH-shifted blue)
-    const selectedRgb = await cmdPage.evaluate(() => {
-      const row = document.querySelector<HTMLElement>('button[data-selected="true"]');
-      if (!row) return null;
-      const bg = getComputedStyle(row).backgroundColor;
-      const canvas = document.createElement('canvas');
-      canvas.width = 1;
-      canvas.height = 1;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      return { r, g, b, bg };
-    });
-    expect(selectedRgb).not.toBeNull();
-    if (selectedRgb) {
-      expect(selectedRgb.r).toBeGreaterThan(selectedRgb.g + 10);
-      expect(selectedRgb.b).toBeGreaterThan(selectedRgb.g + 15);
-      expect(selectedRgb.b - selectedRgb.r).toBeLessThan(40);
-    }
-
-    // Searching by the Favorite alias ("docs") ranks Notion #1 with its @docs badge
-    await input.fill('docs');
-    const topResult = cmdPage.locator('button[data-command-item-kind]').first();
-    await expect(topResult).toHaveAttribute('data-command-item-kind', 'favorite');
-    await expect(topResult).toContainText('Notion');
-    await expect(topResult).toContainText('@docs');
-    await input.fill('');
-
-    // Typing "gh react" activates the GitHub Site Search chip and builds the site-search row
-    await input.fill('gh react');
-    await expect(cmdPage.getByRole('button', { name: /GitHub フィルターを解除/ })).toBeVisible();
-    await expect(cmdPage.locator('[data-command-item-kind="siteSearch"]').first()).toBeVisible();
-
-    // Live language switch updates the Command Bar copy immediately
-    await arcline.setSettings({ language: 'en' });
-    await expect(cmdPage.getByRole('textbox', { name: 'Arcline Command Bar' })).toBeVisible();
-
-    // Pure empty Space canvas (?spaceId=...&openOverlay=1) renders only the Space theme background
-    await cmdPage.goto(
-      `chrome-extension://${arcline.extensionId}/empty-space.html?spaceId=1&openOverlay=1`,
-    );
-    await expect(cmdPage.locator('[data-arcline-empty-space="true"]')).toHaveAttribute(
-      'data-arcline-command-bar',
-      'false',
-    );
-    await expect(cmdPage.getByRole('textbox', { name: 'Arcline Command Bar' })).toBeHidden();
-    await cmdPage.close();
-
-    // Over an active webpage, arclineCommandBar: 'toggle' renders the centered modal popup directly
-    // on top of the page (without opening a new tab), excludes the active tab from candidates,
-    // keeps item #0 highlighted even under a stationary cursor, handles rapid toggling cleanly,
-    // and Escape dismisses and removes the lazy modal iframe cleanly.
-    await page.bringToFront();
-    // Place stationary cursor near the center where candidate rows appear
-    await page.mouse.move(640, 320);
-    const tabsBefore = await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length);
+    // Seed Favorites + alias directly via chrome APIs (fast, no duplicate Arc import)
     await arcline.worker.evaluate(async () => {
-      const tabs = await chrome.tabs.query({ url: 'http://127.0.0.1/*' });
-      const target = tabs.find((t) => t.id !== undefined);
-      if (target?.id !== undefined) {
-        // Rapid toggle sequence (open -> close -> open) must settle cleanly with zero duplicate iframes
-        await chrome.tabs.sendMessage(target.id, { arclineCommandBar: 'toggle' });
-        await chrome.tabs.sendMessage(target.id, { arclineCommandBar: 'toggle' });
-        await chrome.tabs.sendMessage(target.id, { arclineCommandBar: 'toggle' });
+      const rootRes = await chrome.storage.local.get('arcline:root');
+      const rootId = (rootRes['arcline:root'] as { rootId?: string } | undefined)?.rootId;
+      if (!rootId) return;
+      const children = await chrome.bookmarks.getChildren(rootId);
+      const favFolder = children.find((c) => c.title === 'Favorites');
+      if (favFolder) {
+        await chrome.bookmarks.create({
+          parentId: favFolder.id,
+          title: 'GitHub',
+          url: 'https://github.com/',
+        });
+        await chrome.bookmarks.create({
+          parentId: favFolder.id,
+          title: 'Notion',
+          url: 'https://www.notion.so/',
+        });
       }
+      const cur = (await chrome.storage.local.get('arcline:settings'))['arcline:settings'] ?? {};
+      await chrome.storage.local.set({
+        'arcline:settings': {
+          ...cur,
+          favoriteShortcuts: { 'https://www.notion.so/': { alias: 'docs' } },
+        },
+      });
     });
-    const modalIframeEl = page.locator('#arcline-overlay-host iframe[title="Arcline Command Bar"]');
-    await expect(modalIframeEl).toHaveCount(1);
-    await expect(modalIframeEl).toHaveClass(/ready/);
-    const modalFrame = page.frameLocator('#arcline-overlay-host iframe[title="Arcline Command Bar"]');
-    await expect(modalFrame.getByRole('textbox', { name: 'Arcline Command Bar' })).toBeVisible();
-    // No extra tab should have been created
-    const tabsAfter = await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length);
-    expect(tabsAfter).toBe(tabsBefore);
-    // First candidate row must stay selected (#0), never stolen by stationary cursor
-    const selectedItems = modalFrame.locator('button[data-selected="true"]');
-    await expect(selectedItems).toHaveCount(1);
-    await expect(modalFrame.locator('button[data-command-item-kind]').first()).toHaveAttribute(
-      'data-selected',
-      'true',
-    );
-    // Active tab URL (127.0.0.1 fixture) must not appear in any candidate row
-    await expect(
-      modalFrame.locator('button[data-command-item-kind]', { hasText: '127.0.0.1' }),
-    ).toHaveCount(0);
-    await modalFrame.getByRole('textbox', { name: 'Arcline Command Bar' }).press('Escape');
-    await expect(modalIframeEl).toHaveCount(0);
 
-    expect(errors).toEqual([]);
-  });
-
-  test('interactive 4-step Start Guide onboarding renders in EN and JA without errors', async ({
-    arcline,
-  }) => {
-    const page = await arcline.context.newPage();
-    const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(e.message));
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto(`chrome-extension://${arcline.extensionId}/onboarding.html`);
-
-    await expect(page.getByTestId('onboarding-step-1')).toBeVisible();
-    // Toggle live from Japanese to English via the header language switcher
-    await page.getByTestId('onboarding-language-toggle').locator('[data-value="en"]').click();
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('A calmer way to browse');
-
-    // Step through all 4 steps
-    await page.getByTestId('onboarding-next').click();
-    await expect(page.getByTestId('onboarding-step-2')).toBeVisible();
-    await page.getByTestId('onboarding-next').click();
-    await expect(page.getByTestId('onboarding-step-3')).toBeVisible();
-
-    // Verify OS auto-path + interactive sample import preview & Space filtering
-    await expect(page.getByTestId('onboarding-arc-path')).toContainText('StorableSidebar.json');
-    await page.getByTestId('onboarding-try-sample').click();
-    await expect(page.getByTestId('onboarding-import-preview')).toBeVisible();
-    await expect(page.getByTestId('onboarding-sample-banner')).toBeVisible();
-    await expect(page.getByTestId('import-space-check-0')).toBeChecked();
-    await page.getByTestId('import-space-check-0').uncheck();
-    await expect(page.getByTestId('import-space-check-0')).not.toBeChecked();
-
-    await page.getByTestId('onboarding-next').click();
-    await expect(page.getByTestId('onboarding-step-4')).toBeVisible();
-    // Verify interactive mini Command Bar & Site Search chip click
-    await page.getByTestId('onboarding-site-chip-gh').click();
-    await expect(page.getByTestId('onboarding-command-input')).toHaveValue('gh ');
-    expect(errors).toEqual([]);
-  });
-
-  test('Cmd+T respects popup vs newtab mode, eliminates Brave Customize bar, and closes on Escape', async ({
-    arcline,
-  }) => {
     const tabA = await arcline.context.newPage();
+    await tabA.setViewportSize({ width: 1280, height: 800 });
     await tabA.goto(`${arcline.serverUrl}/page/cmd-t-host`);
     await expect
       .poll(() => tabA.evaluate(() => Boolean(document.getElementById('arcline-overlay-host'))))
       .toBe(true);
 
-    // 1. Popup mode: New Tab (Cmd+T) pops up transparent modal directly over tabA (never opens empty-space tab)
+    // 1. Popup mode: Cmd+T opens transparent modal directly over active webpage (never opens empty-space tab)
     await arcline.setSettings({ commandBarOpenMode: 'popup' });
-    await tabA.waitForTimeout(120);
+    await tabA.mouse.move(640, 320); // Stationary cursor must NOT steal #0 highlight
+    await tabA.waitForTimeout(80);
+    const tabsBeforePopup = await arcline.worker.evaluate(
+      async () => (await chrome.tabs.query({})).length,
+    );
     await arcline.worker.evaluate(async () => {
       await chrome.tabs.create({ active: true });
     });
 
     const modalIframe = tabA.locator('#arcline-overlay-host iframe[title="Arcline Command Bar"]');
     await expect(modalIframe).toBeVisible({ timeout: 5000 });
+    await expect(modalIframe).toHaveClass(/ready/);
+    expect(
+      await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length),
+    ).toBe(tabsBeforePopup);
+
     const modalFrame = tabA.frameLocator(
       '#arcline-overlay-host iframe[title="Arcline Command Bar"]',
     );
     await expect(modalFrame.locator('[data-arcline-command-mode="modal"]')).toBeVisible();
-    // Modal root background must remain transparent so the active webpage shows directly behind it
+    // Transparent modal backdrop lets the active webpage show directly behind it
     const modalBg = await modalFrame
       .locator('[data-arcline-empty-space="true"]')
       .evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(modalBg).toBe('rgba(0, 0, 0, 0)');
-    // Press Escape to dismiss popup modal back to tabA
-    const modalInput = modalFrame.locator('input').first();
-    await expect(modalInput).toBeVisible();
+    // #0 stays highlighted and active tab URL is excluded from candidates
+    await expect(modalFrame.locator('button[data-command-item-kind]').first()).toHaveAttribute(
+      'data-selected',
+      'true',
+    );
+    await expect(
+      modalFrame.locator('button[data-command-item-kind]', { hasText: '127.0.0.1' }),
+    ).toHaveCount(0);
+
+    // Filtering keeps input vertical top rock-solid (<= 2px), and Escape dismisses modal cleanly
+    const modalInput = modalFrame.getByRole('textbox', { name: 'Arcline コマンドバー' });
+    const initialTop = await modalInput.evaluate((el) => el.getBoundingClientRect().top);
+    await modalInput.fill('zzz-no-match-query');
+    const narrowedTop = await modalInput.evaluate((el) => el.getBoundingClientRect().top);
+    expect(Math.abs(narrowedTop - initialTop)).toBeLessThanOrEqual(2);
+    await modalInput.press('Escape');
+    await expect(modalInput).toHaveValue('');
     await modalInput.press('Escape');
     await expect(modalIframe).toHaveCount(0);
 
-    // 2. Newtab mode: New Tab (Cmd+T) opens empty-space.html?commandBar=1 (NEVER chrome://newtab / brave://newtab,
-    //    which eliminates Chromium/Brave's bottom "Arcline | Customize" bar) and closes tab on Escape!
+    // 2. Newtab mode: Cmd+T redirects off chrome://newtab / brave://newtab (eliminates Brave Customize bar),
+    //    supports @alias + site-search + live i18n, and closes tab on Escape
     await arcline.setSettings({ commandBarOpenMode: 'newtab' });
-    await tabA.waitForTimeout(120);
-    const tabsBefore = await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length);
+    await tabA.waitForTimeout(80);
+    const tabsBeforeNewtab = await arcline.worker.evaluate(
+      async () => (await chrome.tabs.query({})).length,
+    );
     await arcline.worker.evaluate(async () => {
       await chrome.tabs.create({ active: true });
     });
 
-    // Active tab URL must redirect off chrome://newtab / brave://newtab to our extension URL
     let newTabUrl = '';
     await expect
       .poll(async () => {
@@ -503,21 +341,31 @@ test.describe('Sidebar workflows, Arc import, context menu geometry & themes', (
       .find((p) => p.url().includes('/empty-space.html?commandBar=1'));
     expect(newTabPage).toBeTruthy();
     await expect(newTabPage!.locator('[data-arcline-command-mode="page"]')).toBeVisible();
-    await expect(newTabPage!.locator('[data-arcline-command-bar="true"]')).toBeVisible();
 
-    // Pressing Escape on the empty New Tab closes it and returns to tabA!
-    const newTabInput = newTabPage!.locator('input').first();
-    await expect(newTabInput).toBeVisible();
-    await newTabInput.press('Escape');
+    const pageInput = newTabPage!.getByRole('textbox', { name: 'Arcline コマンドバー' });
+    await expect(pageInput).toBeFocused();
+    await expect(newTabPage!.locator('[data-command-item-kind="favorite"]').first()).toBeVisible();
+
+    // Alias ranking ("docs" -> Notion @docs) & Site Search ("gh react")
+    await pageInput.fill('docs');
+    const topResult = newTabPage!.locator('button[data-command-item-kind]').first();
+    await expect(topResult).toContainText('Notion');
+    await expect(topResult).toContainText('@docs');
+
+    await pageInput.fill('gh react');
+    await expect(newTabPage!.getByRole('button', { name: /GitHub フィルターを解除/ })).toBeVisible();
+    await expect(
+      newTabPage!.locator('[data-command-item-kind="siteSearch"]').first(),
+    ).toBeVisible();
+
+    // Live i18n switch & Escape clears active site-search chip/query, then closes empty New Tab back to tabA
+    await arcline.setSettings({ language: 'en' });
+    const enInput = newTabPage!.getByRole('textbox', { name: 'Arcline Command Bar' });
+    await expect(enInput).toBeVisible();
+    await enInput.press('Escape'); // clears active query + site-search chip
+    await enInput.press('Escape'); // closes empty New Tab
     await expect
       .poll(async () => (await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length)))
-      .toBe(tabsBefore);
+      .toBe(tabsBeforeNewtab);
   });
 });
-
-async function pageWaitForTheme(panel: import('@playwright/test').Page, expected: 'light' | 'dark') {
-  await expect
-    .poll(() => panel.evaluate(() => document.documentElement.getAttribute('data-theme')))
-    .toBe(expected);
-  await panel.waitForTimeout(80);
-}

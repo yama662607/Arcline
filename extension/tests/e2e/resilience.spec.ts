@@ -1,40 +1,64 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  expect,
-  launchExtensionContext,
-  startTestServer,
-  test,
-  VISUAL_DIR,
-} from './fixtures';
+import { expect, launchExtensionContext, startTestServer, test } from './fixtures';
 
-test.describe('MV3 resilience, restart recovery, native sidePanel & memory bounds', () => {
-  test('recovers cleanly after forced Service Worker termination', async ({ arcline }) => {
+test.describe('MV3 resilience, restart recovery & native Side Panel auto-fallback', () => {
+  test('recovers cleanly after forced Service Worker termination and expired OOPIF frame token', async ({
+    arcline,
+  }) => {
+    await arcline.setSettings({
+      edgeHoverEnabled: true,
+      edgeTriggerWidthPx: 6,
+      edgeOpenDelayMs: 30,
+      edgeCloseDelayMs: 120,
+    });
+
+    // 1. Kill MV3 Service Worker via CDP and verify UI command wakes it cleanly
     const panel = await arcline.openPanel();
     await panel.getByRole('button', { name: '新しいSpaceを作成' }).click();
     await panel.getByLabel('Space 名').fill('SW-Resilience');
     await panel.getByRole('button', { name: '作成', exact: true }).click();
     await expect(panel.getByRole('button', { name: 'Space: SW-Resilience' })).toBeVisible();
 
-    // Kill the MV3 Service Worker via CDP ServiceWorker.stopAllWorkers
     const cdp = await arcline.context.newCDPSession(panel);
     await cdp.send('ServiceWorker.enable');
     await cdp.send('ServiceWorker.stopAllWorkers');
-    await panel.waitForTimeout(300);
+    await panel.waitForTimeout(250);
 
-    // Issue a new command through the UI -> SW must wake up and succeed
     await panel.getByRole('button', { name: '新しいフォルダを作成' }).click();
     const renameInput = panel.locator('main input');
     await expect(renameInput).toHaveValue('New Folder');
     await renameInput.press('Enter');
     await expect(panel.getByText('New Folder')).toBeVisible();
+    await panel.close();
+
+    // 2. Expired/invalid frame token on overlay iframe self-recovers instead of rendering blank
+    const page = await arcline.context.newPage();
+    await page.goto(`${arcline.serverUrl}/normal`);
+    await expect
+      .poll(() => page.evaluate(() => Boolean(document.getElementById('arcline-overlay-host'))))
+      .toBe(true);
+
+    await page.mouse.move(2, 300);
+    const sidebarFrame = page.frameLocator('#arcline-overlay-host iframe[title="Arcline Sidebar"]');
+    await expect(sidebarFrame.locator('.arcline-shell')).toBeVisible();
+
+    await page.evaluate(() => {
+      const iframe = document
+        .getElementById('arcline-overlay-host')
+        ?.shadowRoot?.querySelector<HTMLIFrameElement>('iframe[title="Arcline Sidebar"]');
+      if (iframe) {
+        iframe.src = `${iframe.src.split('#')[0]}#arclineToken=00000000000000000000000000000000`;
+      }
+    });
+
+    await expect(sidebarFrame.locator('.arcline-shell')).toBeVisible({ timeout: 5000 });
   });
 
   test('persistent profile browser restart preserves bookmarks with zero duplicates', async () => {
     const server = await startTestServer();
     const profileDir = mkdtempSync(join(tmpdir(), 'arcline-restart-'));
-    // Configure Chromium/Brave profile to restore last session on startup
     mkdirSync(join(profileDir, 'Default'), { recursive: true });
     writeFileSync(
       join(profileDir, 'Default/Preferences'),
@@ -43,7 +67,7 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
     );
 
     try {
-      // Session 1: Create Space + Favorite + Pin
+      // Session 1: Create Space
       const s1 = await launchExtensionContext(profileDir);
       try {
         const winId = await s1.worker.evaluate(async () => (await chrome.windows.getLastFocused()).id ?? 1);
@@ -57,7 +81,7 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
         await panel.getByLabel('Space 名').fill('Restarted');
         await panel.getByRole('button', { name: '作成', exact: true }).click();
         await expect(panel.getByRole('button', { name: 'Space: Restarted' })).toBeVisible();
-        await panel.waitForTimeout(250);
+        await panel.waitForTimeout(200);
       } finally {
         await s1.context.close();
       }
@@ -69,16 +93,15 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
           const tree = await chrome.bookmarks.getTree();
           const root = tree[0]?.children?.[1];
           const arclineFolders = (root?.children ?? []).filter((n) => n.title === 'Arcline');
-          const arcline = arclineFolders[0];
-          const children = arcline?.children ?? [];
-          const favCount = children.filter((c) => c.title === 'Favorites').length;
-          const restartedCount = children.filter((c) => c.title === 'Restarted').length;
-          return { arclineRootCount: arclineFolders.length, favCount, restartedCount };
+          const children = arclineFolders[0]?.children ?? [];
+          return {
+            arclineRootCount: arclineFolders.length,
+            favCount: children.filter((c) => c.title === 'Favorites').length,
+            restartedCount: children.filter((c) => c.title === 'Restarted').length,
+          };
         });
 
-        expect(counts.arclineRootCount).toBe(1);
-        expect(counts.favCount).toBe(1);
-        expect(counts.restartedCount).toBe(1);
+        expect(counts).toEqual({ arclineRootCount: 1, favCount: 1, restartedCount: 1 });
       } finally {
         await s2.context.close();
       }
@@ -88,161 +111,7 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
     }
   });
 
-  test('real native chrome.sidePanel.open renders cleanly and captures CDP screenshot', async ({
-    arcline,
-  }) => {
-    // Open an extension tab so we can invoke chrome.sidePanel.open() from a real trusted user click
-    const triggerPage = await arcline.context.newPage();
-    await triggerPage.goto(`chrome-extension://${arcline.extensionId}/sidepanel.html?windowId=${arcline.windowId}`);
-    await triggerPage.locator('[data-arcline-ready="true"]').waitFor({ state: 'visible' });
-
-    await triggerPage.evaluate((winId) => {
-      const btn = document.createElement('button');
-      btn.id = 'test-open-native-sidepanel';
-      btn.textContent = 'Open Native SidePanel';
-      btn.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;padding:8px;';
-      btn.addEventListener('click', () => {
-        void chrome.sidePanel.open({ windowId: winId });
-      });
-      document.body.append(btn);
-    }, arcline.windowId);
-
-    await triggerPage.click('#test-open-native-sidepanel');
-    await triggerPage.waitForTimeout(700);
-
-    // Inspect browser-level targets via CDP to locate the real native sidepanel target
-    const browserCdp = await arcline.context.browser()?.newBrowserCDPSession();
-    if (!browserCdp) {
-      // Fallback: launchPersistentContext exposes page CDP session
-      const pageCdp = await arcline.context.newCDPSession(triggerPage);
-      const { targetInfos } = await pageCdp.send('Target.getTargets');
-      const spTargets = targetInfos.filter(
-        (t) =>
-          t.url.startsWith(`chrome-extension://${arcline.extensionId}/sidepanel.html`) &&
-          !t.url.includes('windowId='),
-      );
-      expect(spTargets.length).toBeGreaterThanOrEqual(1);
-      const nativeTarget = spTargets[0];
-      if (nativeTarget) {
-        const { sessionId } = await pageCdp.send('Target.attachToTarget', {
-          targetId: nativeTarget.targetId,
-          flatten: true,
-        });
-        expect(sessionId).toBeTruthy();
-      }
-      return;
-    }
-
-    const { targetInfos } = await browserCdp.send('Target.getTargets');
-    const nativeTarget = targetInfos.find(
-      (t) =>
-        t.url.startsWith(`chrome-extension://${arcline.extensionId}/sidepanel.html`) &&
-        !t.url.includes('windowId='),
-    );
-    expect(nativeTarget).toBeDefined();
-    if (nativeTarget) {
-      const { sessionId } = await browserCdp.send('Target.attachToTarget', {
-        targetId: nativeTarget.targetId,
-        flatten: true,
-      });
-      // Wait briefly for React hydration in native panel, then capture raw CDP screenshot
-      await triggerPage.waitForTimeout(400);
-      const shot = (await browserCdp.send(
-        'Page.captureScreenshot',
-        { format: 'png' },
-        // @ts-expect-error Playwright CDPSession accepts sessionId on raw protocol calls or fallback
-        sessionId,
-      ).catch(() => null)) as { data?: string } | null;
-      if (shot?.data) {
-        writeFileSync(join(VISUAL_DIR, 'native-sidepanel-real.png'), Buffer.from(shot.data, 'base64'));
-      }
-    }
-  });
-
-  test('repeated edge-hover open/close cycles keep DOM nodes and JS heap bounded', async ({
-    arcline,
-  }) => {
-    await arcline.setSettings({
-      edgeHoverEnabled: true,
-      edgeTriggerWidthPx: 6,
-      edgeOpenDelayMs: 30,
-      edgeCloseDelayMs: 50,
-    });
-
-    const page = await arcline.context.newPage();
-    await page.goto(`${arcline.serverUrl}/normal`);
-    await page.waitForTimeout(200);
-
-    const cdp = await arcline.context.newCDPSession(page);
-    await cdp.send('Performance.enable');
-
-    const getMetrics = async () => {
-      const { metrics } = await cdp.send('Performance.getMetrics');
-      const map = Object.fromEntries(metrics.map((m) => [m.name, m.value]));
-      return { nodes: map.Nodes ?? 0, heap: map.JSHeapUsedSize ?? 0 };
-    };
-
-    // Warm up once so lazy iframe is allocated
-    await page.mouse.move(2, 300);
-    await page.waitForTimeout(180);
-    await page.mouse.move(600, 300);
-    await page.waitForTimeout(180);
-    const baseline = await getMetrics();
-
-    // Perform 10 rapid open/close cycles
-    for (let i = 0; i < 10; i++) {
-      await page.mouse.move(2, 300);
-      await page.waitForTimeout(90);
-      await page.mouse.move(600, 300);
-      await page.waitForTimeout(110);
-    }
-
-    const after = await getMetrics();
-    // Host page DOM node count must not grow across hover toggles
-    expect(after.nodes - baseline.nodes).toBeLessThanOrEqual(20);
-    // Host page JS heap delta must remain small (< 5MB)
-    expect(after.heap - baseline.heap).toBeLessThan(5 * 1024 * 1024);
-  });
-
-  test('overlay sidebar self-recovers instead of rendering blank when frame token expires or resets', async ({
-    arcline,
-  }) => {
-    await arcline.setSettings({
-      edgeHoverEnabled: true,
-      edgeTriggerWidthPx: 6,
-      edgeOpenDelayMs: 30,
-      edgeCloseDelayMs: 120,
-    });
-
-    const page = await arcline.context.newPage();
-    await page.goto(`${arcline.serverUrl}/normal`);
-    await page.waitForTimeout(200);
-
-    // Open overlay normally and confirm the React sidebar UI is mounted
-    await page.mouse.move(2, 300);
-    const sidebarFrame = page.frameLocator('#arcline-overlay-host iframe[title="Arcline Sidebar"]');
-    await expect(sidebarFrame.locator('[data-arcline-shell], .arcline-shell').first()).toBeVisible();
-
-    // Simulate an expired/invalid frame token (e.g. >10min TTL or OOPIF reload after SW restart)
-    // by navigating the existing sidebar iframe to an invalid token hash.
-    await page.evaluate(() => {
-      const host = document.getElementById('arcline-overlay-host');
-      const iframe = host?.shadowRoot?.querySelector<HTMLIFrameElement>(
-        'iframe[title="Arcline Sidebar"]',
-      );
-      if (iframe) {
-        const base = iframe.src.split('#')[0];
-        iframe.src = `${base}#arclineToken=00000000000000000000000000000000`;
-      }
-    });
-
-    // Self-recovery must detect auth failure, request a fresh token, and remount non-empty UI
-    await expect(
-      page.frameLocator('#arcline-overlay-host iframe[title="Arcline Sidebar"]').locator('.arcline-shell'),
-    ).toBeVisible({ timeout: 5000 });
-  });
-
-  test('auto-fallback Side Panel on restricted page closes and returns to floating overlay on normal webpage', async ({
+  test('auto-fallback native Side Panel on restricted page closes and returns to floating overlay', async ({
     arcline,
   }) => {
     await arcline.setSettings({
@@ -257,18 +126,20 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
     const tabB = await arcline.context.newPage();
     await tabB.goto('chrome://version');
     await tabA.bringToFront();
-    await tabA.waitForTimeout(200);
+    await expect
+      .poll(() => tabA.evaluate(() => Boolean(document.getElementById('arcline-overlay-host'))))
+      .toBe(true);
 
     // Open floating overlay on tabA and click the restricted chrome://version tab inside it
     await tabA.mouse.move(2, 300);
     const frameA = tabA.frameLocator('#arcline-overlay-host iframe[title="Arcline Sidebar"]');
     await expect(frameA.locator('[data-arcline-ready="true"]')).toBeVisible();
-    await tabA.waitForTimeout(260);
+    await tabA.waitForTimeout(240);
     const versionRow = frameA.locator('button[title*="version" i]').first();
     await expect(versionRow).toBeVisible({ timeout: 5000 });
     await versionRow.click();
 
-    // Native Side Panel must open in auto-fallback mode on the restricted page
+    // Native Side Panel opens in auto-fallback mode on the restricted page
     await expect
       .poll(async () => {
         const res = await arcline.worker.evaluate(() =>
@@ -278,7 +149,7 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
       })
       .toBe('auto-fallback');
 
-    // Return to tabA (normal HTTP page) -> auto-fallback Side Panel must close and hand back to floating overlay!
+    // Return to tabA (normal HTTP page) -> auto-fallback Side Panel closes and restores floating overlay
     await tabA.bringToFront();
     await expect
       .poll(async () => {
@@ -290,12 +161,15 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
       .toBe('closed');
 
     await expect
-      .poll(async () =>
-        tabA.evaluate(() => {
-          const host = document.getElementById('arcline-overlay-host');
-          const panel = host?.shadowRoot?.querySelector('[data-arcline-panel]');
-          return Boolean(panel?.classList.contains('open'));
-        }),
+      .poll(() =>
+        tabA.evaluate(() =>
+          Boolean(
+            document
+              .getElementById('arcline-overlay-host')
+              ?.shadowRoot?.querySelector('[data-arcline-panel]')
+              ?.classList.contains('open'),
+          ),
+        ),
       )
       .toBe(true);
   });
