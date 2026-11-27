@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { callBridge } from '../src/bridge.mjs';
+import { callBridge, writeBridgeLauncher } from '../src/bridge.mjs';
 import { main } from '../src/cli.mjs';
 
 const bridgeBin = fileURLToPath(new URL('../bin/arcline-bridge.mjs', import.meta.url));
@@ -78,4 +78,27 @@ test('arcline-bridge relays JSON-RPC over Unix socket and 4-byte Native Messagin
     else process.env.ARCLINE_BRIDGE_SOCKET = prevEnv;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('generated bridge launcher boots under minimal launchd PATH (/usr/bin:/bin)', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'arcline-launcher-test-'));
+  const socketPath = path.join(tmpDir, 'bridge.sock');
+  const launcherPath = writeBridgeLauncher({
+    launcherPath: path.join(tmpDir, 'arcline-bridge-host.sh'),
+    hostScriptPath: bridgeBin,
+    nodeExecPath: process.execPath,
+  });
+
+  const child = spawn(launcherPath, [], {
+    env: { PATH: '/usr/bin:/bin', HOME: os.homedir(), ARCLINE_BRIDGE_SOCKET: socketPath },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  for (let i = 0; i < 40 && !fs.existsSync(socketPath); i += 1) {
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  assert.equal(fs.existsSync(socketPath), true);
+  child.stdin.end();
+  child.kill();
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 });
