@@ -72,6 +72,20 @@ function isExecutablePseudoUrl(url: string): boolean {
   return !isSafeNavigableUrl(url);
 }
 
+function pickBestPinTitle(
+  itemTitle: string | null | undefined,
+  savedTitle: string | undefined,
+  url: string,
+): string {
+  const custom = itemTitle?.trim() || '';
+  const saved = savedTitle?.trim() || '';
+  const customIsUrl = /^https?:\/\//i.test(custom);
+  const savedIsUrl = /^https?:\/\//i.test(saved);
+  if (custom && (!customIsUrl || !saved || savedIsUrl)) return custom;
+  if (saved) return saved;
+  return url;
+}
+
 /**
  * Pure parser for Arc's `StorableSidebar.json`.
  * Extracts Top Apps as global Favorites and each Space's pinned tabs & nested folders.
@@ -139,7 +153,7 @@ export function parseArcSidebar(json: unknown, options: ArcImportOptions = {}): 
         stats.totalPins += 1;
         result.push({
           kind: 'pin',
-          title: (item.title || tab.savedTitle || url).trim(),
+          title: pickBestPinTitle(item.title, tab.savedTitle, url),
           url,
         });
         continue;
@@ -200,7 +214,7 @@ export function parseArcSidebar(json: unknown, options: ArcImportOptions = {}): 
       if (!url || isExecutablePseudoUrl(url) || seenFavUrls.has(url)) continue;
       seenFavUrls.add(url);
       favorites.push({
-        title: (item.title || tab?.savedTitle || url).trim(),
+        title: pickBestPinTitle(item.title, tab?.savedTitle, url),
         url,
       });
     }

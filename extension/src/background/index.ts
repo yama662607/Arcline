@@ -85,6 +85,13 @@ async function bootstrap(recover: boolean): Promise<void> {
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync' && STORAGE_KEYS.spaceMeta in changes) {
+    const incoming = changes[STORAGE_KEYS.spaceMeta]?.newValue;
+    if (incoming && typeof incoming === 'object') {
+      void chrome.storage.local.set({ [STORAGE_KEYS.spaceMeta]: incoming });
+    }
+    return;
+  }
   if (area !== 'local' || !(STORAGE_KEYS.settings in changes)) return;
   const next = completeSettings(changes[STORAGE_KEYS.settings]?.newValue as Partial<Settings>);
   cachedCommandBarOpenMode = next.commandBarOpenMode;

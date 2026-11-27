@@ -11,42 +11,64 @@ export function arclineRoot(document) {
   return matches[0];
 }
 
-function cleanNode(node) {
-  if (node.type === 'url') return { kind: 'pin', title: node.name || node.url, url: node.url };
-  if (node.type === 'folder') return { kind: 'folder', title: node.name || '', children: (node.children ?? []).map(cleanNode).filter(Boolean) };
+function cleanNode(node, includeIds = false) {
+  const idPart = includeIds && node.id !== undefined ? { id: String(node.id) } : {};
+  if (node.type === 'url') return { ...idPart, kind: 'pin', title: node.name || node.url, url: node.url };
+  if (node.type === 'folder') {
+    return {
+      ...idPart,
+      kind: 'folder',
+      title: node.name || '',
+      children: (node.children ?? []).map(child => cleanNode(child, includeIds)).filter(Boolean),
+    };
+  }
   return null;
 }
 
-export function exportBookmarks(document) {
+export function exportBookmarks(document, { includeIds = false } = {}) {
   const root = arclineRoot(document);
   const favorites = [];
   const spaces = [];
   for (const node of root.children ?? []) {
     if (node.type !== 'folder') continue;
-    const children = (node.children ?? []).map(cleanNode).filter(Boolean);
+    const children = (node.children ?? []).map(child => cleanNode(child, includeIds)).filter(Boolean);
     if (node.name === 'Favorites') favorites.push(...children);
-    else spaces.push({ name: node.name, pinned: children });
+    else spaces.push({ ...(includeIds && node.id !== undefined ? { id: String(node.id) } : {}), name: node.name, pinned: children });
   }
   return portable(favorites, spaces);
 }
 
-export function listSpaces(document) {
-  const workspace = exportBookmarks(document);
-  return { favorites: workspace.favorites, favoriteCounts: countNodes(workspace.favorites),
-    spaces: workspace.spaces.map(space => ({ name: space.name, ...countNodes(space.pinned) })),
-    stats: workspace.stats };
+export function listSpaces(document, { includeIds = false } = {}) {
+  const workspace = exportBookmarks(document, { includeIds });
+  return {
+    favorites: workspace.favorites,
+    favoriteCounts: countNodes(workspace.favorites),
+    spaces: workspace.spaces.map(space => ({
+      ...(includeIds && space.id !== undefined ? { id: space.id } : {}),
+      name: space.name,
+      ...countNodes(space.pinned),
+    })),
+    stats: workspace.stats,
+  };
 }
 
-export function searchBookmarks(document, query) {
-  const workspace = exportBookmarks(document);
+export function searchBookmarks(document, query, { includeIds = false } = {}) {
+  const workspace = exportBookmarks(document, { includeIds });
   const needle = query.toLowerCase();
   const results = [];
   function walk(nodes, source, space, parents = []) {
     for (const node of nodes) {
       const location = [...parents, node.title];
       if ([node.title, node.url, space, ...parents].filter(Boolean).some(s => s.toLowerCase().includes(needle))) {
-        results.push({ source, kind: node.kind, space, title: node.title,
-          ...(node.url ? { url: node.url } : {}), path: location });
+        results.push({
+          ...(includeIds && node.id !== undefined ? { id: node.id } : {}),
+          source,
+          kind: node.kind,
+          space,
+          title: node.title,
+          ...(node.url ? { url: node.url } : {}),
+          path: location,
+        });
       }
       if (node.kind === 'folder') walk(node.children, source, space, location);
     }
@@ -54,6 +76,140 @@ export function searchBookmarks(document, query) {
   walk(workspace.favorites, 'favorite', null);
   for (const space of workspace.spaces) walk(space.pinned, 'pin', space.name);
   return results;
+}
+
+export function treeBookmarks(document, spaceRef) {
+  const workspace = exportBookmarks(document, { includeIds: true });
+  if (spaceRef) {
+    const trimmed = spaceRef.trim();
+    const byId = workspace.spaces.find(s => s.id === trimmed);
+    const byName = workspace.spaces.filter(s => s.name === trimmed);
+    let target = byId;
+    if (!target) {
+      if (byName.length === 1) target = byName[0];
+      else if (byName.length > 1) {
+        const ids = byName.map(s => s.id).join(', ');
+        throw new CliError('AMBIGUOUS_SPACE', `Multiple Spaces named ${JSON.stringify(trimmed)} (candidate IDs: ${ids}); specify the Space ID instead.`);
+      } else {
+        throw new CliError('INVALID_SPACE', `Space not found: ${JSON.stringify(trimmed)}.`);
+      }
+    }
+    return {
+      space: { id: target.id, name: target.name, ...countNodes(target.pinned) },
+      nodes: target.pinned,
+    };
+  }
+  return {
+    favorites: workspace.favorites,
+    spaces: workspace.spaces.map(s => ({
+      id: s.id,
+      name: s.name,
+      ...countNodes(s.pinned),
+      nodes: s.pinned,
+    })),
+  };
+}
+
+function folderSignature(node) {
+  if (node.kind === 'pin') return `P:${node.title}\u0000${node.url}`;
+  return `F:${node.title}[${(node.children ?? []).map(folderSignature).join(',')}]`;
+}
+
+export function lintWorkspace({ favorites = [], spaces = [] }) {
+  const duplicateSpaces = [];
+  const spaceByName = new Map();
+  for (const s of spaces) {
+    const arr = spaceByName.get(s.name) ?? [];
+    arr.push(s.id ?? null);
+    spaceByName.set(s.name, arr);
+  }
+  for (const [name, ids] of spaceByName.entries()) {
+    if (ids.length > 1) duplicateSpaces.push({ name, count: ids.length, ids });
+  }
+
+  const duplicateFolders = [];
+  const emptyFolders = [];
+  const urlOccurrences = new Map();
+  const urlAsTitlePins = [];
+
+  const checkSiblings = (nodes, spaceName, parentPath) => {
+    const foldersByTitle = new Map();
+    for (const node of nodes ?? []) {
+      const nodePath = [...parentPath, node.title];
+      if (node.kind === 'folder') {
+        const list = foldersByTitle.get(node.title) ?? [];
+        list.push(node);
+        foldersByTitle.set(node.title, list);
+        if (!node.children || node.children.length === 0) {
+          emptyFolders.push({ id: node.id ?? null, space: spaceName, path: nodePath });
+        } else {
+          checkSiblings(node.children, spaceName, nodePath);
+        }
+      } else if (node.kind === 'pin' && node.url) {
+        const occ = urlOccurrences.get(node.url) ?? [];
+        occ.push({ id: node.id ?? null, space: spaceName, path: nodePath, title: node.title });
+        urlOccurrences.set(node.url, occ);
+        if (/^https?:\/\//i.test(node.title.trim())) {
+          const titleNorm = node.title.trim().replace(/\/+$/, '');
+          const urlNorm = node.url.trim().replace(/\/+$/, '');
+          urlAsTitlePins.push({
+            id: node.id ?? null,
+            space: spaceName,
+            path: nodePath,
+            title: node.title,
+            url: node.url,
+            mismatchedUrl: titleNorm !== urlNorm,
+          });
+        }
+      }
+    }
+    for (const [title, list] of foldersByTitle.entries()) {
+      if (list.length > 1) {
+        const sigs = new Set(list.map(folderSignature));
+        duplicateFolders.push({
+          space: spaceName,
+          parentPath,
+          title,
+          count: list.length,
+          ids: list.map(n => n.id ?? null),
+          identicalContent: sigs.size === 1,
+        });
+      }
+    }
+  };
+
+  checkSiblings(favorites, 'Favorites', []);
+  for (const s of spaces) {
+    checkSiblings(s.nodes ?? s.pinned ?? [], s.name, [s.name]);
+  }
+
+  const duplicateUrls = [];
+  for (const [url, occurrences] of urlOccurrences.entries()) {
+    if (occurrences.length > 1) {
+      duplicateUrls.push({ url, count: occurrences.length, occurrences });
+    }
+  }
+
+  return {
+    summary: {
+      duplicateSpaces: duplicateSpaces.length,
+      duplicateFolders: duplicateFolders.length,
+      duplicateUrls: duplicateUrls.length,
+      extraUrlCopies: duplicateUrls.reduce((sum, item) => sum + item.count - 1, 0),
+      emptyFolders: emptyFolders.length,
+      urlAsTitlePins: urlAsTitlePins.length,
+      mismatchedUrlTitlePins: urlAsTitlePins.filter(p => p.mismatchedUrl).length,
+    },
+    duplicateSpaces,
+    duplicateFolders,
+    duplicateUrls,
+    emptyFolders,
+    urlAsTitlePins,
+  };
+}
+
+export function lintBookmarks(document) {
+  return lintWorkspace(treeBookmarks(document));
 }
 
 // Chromium BookmarkCodec hashes ID (UTF-8), name (UTF-16LE), type, then URL/children.
@@ -76,7 +232,10 @@ export function addPinToDocument(document, { space, url, title, folder }) {
   if (!space?.trim()) throw new CliError('INVALID_SPACE', '--space is required.');
   const root = arclineRoot(document);
   const matches = (root.children ?? []).filter(n => n.type === 'folder' && n.name === space && n.name !== 'Favorites');
-  if (matches.length !== 1) throw new CliError('INVALID_SPACE', `Expected one existing Space named ${JSON.stringify(space)}; found ${matches.length}.`);
+  if (matches.length !== 1) {
+    const extra = matches.length > 1 ? ` (candidate IDs: ${matches.map(m => m.id).join(', ')})` : '';
+    throw new CliError('INVALID_SPACE', `Expected one existing Space named ${JSON.stringify(space)}; found ${matches.length}${extra}.`);
+  }
   let maxId = 0n;
   function scan(node) {
     if (/^\d+$/.test(String(node.id))) maxId = BigInt(node.id) > maxId ? BigInt(node.id) : maxId;

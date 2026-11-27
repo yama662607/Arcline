@@ -19,11 +19,16 @@ Use `--json` for agent calls. Success is `{ok:true,command,data,warnings}`; erro
 
 ```sh
 arcline spaces --browser brave --profile Default --json
-arcline search 'quantum materials' --browser brave --profile Default --limit 20 --json
+arcline spaces --live --json
+arcline tree --space Research --live --json
+arcline lint --live --json
+arcline search 'quantum materials' --browser brave --profile Default --include-ids --limit 20 --json
 arcline search 'paper' --browser brave --profile Default --history --limit 20 --json
-arcline export --browser brave --profile Default --json
+arcline export --browser brave --profile Default --include-ids --json
 arcline export --browser brave --profile Default --out /tmp/arcline-context.json --json
 ```
+
+Tip: set `ARCLINE_BROWSER=brave` and `ARCLINE_PROFILE=Default` in your shell to avoid repeating `--browser` / `--profile` when multiple browsers contain an Arcline root.
 
 - `spaces` returns Global Favorites and recursive link/folder counts per Space. Storage is `Other Bookmarks/Arcline/Favorites` plus sibling Space folders.
 - `search` matches a literal substring in titles, URLs, Space names and folder paths. It returns folder matches as well as links. Results preserve bookmark order, followed by recent history matches; `--limit` caps the combined result count. Use a focused query when history results would otherwise be displaced by bookmark matches.
@@ -54,17 +59,29 @@ arcline bridge status --json
 Once connected, use these live CRUD commands (all go through official `chrome.bookmarks` / `chrome.storage` APIs):
 
 ```sh
+# Inspect live IDs & lint duplicates
+arcline spaces --live --json
+arcline tree --live --json
+arcline tree --space <name|id> --live --json
+arcline lint --live --json
+
 # Spaces
 arcline space create --name Research --hue 220 --json
 arcline space rename --space Research --name Papers --json
+arcline space theme --space Papers --hue 180 --icon '📚' --json
+arcline space delete --space Papers --dry-run --json
 arcline space delete --space Papers --json
 
-# Pins & folders
+# Pins & folders (non-empty folder delete requires --recursive; use --dry-run to preview)
 arcline pin add --space Research --url 'https://example.com/paper' --title 'Paper' --folder 'Reading/Physics' --json
 arcline pin rename --id 42 --title 'Updated Title' --json
 arcline pin move --id 42 --space Work --folder 'Refs' --json
+arcline pin delete --id 42 --dry-run --json
 arcline pin delete --id 42 --json
 arcline folder create --space Research --title 'Archive' --parent 'Reading' --json
+arcline folder rename --id 43 --title 'Archived Papers' --json
+arcline folder delete --id 43 --dry-run --json
+arcline folder delete --id 43 --recursive --json
 
 # Favorites
 arcline favorite add --url 'https://github.com/' --title 'GitHub' --json

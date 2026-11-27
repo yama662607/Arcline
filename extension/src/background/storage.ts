@@ -53,12 +53,42 @@ async function setSession<T>(key: string, value: T): Promise<void> {
   await chrome.storage.session.set({ [key]: value });
 }
 
+async function getSync<T>(key: string, fallback: T): Promise<T> {
+  if (!chrome.storage?.sync?.get) return fallback;
+  try {
+    const res = await chrome.storage.sync.get(key);
+    return (res[key] as T | undefined) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function setSync<T>(key: string, value: T): Promise<void> {
+  if (!chrome.storage?.sync?.set) return;
+  try {
+    await chrome.storage.sync.set({ [key]: value });
+  } catch {
+    // Ignore sync quota/unavailable errors; local storage remains intact
+  }
+}
+
 export const storage = {
   getRootIds: () => getLocal<RootIds | undefined>(STORAGE_KEYS.root, undefined),
   setRootIds: (ids: RootIds) => setLocal(STORAGE_KEYS.root, ids),
 
-  getSpaceMeta: () => getLocal<Record<string, SpaceMeta>>(STORAGE_KEYS.spaceMeta, {}),
-  setSpaceMeta: (meta: Record<string, SpaceMeta>) => setLocal(STORAGE_KEYS.spaceMeta, meta),
+  getSpaceMeta: async (): Promise<Record<string, SpaceMeta>> => {
+    const [localMeta, syncMeta] = await Promise.all([
+      getLocal<Record<string, SpaceMeta>>(STORAGE_KEYS.spaceMeta, {}),
+      getSync<Record<string, SpaceMeta>>(STORAGE_KEYS.spaceMeta, {}),
+    ]);
+    return { ...localMeta, ...syncMeta };
+  },
+  setSpaceMeta: async (meta: Record<string, SpaceMeta>): Promise<void> => {
+    await Promise.all([
+      setLocal(STORAGE_KEYS.spaceMeta, meta),
+      setSync(STORAGE_KEYS.spaceMeta, meta),
+    ]);
+  },
 
   getOpenFolders: () => getLocal<string[]>(STORAGE_KEYS.openFolders, []),
   setOpenFolders: (ids: string[]) => setLocal(STORAGE_KEYS.openFolders, ids),

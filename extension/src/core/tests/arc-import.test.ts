@@ -111,6 +111,35 @@ describe('parseArcSidebar', () => {
     expect(() => parseArcSidebar({})).toThrow(ArcImportError);
   });
 
+  it('prefers readable savedTitle when Arc item.title is a raw URL', () => {
+    const raw = {
+      sidebar: {
+        containers: [
+          {
+            topAppsContainerIDs: [],
+            spaces: [{ id: 's1', title: 'Main', containerIDs: ['pinned', 'p-root'] }],
+            items: [
+              { id: 'p-root', childrenIds: ['p1'] },
+              {
+                id: 'p1',
+                title: 'https://recopay.page.link/abc',
+                data: {
+                  tab: { savedURL: 'https://scitan.net/typing', savedTitle: 'Scitan Typing' },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const res = parseArcSidebar(raw);
+    expect(res.spaces[0]?.pinned[0]).toEqual({
+      kind: 'pin',
+      title: 'Scitan Typing',
+      url: 'https://scitan.net/typing',
+    });
+  });
+
   it('rejects executable javascript: and data: pseudo-URLs during import', () => {
     const malicious = {
       sidebar: {

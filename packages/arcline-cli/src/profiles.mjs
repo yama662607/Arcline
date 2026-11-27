@@ -45,10 +45,18 @@ export function browserRoots({ platform = process.platform, home = os.homedir(),
   return browsers.flatMap(browser => roots[browser].map(userDataDir => ({ browser, userDataDir })));
 }
 
+export function withEnvProfileDefaults(options = {}, env = process.env) {
+  if (options.bookmarks) return options;
+  const browser = options.browser ?? (env.ARCLINE_BROWSER?.trim() || undefined);
+  const profile = options.profile ?? (env.ARCLINE_PROFILE?.trim() || undefined);
+  return { ...options, ...(browser ? { browser } : {}), ...(profile ? { profile } : {}) };
+}
+
 export function discoverProfiles(options = {}) {
+  const effective = options.roots ? options : withEnvProfileDefaults(options, options.env);
   const result = [];
-  for (const { browser, userDataDir } of options.roots ?? browserRoots(options)) {
-    if (options.browser && options.browser !== browser) continue;
+  for (const { browser, userDataDir } of effective.roots ?? browserRoots(effective)) {
+    if (effective.browser && effective.browser !== browser) continue;
     let cache = {};
     try { cache = readJson(path.join(userDataDir, 'Local State')).profile?.info_cache ?? {}; } catch { /* optional */ }
     const names = new Set(['Default', ...Object.keys(cache), ...directories(userDataDir)]);
@@ -58,7 +66,7 @@ export function discoverProfiles(options = {}) {
       const bookmarks = path.join(profileDir, 'Bookmarks');
       const history = path.join(profileDir, 'History');
       if (!fs.existsSync(bookmarks) && !fs.existsSync(history)) continue;
-      if (options.profile && options.profile !== profile) continue;
+      if (effective.profile && effective.profile !== profile) continue;
       result.push({ browser, profile, name: cache[profile]?.name ?? profile, userDataDir,
         profileDir, bookmarks, history, hasBookmarks: fs.existsSync(bookmarks), hasHistory: fs.existsSync(history) });
     }

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { sanitizeUrl, writeExport } from '../src/common.mjs';
-import { addPin, addPinToDocument, arclineRoot, bookmarkChecksum, exportBookmarks, listSpaces, searchBookmarks } from '../src/bookmarks.mjs';
+import { addPin, addPinToDocument, arclineRoot, bookmarkChecksum, exportBookmarks, lintBookmarks, listSpaces, searchBookmarks, treeBookmarks } from '../src/bookmarks.mjs';
 import { parseArcSidebar } from '../src/arc.mjs';
 import { arcSidebarPaths, browserRoots, browserRunning, discoverProfiles, selectProfile } from '../src/profiles.mjs';
 import { copyHistory, searchHistory } from '../src/history.mjs';
@@ -448,4 +448,69 @@ test('CLI combines bookmark matches and history with total limit', async t => {
   assert.equal(data.results.length, 4);
   assert.equal(data.results[0].source, 'pin');
   assert.ok(data.results.some(r => r.source === 'history'));
+});
+
+test('tree, lint, and --include-ids expose bookmark IDs and detect duplicates/empty/URL-title pins', () => {
+  const doc = fixture();
+  const root = arclineRoot(doc);
+  // Add duplicate Space, duplicate identical folder, duplicate URL, empty folder, and mismatched URL title
+  root.children.push(folder('200', 'Research', [
+    folder('201', 'Papers', [pin('202', 'Quantum paper', 'https://example.com/paper')]),
+    folder('203', 'Papers', [pin('204', 'Quantum paper', 'https://example.com/paper')]),
+    folder('205', 'EmptyDir', []),
+    pin('206', 'https://other.example/redirect', 'https://scitan.net/typing'),
+  ]));
+
+  const spacesWithIds = listSpaces(doc, { includeIds: true });
+  assert.equal(spacesWithIds.spaces[0].id, '7');
+  assert.equal(spacesWithIds.favorites[0].id, '6');
+
+  const searchWithIds = searchBookmarks(doc, 'Quantum', { includeIds: true });
+  assert.equal(searchWithIds[0].id, '9');
+
+  // Duplicate Space name error lists candidate IDs
+  assert.throws(() => treeBookmarks(doc, 'Research'), err => err.code === 'AMBIGUOUS_SPACE' && err.message.includes('7') && err.message.includes('200'));
+
+  const byId = treeBookmarks(doc, '200');
+  assert.equal(byId.space.id, '200');
+  assert.equal(byId.nodes[0].id, '201');
+
+  const report = lintBookmarks(doc);
+  assert.equal(report.summary.duplicateSpaces, 1);
+  assert.deepEqual(report.duplicateSpaces[0].ids, ['7', '200']);
+  assert.equal(report.summary.duplicateFolders, 1);
+  assert.equal(report.duplicateFolders[0].identicalContent, true);
+  assert.equal(report.summary.duplicateUrls, 1);
+  assert.equal(report.summary.emptyFolders, 1);
+  assert.equal(report.summary.urlAsTitlePins, 1);
+  assert.equal(report.summary.mismatchedUrlTitlePins, 1);
+});
+
+test('discoverProfiles respects ARCLINE_BROWSER and ARCLINE_PROFILE env defaults', t => {
+  const base = temporary(t);
+  const braveDefault = path.join(base, 'brave', 'Default');
+  const chromeDefault = path.join(base, 'chrome', 'Default');
+  fs.mkdirSync(braveDefault, { recursive: true });
+  fs.mkdirSync(chromeDefault, { recursive: true });
+  fs.writeFileSync(path.join(braveDefault, 'Bookmarks'), JSON.stringify(fixture()));
+  fs.writeFileSync(path.join(chromeDefault, 'Bookmarks'), JSON.stringify(fixture()));
+  const roots = [
+    { browser: 'brave', userDataDir: path.join(base, 'brave') },
+    { browser: 'chrome', userDataDir: path.join(base, 'chrome') },
+  ];
+  // Passing env via options
+  const prevBrowser = process.env.ARCLINE_BROWSER;
+  const prevProfile = process.env.ARCLINE_PROFILE;
+  process.env.ARCLINE_BROWSER = 'brave';
+  process.env.ARCLINE_PROFILE = 'Default';
+  try {
+    const selected = selectProfile({}, discoverProfiles({ roots, browser: process.env.ARCLINE_BROWSER, profile: process.env.ARCLINE_PROFILE }));
+    assert.equal(selected.browser, 'brave');
+    assert.equal(selected.profile, 'Default');
+  } finally {
+    if (prevBrowser === undefined) delete process.env.ARCLINE_BROWSER;
+    else process.env.ARCLINE_BROWSER = prevBrowser;
+    if (prevProfile === undefined) delete process.env.ARCLINE_PROFILE;
+    else process.env.ARCLINE_PROFILE = prevProfile;
+  }
 });

@@ -269,13 +269,35 @@ async function deleteBookmarkCascade(windowId: number, id: string): Promise<void
 }
 
 async function importNodesRecursive(parentId: string, nodes: ImportedNode[]): Promise<void> {
+  const existingChildren = await chrome.bookmarks.getChildren(parentId).catch(() => []);
+  const existingUrls = new Set(
+    existingChildren
+      .map((c) => c.url?.trim())
+      .filter((u): u is string => typeof u === 'string' && u.length > 0),
+  );
+  const existingFoldersByTitle = new Map<string, string>();
+  for (const child of existingChildren) {
+    if (child.url === undefined && !existingFoldersByTitle.has(child.title)) {
+      existingFoldersByTitle.set(child.title, child.id);
+    }
+  }
+
   for (const node of nodes) {
     if (node.kind === 'pin') {
       if (!isSafeNavigableUrl(node.url)) continue;
-      await chrome.bookmarks.create({ parentId, title: node.title, url: node.url.trim() });
+      const safeUrl = node.url.trim();
+      if (existingUrls.has(safeUrl)) continue;
+      existingUrls.add(safeUrl);
+      await chrome.bookmarks.create({ parentId, title: node.title, url: safeUrl });
     } else {
-      const folder = await chrome.bookmarks.create({ parentId, title: node.title });
-      await importNodesRecursive(folder.id, node.children);
+      const existingFolderId = existingFoldersByTitle.get(node.title);
+      if (existingFolderId) {
+        await importNodesRecursive(existingFolderId, node.children);
+      } else {
+        const folder = await chrome.bookmarks.create({ parentId, title: node.title });
+        existingFoldersByTitle.set(node.title, folder.id);
+        await importNodesRecursive(folder.id, node.children);
+      }
     }
   }
 }
@@ -1017,41 +1039,28 @@ export class Engine {
           });
         }
 
-        // 2. Import Spaces (merging into matching Space name if empty default, else creating)
+        // 2. Import Spaces idempotently (merging into existing Space with matching name, else creating)
         const nextMeta = { ...ctx.spaceMeta };
-        const existingNames = new Set(ctx.spaces.map((s) => s.title));
+        const existingByName = new Map<string, string>();
+        for (const s of ctx.spaces) {
+          if (!existingByName.has(s.title)) existingByName.set(s.title, s.id);
+        }
 
         for (const sp of cmd.data.spaces) {
-          let targetSpaceId: string | undefined;
-          const matchingExisting = ctx.spaces.find((s) => s.title === sp.name);
-          if (matchingExisting && (matchingExisting.children?.length ?? 0) === 0) {
-            targetSpaceId = matchingExisting.id;
-          } else {
-            const title = existingNames.has(sp.name)
-              ? uniqueName(sp.name, Array.from(existingNames))
-              : sp.name;
-            existingNames.add(title);
+          let targetSpaceId = existingByName.get(sp.name);
+          if (!targetSpaceId) {
             const created = await chrome.bookmarks.create({
               parentId: ctx.ids.rootId,
-              title,
+              title: sp.name,
             });
             targetSpaceId = created.id;
-            if (sp.hue !== undefined || sp.icon !== undefined || sp.theme !== undefined) {
-              nextMeta[title] = {
-                hue: sp.hue ?? nextMeta[title]?.hue ?? 235,
-                icon: sp.icon,
-                theme: sp.theme,
-              };
-            }
+            existingByName.set(sp.name, targetSpaceId);
           }
-          if (
-            (sp.hue !== undefined || sp.icon !== undefined || sp.theme !== undefined) &&
-            matchingExisting
-          ) {
-            nextMeta[matchingExisting.title] = {
-              hue: sp.hue ?? nextMeta[matchingExisting.title]?.hue ?? 235,
-              icon: sp.icon ?? nextMeta[matchingExisting.title]?.icon,
-              theme: sp.theme ?? nextMeta[matchingExisting.title]?.theme,
+          if (sp.hue !== undefined || sp.icon !== undefined || sp.theme !== undefined) {
+            nextMeta[sp.name] = {
+              hue: sp.hue ?? nextMeta[sp.name]?.hue ?? 235,
+              icon: sp.icon ?? nextMeta[sp.name]?.icon,
+              theme: sp.theme ?? nextMeta[sp.name]?.theme,
             };
           }
           await importNodesRecursive(targetSpaceId, sp.pinned);

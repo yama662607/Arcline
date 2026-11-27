@@ -42,9 +42,54 @@ async function resolveSpaceByIdOrName(spaceRef: string): Promise<BookmarkNode> {
   const byName = spaces.filter((s) => s.title === trimmed);
   if (byName.length === 1 && byName[0]) return byName[0];
   if (byName.length > 1) {
-    throw new Error(`Multiple Spaces named "${trimmed}"; specify the Space ID instead.`);
+    const candidateIds = byName.map((s) => s.id).join(', ');
+    throw new Error(
+      `Multiple Spaces named "${trimmed}" (candidate IDs: ${candidateIds}); specify the Space ID instead.`,
+    );
   }
   throw new Error(`Space not found: "${trimmed}"`);
+}
+
+interface TreeNodeDto {
+  id: string;
+  kind: 'pin' | 'folder';
+  title: string;
+  url?: string;
+  children?: TreeNodeDto[];
+}
+
+function toTreeDto(nodes: BookmarkNode[] | undefined): TreeNodeDto[] {
+  const out: TreeNodeDto[] = [];
+  for (const node of nodes ?? []) {
+    if (typeof node.url === 'string') {
+      out.push({ id: node.id, kind: 'pin', title: node.title || node.url, url: node.url });
+    } else {
+      out.push({
+        id: node.id,
+        kind: 'folder',
+        title: node.title || '',
+        children: toTreeDto(node.children),
+      });
+    }
+  }
+  return out;
+}
+
+async function resolveNodePath(id: string): Promise<string[]> {
+  const parts: string[] = [];
+  let cursor: string | undefined = id;
+  let guard = 0;
+  while (cursor && guard < 32) {
+    guard += 1;
+    const nodes: chrome.bookmarks.BookmarkTreeNode[] = await chrome.bookmarks
+      .get(cursor)
+      .catch(() => []);
+    const node = nodes[0];
+    if (!node) break;
+    if (node.title) parts.unshift(node.title);
+    cursor = node.parentId;
+  }
+  return parts;
 }
 
 async function ensureFolderPath(spaceNode: BookmarkNode, folderPath?: string): Promise<string> {
@@ -141,12 +186,61 @@ async function handleBridgeMethod(
       return { id: space.id, previousName: space.title, name };
     }
 
-    case 'space.delete': {
+    case 'space.tree': {
+      const spaceRef = typeof params.space === 'string' ? params.space.trim() : '';
+      if (spaceRef) {
+        const space = await resolveSpaceByIdOrName(spaceRef);
+        const counts = summarizeTree(space);
+        return {
+          space: { id: space.id, name: space.title, ...counts },
+          nodes: toTreeDto(space.children),
+        };
+      }
+      const { ids, root } = await loadRoot();
+      const favFolder = (root.children ?? []).find((c) => c.id === ids.favoritesId);
+      return {
+        favorites: toTreeDto(favFolder?.children),
+        spaces: spaceFolders(root, ids.favoritesId).map((s) => ({
+          id: s.id,
+          name: s.title,
+          ...summarizeTree(s),
+          nodes: toTreeDto(s.children),
+        })),
+      };
+    }
+
+    case 'space.theme': {
       const spaceRef = typeof params.space === 'string' ? params.space : '';
       const space = await resolveSpaceByIdOrName(spaceRef);
+      const hue =
+        typeof params.hue === 'number' && Number.isFinite(params.hue) ? params.hue : undefined;
+      const icon = typeof params.icon === 'string' ? params.icon : undefined;
+      await engine.run({ type: 'updateSpace', spaceId: space.id, hue, icon });
+      return {
+        id: space.id,
+        name: space.title,
+        ...(hue !== undefined ? { hue } : {}),
+        ...(icon !== undefined ? { icon } : {}),
+      };
+    }
+
+    case 'space.delete': {
+      const spaceRef = typeof params.space === 'string' ? params.space : '';
+      const dryRun = Boolean(params.dryRun);
+      const space = await resolveSpaceByIdOrName(spaceRef);
+      const counts = summarizeTree(space);
+      if (dryRun) {
+        return {
+          dryRun: true,
+          id: space.id,
+          name: space.title,
+          path: await resolveNodePath(space.id),
+          ...counts,
+        };
+      }
       const windowId = await resolveNormalWindowId();
       await engine.run({ type: 'deleteSpace', windowId, spaceId: space.id });
-      return { deleted: true, id: space.id, name: space.title };
+      return { deleted: true, id: space.id, name: space.title, ...counts };
     }
 
     case 'pin.add': {
@@ -197,10 +291,33 @@ async function handleBridgeMethod(
 
     case 'pin.delete': {
       const id = typeof params.id === 'string' ? params.id.trim() : '';
+      const dryRun = Boolean(params.dryRun);
+      const recursive = Boolean(params.recursive);
       if (!id) throw new Error('id is required.');
+      const [sub] = await chrome.bookmarks.getSubTree(id).catch(() => []);
+      if (!sub) throw new Error(`Bookmark not found: "${id}"`);
+      const isFolder = typeof sub.url !== 'string';
+      const counts = isFolder ? summarizeTree(sub) : { pins: 1, folders: 0 };
+      const nodePath = await resolveNodePath(id);
+      if (dryRun) {
+        return {
+          dryRun: true,
+          id,
+          kind: isFolder ? 'folder' : 'pin',
+          title: sub.title,
+          ...(sub.url ? { url: sub.url } : {}),
+          path: nodePath,
+          ...counts,
+        };
+      }
+      if (isFolder && (counts.pins > 0 || counts.folders > 0) && !recursive) {
+        throw new Error(
+          `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders). Pass --recursive to delete it and all contents, or --dry-run to preview.`,
+        );
+      }
       const windowId = await resolveNormalWindowId();
       await engine.run({ type: 'deleteBookmark', windowId, id });
-      return { deleted: true, id };
+      return { deleted: true, id, kind: isFolder ? 'folder' : 'pin', title: sub.title, ...counts };
     }
 
     case 'folder.create': {
@@ -212,6 +329,48 @@ async function handleBridgeMethod(
       const parentId = await ensureFolderPath(space, parent);
       const created = await chrome.bookmarks.create({ parentId, title });
       return { id: created.id, title: created.title, space: space.title, parent: parent ?? null };
+    }
+
+    case 'folder.rename': {
+      const id = typeof params.id === 'string' ? params.id.trim() : '';
+      const title = typeof params.title === 'string' ? params.title.trim() : '';
+      if (!id || !title) throw new Error('id and title are required.');
+      const [node] = await chrome.bookmarks.get(id).catch(() => []);
+      if (!node) throw new Error(`Folder not found: "${id}"`);
+      if (typeof node.url === 'string') {
+        throw new Error(`Bookmark "${id}" is a pin, not a folder. Use pin rename instead.`);
+      }
+      await engine.run({ type: 'renameBookmark', id, title });
+      return { id, previousTitle: node.title, title };
+    }
+
+    case 'folder.delete': {
+      const id = typeof params.id === 'string' ? params.id.trim() : '';
+      const dryRun = Boolean(params.dryRun);
+      const recursive = Boolean(params.recursive);
+      if (!id) throw new Error('id is required.');
+      const { ids } = await loadRoot();
+      if (id === ids.rootId || id === ids.favoritesId) {
+        throw new Error('Cannot delete the Arcline root or Favorites folder.');
+      }
+      const [sub] = await chrome.bookmarks.getSubTree(id).catch(() => []);
+      if (!sub) throw new Error(`Folder not found: "${id}"`);
+      if (typeof sub.url === 'string') {
+        throw new Error(`Bookmark "${id}" is a pin, not a folder. Use pin delete instead.`);
+      }
+      const counts = summarizeTree(sub);
+      const nodePath = await resolveNodePath(id);
+      if (dryRun) {
+        return { dryRun: true, id, title: sub.title, path: nodePath, ...counts };
+      }
+      if ((counts.pins > 0 || counts.folders > 0) && !recursive) {
+        throw new Error(
+          `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders). Pass --recursive to delete it and all contents, or --dry-run to preview.`,
+        );
+      }
+      const windowId = await resolveNormalWindowId();
+      await engine.run({ type: 'deleteBookmark', windowId, id });
+      return { deleted: true, id, title: sub.title, path: nodePath, ...counts };
     }
 
     case 'favorite.add': {

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { CliError, readJson, writeExport } from './common.mjs';
 import { arcSidebarPaths, browsers, discoverProfiles, hasArcline, selectProfile } from './profiles.mjs';
-import { addPin, arclineRoot, exportBookmarks, listSpaces, readBookmarks, searchBookmarks } from './bookmarks.mjs';
+import { addPin, arclineRoot, exportBookmarks, lintBookmarks, lintWorkspace, listSpaces, readBookmarks, searchBookmarks, treeBookmarks } from './bookmarks.mjs';
 import { parseArcSidebar } from './arc.mjs';
 import { bridgeStatus, callBridge, installBridge, uninstallBridge } from './bridge.mjs';
 import { searchHistory } from './history.mjs';
@@ -16,24 +16,33 @@ Usage: arcline <command> [subcommand] [options]
 
 Read & Navigation:
   doctor                         Inspect profiles, Arcline root, Arc file, extension build
-  spaces                         List Spaces, recursive pin/folder counts and Favorites
-  search <query> [--history]      Search Favorites, pinned links/folders, optionally History
-  export [--out <file>]           Export clean portable workspace JSON
+  spaces [--live] [--include-ids]
+                                 List Spaces, recursive pin/folder counts and Favorites
+  tree [--space <name|id>] [--live]
+                                 Show full recursive tree with bookmark IDs for every node
+  lint [--live]                  Detect duplicate Spaces/folders/URLs, empty folders, URL titles
+  search <query> [--history] [--include-ids]
+                                 Search Favorites, pinned links/folders, optionally History
+  export [--out <file>] [--include-ids]
+                                 Export clean portable workspace JSON
   import-arc [--file <path>] [--out <file>]
                                  Parse StorableSidebar.json; no browser mutation
-  open [url or search words]      Launch browser; no query opens its New Tab page
+  open [url or search words]     Launch browser; no query opens its New Tab page
 
 Live Editing (via Native Messaging bridge — Brave/Chrome stays open & Syncs cleanly!):
   bridge install [--browser brave|chrome] [--extension-id <id>]
   bridge status | uninstall [--browser brave|chrome]
   space create --name <name> [--hue <0-359>] [--icon <icon>]
   space rename --space <name|id> --name <newName>
-  space delete --space <name|id>
+  space theme --space <name|id> [--hue <0-359>] [--icon <icon>]
+  space delete --space <name|id> [--dry-run]
   pin add --space <name|id> --url <url> [--title <title>] [--folder <a/b>]
   pin rename --id <id> --title <title>
   pin move --id <id> --space <name|id> [--folder <a/b>] [--index <n>]
-  pin delete --id <id>
+  pin delete --id <id> [--recursive] [--dry-run]
   folder create --space <name|id> --title <title> [--parent <a/b>]
+  folder rename --id <id> --title <title>
+  folder delete --id <id> [--recursive] [--dry-run]
   favorite add --url <url> [--title <title>]
   favorite delete --id <id> | --url <url>
   site-search list
@@ -43,10 +52,10 @@ Live Editing (via Native Messaging bridge — Brave/Chrome stays open & Syncs cl
   site-search enable|disable --id <id|prefix>
   add-pin --space <name> --url <url> [--title <title>] [--folder <path>] [--force]
 
-Profile options (doctor/spaces/search/add-pin/export):
-  --browser brave|chrome|chromium|arc
-  --profile <directory>          Example: Default or 'Profile 1' (not display name)
-  --bookmarks <path>             Explicit Bookmarks file; History is its sibling
+Profile options (doctor/spaces/tree/lint/search/add-pin/export):
+  --browser brave|chrome|chromium|arc   (or env ARCLINE_BROWSER)
+  --profile <directory>                 (or env ARCLINE_PROFILE; e.g. Default)
+  --bookmarks <path>                    Explicit Bookmarks file; History is its sibling
 
 Common options:
   --json                        One {ok, command, data, warnings} object on stdout
@@ -58,16 +67,18 @@ const globalOptions = ['json', 'help', 'version'];
 const profileOptions = ['browser', 'profile', 'bookmarks'];
 const commandOptions = {
   doctor: [...profileOptions],
-  spaces: [...profileOptions],
-  search: [...profileOptions, 'history', 'limit'],
+  spaces: [...profileOptions, 'live', 'include-ids'],
+  tree: [...profileOptions, 'space', 'live'],
+  lint: [...profileOptions, 'live'],
+  search: [...profileOptions, 'history', 'limit', 'include-ids'],
   'add-pin': [...profileOptions, 'space', 'url', 'title', 'folder', 'force'],
-  export: [...profileOptions, 'out'],
+  export: [...profileOptions, 'out', 'include-ids'],
   'import-arc': ['file', 'out'],
   open: ['browser', 'profile'],
   bridge: ['browser', 'extension-id'],
-  space: ['space', 'name', 'hue', 'icon'],
-  pin: ['id', 'space', 'url', 'title', 'folder', 'index'],
-  folder: ['space', 'title', 'parent'],
+  space: ['space', 'name', 'hue', 'icon', 'dry-run'],
+  pin: ['id', 'space', 'url', 'title', 'folder', 'index', 'recursive', 'dry-run'],
+  folder: ['id', 'space', 'title', 'parent', 'recursive', 'dry-run'],
   favorite: ['id', 'url', 'title'],
   'site-search': ['id', 'prefix', 'new-prefix', 'label', 'url', 'accent'],
 };
@@ -80,7 +91,9 @@ export function parseCli(argv) {
     'extension-id', 'name', 'hue', 'icon', 'id', 'index', 'parent', 'prefix', 'new-prefix', 'label', 'accent',
   ];
   const options = Object.fromEntries(stringOpts.map(name => [name, { type: 'string' }]));
-  for (const name of ['json', 'history', 'force', 'version']) options[name] = { type: 'boolean' };
+  for (const name of ['json', 'history', 'force', 'version', 'live', 'include-ids', 'dry-run', 'recursive']) {
+    options[name] = { type: 'boolean' };
+  }
   options.help = { type: 'boolean', short: 'h' };
   let parsed;
   try { parsed = parseArgs({ args: argv, options, allowPositionals: true, strict: true }); }
@@ -189,11 +202,19 @@ export async function execute({ command, options, args }) {
       if (!options.space || !options.name) throw new CliError('INVALID_ARGUMENT', 'space rename requires --space and --name.');
       return { data: await callBridge('space.rename', { space: options.space, name: options.name }), warnings };
     }
+    if (sub === 'theme') {
+      if (!options.space) throw new CliError('INVALID_ARGUMENT', 'space theme requires --space.');
+      const hue = options.hue !== undefined ? Number(options.hue) : undefined;
+      if (hue === undefined && options.icon === undefined) {
+        throw new CliError('INVALID_ARGUMENT', 'space theme requires --hue and/or --icon.');
+      }
+      return { data: await callBridge('space.theme', { space: options.space, ...(Number.isFinite(hue) ? { hue } : {}), ...(options.icon !== undefined ? { icon: options.icon } : {}) }), warnings };
+    }
     if (sub === 'delete') {
       if (!options.space) throw new CliError('INVALID_ARGUMENT', 'space delete requires --space.');
-      return { data: await callBridge('space.delete', { space: options.space }), warnings };
+      return { data: await callBridge('space.delete', { space: options.space, dryRun: Boolean(options['dry-run']) }), warnings };
     }
-    throw new CliError('INVALID_ARGUMENT', `Unknown space subcommand: ${sub}. Use create, rename, or delete.`);
+    throw new CliError('INVALID_ARGUMENT', `Unknown space subcommand: ${sub}. Use create, rename, theme, or delete.`);
   }
   if (command === 'pin') {
     const sub = args[0];
@@ -212,7 +233,7 @@ export async function execute({ command, options, args }) {
     }
     if (sub === 'delete') {
       if (!options.id) throw new CliError('INVALID_ARGUMENT', 'pin delete requires --id.');
-      return { data: await callBridge('pin.delete', { id: options.id }), warnings };
+      return { data: await callBridge('pin.delete', { id: options.id, recursive: Boolean(options.recursive), dryRun: Boolean(options['dry-run']) }), warnings };
     }
     throw new CliError('INVALID_ARGUMENT', `Unknown pin subcommand: ${sub}. Use add, rename, move, or delete.`);
   }
@@ -222,7 +243,15 @@ export async function execute({ command, options, args }) {
       if (!options.space || !options.title) throw new CliError('INVALID_ARGUMENT', 'folder create requires --space and --title.');
       return { data: await callBridge('folder.create', { space: options.space, title: options.title, parent: options.parent }), warnings };
     }
-    throw new CliError('INVALID_ARGUMENT', `Unknown folder subcommand: ${sub}. Use create.`);
+    if (sub === 'rename') {
+      if (!options.id || !options.title) throw new CliError('INVALID_ARGUMENT', 'folder rename requires --id and --title.');
+      return { data: await callBridge('folder.rename', { id: options.id, title: options.title }), warnings };
+    }
+    if (sub === 'delete') {
+      if (!options.id) throw new CliError('INVALID_ARGUMENT', 'folder delete requires --id.');
+      return { data: await callBridge('folder.delete', { id: options.id, recursive: Boolean(options.recursive), dryRun: Boolean(options['dry-run']) }), warnings };
+    }
+    throw new CliError('INVALID_ARGUMENT', `Unknown folder subcommand: ${sub}. Use create, rename, or delete.`);
   }
   if (command === 'favorite') {
     const sub = args[0];
@@ -265,6 +294,18 @@ export async function execute({ command, options, args }) {
     const out = options.out ? writeExport(options.out, document) : undefined;
     return { data: document, warnings, ...(out ? { out } : {}) };
   }
+  if (command === 'spaces' && options.live) {
+    const live = await callBridge('spaces.list');
+    return { data: { ...live, via: 'bridge' }, warnings };
+  }
+  if (command === 'tree' && options.live) {
+    const live = await callBridge('space.tree', options.space ? { space: options.space } : {});
+    return { data: { ...live, via: 'bridge' }, warnings };
+  }
+  if (command === 'lint' && options.live) {
+    const liveTree = await callBridge('space.tree');
+    return { data: { ...lintWorkspace(liveTree), via: 'bridge' }, warnings };
+  }
   const profile = selectProfile(options);
   if (command === 'add-pin') {
     // Prefer live Native Messaging bridge when connected (safe while browser is running & Syncs cleanly!)
@@ -283,11 +324,12 @@ export async function execute({ command, options, args }) {
     const { warnings: writeWarnings, ...data } = addPin(profile, options);
     return { data, warnings: writeWarnings };
   }
+  const includeIds = Boolean(options['include-ids']);
   if (command === 'search') {
     const query = args.join(' ');
     const limit = Number(options.limit ?? 20);
     let results = [];
-    try { results = searchBookmarks(readBookmarks(profile), query); }
+    try { results = searchBookmarks(readBookmarks(profile), query, { includeIds }); }
     catch (error) { if (!options.history) throw error; warnings.push(error.message); }
     let history = { requested: Boolean(options.history), searched: false, days: 30 };
     if (options.history) {
@@ -300,8 +342,10 @@ export async function execute({ command, options, args }) {
     return { data: { query, limit, results: results.slice(0, limit), history }, warnings };
   }
   const bookmarks = readBookmarks(profile);
-  if (command === 'spaces') return { data: listSpaces(bookmarks), warnings };
-  const document = exportBookmarks(bookmarks);
+  if (command === 'spaces') return { data: listSpaces(bookmarks, { includeIds }), warnings };
+  if (command === 'tree') return { data: treeBookmarks(bookmarks, options.space), warnings };
+  if (command === 'lint') return { data: lintBookmarks(bookmarks), warnings };
+  const document = exportBookmarks(bookmarks, { includeIds });
   const out = options.out ? writeExport(options.out, document) : undefined;
   return { data: document, warnings, ...(out ? { out } : {}) };
 }
@@ -310,11 +354,14 @@ function human(command, result) {
   const data = result.data;
   if (command === 'help') return help;
   if (command === 'version') return data.version;
-  if (command === 'spaces') return [
-    `Global Favorites: ${data.favoriteCounts.pins} links, ${data.favoriteCounts.folders} folders`,
-    ...data.favorites.map(node => `  ${node.title}${node.url ? ` — ${node.url}` : ' (folder)'}`),
-    ...data.spaces.map(space => `${space.name}: ${space.pins} pins, ${space.folders} folders`),
-  ].join('\n');
+  if (command === 'spaces') {
+    const favCount = data.favoriteCounts ? `${data.favoriteCounts.pins} links, ${data.favoriteCounts.folders} folders` : `${data.favorites.length} links`;
+    return [
+      `Global Favorites: ${favCount}`,
+      ...data.favorites.map(node => `  ${node.id ? `[${node.id}] ` : ''}${node.title}${node.url ? ` — ${node.url}` : ' (folder)'}`),
+      ...data.spaces.map(space => `${space.id ? `[${space.id}] ` : ''}${space.name}: ${space.pins} pins, ${space.folders} folders`),
+    ].join('\n');
+  }
   if (command === 'search') return data.results.length ? data.results.map(item => `[${item.source}${item.space ? ` / ${item.space}` : ''}] ${item.title}${item.url ? `\n  ${item.url}` : ' (folder)'}`).join('\n') : 'No matches.';
   if (command === 'open') return `Opened ${data.browser}: ${data.url}`;
   if (command === 'add-pin') return `Added ${data.pin.title} to ${data.space}.\nBackup: ${data.backup}`;
