@@ -441,6 +441,78 @@ test.describe('Sidebar workflows, Arc import, context menu geometry & themes', (
     await expect(page.getByTestId('onboarding-command-input')).toHaveValue('gh ');
     expect(errors).toEqual([]);
   });
+
+  test('Cmd+T respects popup vs newtab mode, eliminates Brave Customize bar, and closes on Escape', async ({
+    arcline,
+  }) => {
+    const tabA = await arcline.context.newPage();
+    await tabA.goto(`${arcline.serverUrl}/page/cmd-t-host`);
+    await expect
+      .poll(() => tabA.evaluate(() => Boolean(document.getElementById('arcline-overlay-host'))))
+      .toBe(true);
+
+    // 1. Popup mode: New Tab (Cmd+T) pops up transparent modal directly over tabA (never opens empty-space tab)
+    await arcline.setSettings({ commandBarOpenMode: 'popup' });
+    await tabA.waitForTimeout(120);
+    await arcline.worker.evaluate(async () => {
+      await chrome.tabs.create({ active: true });
+    });
+
+    const modalIframe = tabA.locator('#arcline-overlay-host iframe[title="Arcline Command Bar"]');
+    await expect(modalIframe).toBeVisible({ timeout: 5000 });
+    const modalFrame = tabA.frameLocator(
+      '#arcline-overlay-host iframe[title="Arcline Command Bar"]',
+    );
+    await expect(modalFrame.locator('[data-arcline-command-mode="modal"]')).toBeVisible();
+    // Modal root background must remain transparent so the active webpage shows directly behind it
+    const modalBg = await modalFrame
+      .locator('[data-arcline-empty-space="true"]')
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(modalBg).toBe('rgba(0, 0, 0, 0)');
+    // Press Escape to dismiss popup modal back to tabA
+    const modalInput = modalFrame.locator('input').first();
+    await expect(modalInput).toBeVisible();
+    await modalInput.press('Escape');
+    await expect(modalIframe).toHaveCount(0);
+
+    // 2. Newtab mode: New Tab (Cmd+T) opens empty-space.html?commandBar=1 (NEVER chrome://newtab / brave://newtab,
+    //    which eliminates Chromium/Brave's bottom "Arcline | Customize" bar) and closes tab on Escape!
+    await arcline.setSettings({ commandBarOpenMode: 'newtab' });
+    await tabA.waitForTimeout(120);
+    const tabsBefore = await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length);
+    await arcline.worker.evaluate(async () => {
+      await chrome.tabs.create({ active: true });
+    });
+
+    // Active tab URL must redirect off chrome://newtab / brave://newtab to our extension URL
+    let newTabUrl = '';
+    await expect
+      .poll(async () => {
+        const active = await arcline.worker.evaluate(async () => {
+          const [t] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          return t?.url ?? '';
+        });
+        newTabUrl = active;
+        return active;
+      })
+      .toContain(`chrome-extension://${arcline.extensionId}/empty-space.html?commandBar=1`);
+    expect(newTabUrl).not.toMatch(/^(?:chrome|brave):\/\/newtab/i);
+
+    const newTabPage = arcline.context
+      .pages()
+      .find((p) => p.url().includes('/empty-space.html?commandBar=1'));
+    expect(newTabPage).toBeTruthy();
+    await expect(newTabPage!.locator('[data-arcline-command-mode="page"]')).toBeVisible();
+    await expect(newTabPage!.locator('[data-arcline-command-bar="true"]')).toBeVisible();
+
+    // Pressing Escape on the empty New Tab closes it and returns to tabA!
+    const newTabInput = newTabPage!.locator('input').first();
+    await expect(newTabInput).toBeVisible();
+    await newTabInput.press('Escape');
+    await expect
+      .poll(async () => (await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length)))
+      .toBe(tabsBefore);
+  });
 });
 
 async function pageWaitForTheme(panel: import('@playwright/test').Page, expected: 'light' | 'dark') {
