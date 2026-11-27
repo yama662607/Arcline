@@ -46,27 +46,39 @@ export function writeBridgeLauncher({
   return launcherPath;
 }
 
-export function nativeHostManifestPath(browser = 'brave') {
+export function nativeHostManifestPaths(browser = 'brave') {
   const home = os.homedir();
   if (process.platform === 'darwin') {
+    const bravePath = path.join(home, 'Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`);
+    const chromePath = path.join(home, 'Library/Application Support/Google/Chrome/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`);
+    const chromiumPath = path.join(home, 'Library/Application Support/Chromium/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`);
     const map = {
-      brave: path.join(home, 'Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`),
-      chrome: path.join(home, 'Library/Application Support/Google/Chrome/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`),
-      chromium: path.join(home, 'Library/Application Support/Chromium/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`),
+      // macOS Brave Browser resolves NativeMessagingHosts from Google/Chrome/NativeMessagingHosts
+      // (inherited from Chromium/Brave branding); write both paths so all Brave builds find it.
+      brave: [chromePath, bravePath],
+      chrome: [chromePath],
+      chromium: [chromiumPath],
     };
     if (!map[browser]) throw new CliError('INVALID_BROWSER', `Native bridge is not supported for browser: ${browser}`);
     return map[browser];
   }
   if (process.platform === 'linux') {
+    const bravePath = path.join(home, '.config/BraveSoftware/Brave-Browser/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`);
+    const chromePath = path.join(home, '.config/google-chrome/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`);
+    const chromiumPath = path.join(home, '.config/chromium/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`);
     const map = {
-      brave: path.join(home, '.config/BraveSoftware/Brave-Browser/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`),
-      chrome: path.join(home, '.config/google-chrome/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`),
-      chromium: path.join(home, '.config/chromium/NativeMessagingHosts', `${BRIDGE_HOST_NAME}.json`),
+      brave: [bravePath, chromePath],
+      chrome: [chromePath],
+      chromium: [chromiumPath],
     };
     if (!map[browser]) throw new CliError('INVALID_BROWSER', `Native bridge is not supported for browser: ${browser}`);
     return map[browser];
   }
   throw new CliError('UNSUPPORTED_PLATFORM', `Native bridge install currently supports macOS and Linux (got ${process.platform}).`);
+}
+
+export function nativeHostManifestPath(browser = 'brave') {
+  return nativeHostManifestPaths(browser)[0];
 }
 
 function browserDataDir(browser) {
@@ -126,8 +138,7 @@ export function installBridge({ browser = 'brave', extensionId } = {}) {
   }
   try { fs.chmodSync(hostScriptPath, 0o755); } catch { /* ignore */ }
   const hostPath = writeBridgeLauncher({ hostScriptPath });
-  const manifestPath = nativeHostManifestPath(browser);
-  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+  const manifestPaths = nativeHostManifestPaths(browser);
   const ids = new Set(detectArclineExtensionIds(browser));
   if (extensionId) {
     if (!/^[a-p]{32}$/.test(extensionId.trim())) {
@@ -142,10 +153,14 @@ export function installBridge({ browser = 'brave', extensionId } = {}) {
     type: 'stdio',
     allowed_origins: [...ids].map((id) => `chrome-extension://${id}/`),
   };
-  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o644 });
+  for (const manifestPath of manifestPaths) {
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o644 });
+  }
   return {
     browser,
-    manifestPath,
+    manifestPath: manifestPaths[0],
+    manifestPaths,
     hostPath,
     hostScriptPath,
     nodeExecPath: process.execPath,
@@ -155,10 +170,15 @@ export function installBridge({ browser = 'brave', extensionId } = {}) {
 }
 
 export function uninstallBridge({ browser = 'brave' } = {}) {
-  const manifestPath = nativeHostManifestPath(browser);
-  const existed = fs.existsSync(manifestPath);
-  if (existed) fs.unlinkSync(manifestPath);
-  return { browser, manifestPath, removed: existed };
+  const manifestPaths = nativeHostManifestPaths(browser);
+  const removedPaths = [];
+  for (const manifestPath of manifestPaths) {
+    if (fs.existsSync(manifestPath)) {
+      fs.unlinkSync(manifestPath);
+      removedPaths.push(manifestPath);
+    }
+  }
+  return { browser, manifestPath: manifestPaths[0], removedPaths, removed: removedPaths.length > 0 };
 }
 
 export function callBridge(method, params = {}, { timeoutMs = 8000 } = {}) {
