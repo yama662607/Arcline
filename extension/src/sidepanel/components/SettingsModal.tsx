@@ -932,7 +932,7 @@ export function SettingsModal({
                       {t('settings.brave.step3Pre')}
                       <code>brave://</code>
                       {t('settings.brave.step3Mid')}
-                      <code>Ctrl+B</code> {t('settings.brave.step3Post')}
+                      <code>⌃⇧B</code> {t('settings.brave.step3Post')}
                     </li>
                   </ol>
                 </div>

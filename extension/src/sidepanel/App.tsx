@@ -1167,7 +1167,7 @@ export function App() {
         id: 'pin',
         label: t('sidebar.menu.pinToSpace', { name: activeSpace.name }),
         icon: <Pin size={13.5} />,
-        shortcut: '⌃D',
+        shortcut: '⌃⇧D',
         onSelect: () => {
           void runCmd({
             type: 'pinTab',

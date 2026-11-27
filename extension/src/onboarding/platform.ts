@@ -44,9 +44,9 @@ export function commandBarKeys(mac: boolean): string[] {
   return mac ? ['⌘', '⇧', 'K'] : ['Alt', 'Shift', 'K'];
 }
 
-/** Key caps for the sidebar toggle (manifest: Alt+Shift+B, macOS: Control+B — avoids Brave Cmd+B Leo AI). */
+/** Key caps for the sidebar toggle (manifest: Alt+Shift+B, macOS: Control+Shift+B — avoids macOS Ctrl+B and Brave Cmd+B). */
 export function toggleSidebarKeys(mac: boolean): string[] {
-  return mac ? ['⌃', 'B'] : ['Alt', 'Shift', 'B'];
+  return mac ? ['⌃', '⇧', 'B'] : ['Alt', 'Shift', 'B'];
 }
 
 export async function detectBrave(): Promise<boolean> {

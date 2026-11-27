@@ -145,7 +145,8 @@ export const settingsEn = {
   'settings.shortcuts.notSet': 'Not set',
   'settings.shortcuts.openCommandBar': 'Open Command Bar',
   'settings.shortcuts.toggleSidebar': 'Open / close the sidebar',
-  'settings.shortcuts.toggleSidebarNote': 'macOS: Control+B (not ⌘B) · Windows/Linux: Alt+Shift+B',
+  'settings.shortcuts.toggleSidebarNote':
+    'macOS: Control+Shift+B (avoids ⌃B / ⌘B) · Windows/Linux: Alt+Shift+B',
   'settings.shortcuts.nextSpace': 'Next Space',
   'settings.shortcuts.previousSpace': 'Previous Space',
   'settings.shortcuts.switchSpace': 'Switch to the previous / next Space',
@@ -331,7 +332,7 @@ export const settingsJa: Record<keyof typeof settingsEn, string> = {
   'settings.shortcuts.openCommandBar': 'コマンドバーを開く',
   'settings.shortcuts.toggleSidebar': 'サイドバーを開く / 閉じる',
   'settings.shortcuts.toggleSidebarNote':
-    'macOS: Control+B（⌘B ではありません）· Win/Linux: Alt+Shift+B',
+    'macOS: Control+Shift+B（⌃B / ⌘B と競合しません）· Win/Linux: Alt+Shift+B',
   'settings.shortcuts.nextSpace': '次の Space へ移動',
   'settings.shortcuts.previousSpace': '前の Space へ移動',
   'settings.shortcuts.switchSpace': '前後の Space へ切替',

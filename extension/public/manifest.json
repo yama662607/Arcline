@@ -69,28 +69,28 @@
     "toggle-sidebar": {
       "suggested_key": {
         "default": "Alt+Shift+B",
-        "mac": "MacCtrl+B"
+        "mac": "MacCtrl+Shift+B"
       },
       "description": "__MSG_cmdToggleSidebar__"
     },
     "next-space": {
       "suggested_key": {
         "default": "Alt+Shift+Right",
-        "mac": "MacCtrl+Right"
+        "mac": "MacCtrl+Shift+Right"
       },
       "description": "__MSG_cmdNextSpace__"
     },
     "previous-space": {
       "suggested_key": {
         "default": "Alt+Shift+Left",
-        "mac": "MacCtrl+Left"
+        "mac": "MacCtrl+Shift+Left"
       },
       "description": "__MSG_cmdPreviousSpace__"
     },
     "toggle-pin": {
       "suggested_key": {
         "default": "Alt+Shift+D",
-        "mac": "MacCtrl+D"
+        "mac": "MacCtrl+Shift+D"
       },
       "description": "__MSG_cmdTogglePin__"
     },

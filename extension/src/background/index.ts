@@ -62,8 +62,8 @@ function updateActionHintForTab(tabId: number, url?: string): void {
     .setTitle({
       tabId,
       title: capable
-        ? 'Open Arcline Side Panel (Ctrl+B)'
-        : 'Arcline — Press Ctrl+B or click to open Side Panel on internal pages',
+        ? 'Open Arcline Side Panel (⌃⇧B / Alt+Shift+B)'
+        : 'Arcline — Press ⌃⇧B (Alt+Shift+B) or click to open Side Panel on internal pages',
     })
     .catch(() => undefined);
 }
