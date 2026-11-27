@@ -478,6 +478,7 @@ test('tree, lint, and --include-ids expose bookmark IDs and detect duplicates/em
   const report = lintBookmarks(doc);
   assert.equal(report.summary.duplicateSpaces, 1);
   assert.deepEqual(report.duplicateSpaces[0].ids, ['7', '200']);
+  assert.equal(report.duplicateSpaces[0].identicalContent, false);
   assert.equal(report.summary.duplicateFolders, 1);
   assert.equal(report.duplicateFolders[0].identicalContent, true);
   assert.equal(report.summary.duplicateUrls, 1);

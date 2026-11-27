@@ -1,5 +1,8 @@
+import { SPACE_META_ID_PREFIX } from '../core/colors';
 import { completeSettings } from '../core/settings';
 import type { ArchivedTab, Settings, SpaceMeta, TabBinding } from '../core/types';
+
+export const SPACE_META_SYNC_PREFIX = 'arcline:sm:';
 
 export const ROOT_TITLE = 'Arcline';
 export const FAVORITES_TITLE = 'Favorites';
@@ -53,22 +56,59 @@ async function setSession<T>(key: string, value: T): Promise<void> {
   await chrome.storage.session.set({ [key]: value });
 }
 
-async function getSync<T>(key: string, fallback: T): Promise<T> {
-  if (!chrome.storage?.sync?.get) return fallback;
+async function getAllSyncSpaceMeta(): Promise<Record<string, SpaceMeta>> {
+  if (!chrome.storage?.sync?.get) return {};
   try {
-    const res = await chrome.storage.sync.get(key);
-    return (res[key] as T | undefined) ?? fallback;
-  } catch {
-    return fallback;
+    const all = await chrome.storage.sync.get(null);
+    const merged: Record<string, SpaceMeta> = {};
+    // Legacy single-key fallback if present on older installs
+    const legacy = all[STORAGE_KEYS.spaceMeta];
+    if (legacy && typeof legacy === 'object') {
+      Object.assign(merged, legacy as Record<string, SpaceMeta>);
+    }
+    // Per-Space keys (avoids 8KB QUOTA_BYTES_PER_ITEM limit)
+    for (const [key, val] of Object.entries(all)) {
+      if (key.startsWith(SPACE_META_SYNC_PREFIX) && val && typeof val === 'object') {
+        const spaceName = key.slice(SPACE_META_SYNC_PREFIX.length);
+        if (spaceName) merged[spaceName] = val as SpaceMeta;
+      }
+    }
+    return merged;
+  } catch (err) {
+    console.warn('[Arcline] chrome.storage.sync read failed', err);
+    return {};
   }
 }
 
-async function setSync<T>(key: string, value: T): Promise<void> {
+async function writeSyncSpaceMeta(meta: Record<string, SpaceMeta>): Promise<void> {
   if (!chrome.storage?.sync?.set) return;
   try {
-    await chrome.storage.sync.set({ [key]: value });
-  } catch {
-    // Ignore sync quota/unavailable errors; local storage remains intact
+    const existing = await chrome.storage.sync.get(null);
+    const toSet: Record<string, SpaceMeta> = {};
+    const keepKeys = new Set<string>();
+    for (const [k, v] of Object.entries(meta)) {
+      // Never sync device-local bookmark folder IDs (`id:...`); sync portable Space name keys only
+      if (k.startsWith(SPACE_META_ID_PREFIX) || !v) continue;
+      const syncKey = `${SPACE_META_SYNC_PREFIX}${k}`;
+      keepKeys.add(syncKey);
+      toSet[syncKey] = v;
+    }
+    const toRemove: string[] = [];
+    for (const key of Object.keys(existing)) {
+      if (key === STORAGE_KEYS.spaceMeta) {
+        toRemove.push(key);
+      } else if (key.startsWith(SPACE_META_SYNC_PREFIX) && !keepKeys.has(key)) {
+        toRemove.push(key);
+      }
+    }
+    if (Object.keys(toSet).length > 0) {
+      await chrome.storage.sync.set(toSet);
+    }
+    if (toRemove.length > 0 && chrome.storage.sync.remove) {
+      await chrome.storage.sync.remove(toRemove);
+    }
+  } catch (err) {
+    console.warn('[Arcline] chrome.storage.sync write failed (local meta preserved)', err);
   }
 }
 
@@ -79,15 +119,38 @@ export const storage = {
   getSpaceMeta: async (): Promise<Record<string, SpaceMeta>> => {
     const [localMeta, syncMeta] = await Promise.all([
       getLocal<Record<string, SpaceMeta>>(STORAGE_KEYS.spaceMeta, {}),
-      getSync<Record<string, SpaceMeta>>(STORAGE_KEYS.spaceMeta, {}),
+      getAllSyncSpaceMeta(),
     ]);
-    return { ...localMeta, ...syncMeta };
+    // Synced portable Space name keys override stale local name keys, while device-local `id:` overrides stay intact
+    const merged: Record<string, SpaceMeta> = { ...localMeta, ...syncMeta };
+    for (const [k, v] of Object.entries(localMeta)) {
+      if (k.startsWith(SPACE_META_ID_PREFIX)) merged[k] = v;
+    }
+    return merged;
   },
   setSpaceMeta: async (meta: Record<string, SpaceMeta>): Promise<void> => {
-    await Promise.all([
-      setLocal(STORAGE_KEYS.spaceMeta, meta),
-      setSync(STORAGE_KEYS.spaceMeta, meta),
+    await Promise.all([setLocal(STORAGE_KEYS.spaceMeta, meta), writeSyncSpaceMeta(meta)]);
+  },
+  migrateSpaceMetaToSync: async (): Promise<void> => {
+    if (!chrome.storage?.sync?.get || !chrome.storage?.sync?.set) return;
+    const [localMeta, syncMeta] = await Promise.all([
+      getLocal<Record<string, SpaceMeta>>(STORAGE_KEYS.spaceMeta, {}),
+      getAllSyncSpaceMeta(),
     ]);
+    const toBackfill: Record<string, SpaceMeta> = {};
+    for (const [k, v] of Object.entries(localMeta)) {
+      if (k.startsWith(SPACE_META_ID_PREFIX) || !v) continue;
+      if (!(k in syncMeta)) {
+        toBackfill[`${SPACE_META_SYNC_PREFIX}${k}`] = v;
+      }
+    }
+    if (Object.keys(toBackfill).length > 0) {
+      try {
+        await chrome.storage.sync.set(toBackfill);
+      } catch (err) {
+        console.warn('[Arcline] chrome.storage.sync backfill failed', err);
+      }
+    }
   },
 
   getOpenFolders: () => getLocal<string[]>(STORAGE_KEYS.openFolders, []),

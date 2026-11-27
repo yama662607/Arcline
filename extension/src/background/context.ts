@@ -60,7 +60,7 @@ export function findSpace(ctx: WindowContext, spaceId: string): BookmarkNode | u
 export function hueOf(ctx: WindowContext, spaceId: string): number {
   const idx = ctx.spaces.findIndex((s) => s.id === spaceId);
   const space = idx >= 0 ? ctx.spaces[idx] : undefined;
-  return spaceHue(ctx.spaceMeta, space?.title ?? '', Math.max(0, idx));
+  return spaceHue(ctx.spaceMeta, space?.title ?? '', Math.max(0, idx), space?.id ?? spaceId);
 }
 
 export function groupSpaceOf(ctx: WindowContext, groupId: number): string | undefined {

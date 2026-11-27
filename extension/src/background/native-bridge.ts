@@ -1,3 +1,4 @@
+import { resolveSpaceMeta, spaceHue } from '../core/colors';
 import { SITE_SEARCHES } from '../core/command-bar';
 import { sanitizeCustomSiteSearch } from '../core/settings';
 import { findFavoriteUrlMatch } from '../core/shortcut-keys';
@@ -150,14 +151,18 @@ async function handleBridgeMethod(
       const favorites = (favFolder?.children ?? [])
         .filter((c): c is BookmarkNode & { url: string } => typeof c.url === 'string')
         .map((c) => ({ id: c.id, title: c.title, url: c.url }));
-      const spaces = spaceFolders(root, ids.favoritesId).map((s) => {
+      const spaces = spaceFolders(root, ids.favoritesId).map((s, idx) => {
         const counts = summarizeTree(s);
-        const meta = spaceMeta[s.title];
+        const meta = resolveSpaceMeta(spaceMeta, s.title, s.id);
         return {
           id: s.id,
           name: s.title,
-          hue: meta?.hue ?? null,
+          hue: spaceHue(spaceMeta, s.title, idx, s.id),
+          customHue: meta?.hue ?? null,
           icon: meta?.icon ?? null,
+          hasCustomTheme: Boolean(
+            meta && (meta.hue !== undefined || meta.icon !== undefined || meta.theme !== undefined),
+          ),
           pins: counts.pins,
           folders: counts.folders,
         };
@@ -299,6 +304,7 @@ async function handleBridgeMethod(
       const isFolder = typeof sub.url !== 'string';
       const counts = isFolder ? summarizeTree(sub) : { pins: 1, folders: 0 };
       const nodePath = await resolveNodePath(id);
+      const requiresRecursive = isFolder && (counts.pins > 0 || counts.folders > 0);
       if (dryRun) {
         return {
           dryRun: true,
@@ -308,9 +314,16 @@ async function handleBridgeMethod(
           ...(sub.url ? { url: sub.url } : {}),
           path: nodePath,
           ...counts,
+          requiresRecursive,
+          wouldSucceed: !requiresRecursive || recursive,
+          ...(requiresRecursive && !recursive
+            ? {
+                hint: `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders); pass --recursive to delete it and all contents.`,
+              }
+            : {}),
         };
       }
-      if (isFolder && (counts.pins > 0 || counts.folders > 0) && !recursive) {
+      if (requiresRecursive && !recursive) {
         throw new Error(
           `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders). Pass --recursive to delete it and all contents, or --dry-run to preview.`,
         );
@@ -360,10 +373,24 @@ async function handleBridgeMethod(
       }
       const counts = summarizeTree(sub);
       const nodePath = await resolveNodePath(id);
+      const requiresRecursive = counts.pins > 0 || counts.folders > 0;
       if (dryRun) {
-        return { dryRun: true, id, title: sub.title, path: nodePath, ...counts };
+        return {
+          dryRun: true,
+          id,
+          title: sub.title,
+          path: nodePath,
+          ...counts,
+          requiresRecursive,
+          wouldSucceed: !requiresRecursive || recursive,
+          ...(requiresRecursive && !recursive
+            ? {
+                hint: `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders); pass --recursive to delete it and all contents.`,
+              }
+            : {}),
+        };
       }
-      if ((counts.pins > 0 || counts.folders > 0) && !recursive) {
+      if (requiresRecursive && !recursive) {
         throw new Error(
           `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders). Pass --recursive to delete it and all contents, or --dry-run to preview.`,
         );

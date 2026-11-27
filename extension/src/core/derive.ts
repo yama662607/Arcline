@@ -1,4 +1,4 @@
-import { spaceHue } from './colors';
+import { resolveSpaceMeta, spaceHue } from './colors';
 import {
   bookmarkIds,
   favoritesFolder,
@@ -84,15 +84,18 @@ export function deriveState(snapshot: Snapshot): SidebarState {
     return binding !== undefined && boundTabs.get(binding.id) === tabId;
   };
 
-  const spaces: Space[] = folders.map((folder, index) => ({
-    id: folder.id,
-    name: folder.title || 'Space',
-    hue: spaceHue(snapshot.spaceMeta, folder.title, index),
-    icon: snapshot.spaceMeta[folder.title]?.icon,
-    theme: snapshot.spaceMeta[folder.title]?.theme,
-    pinned: toPinnedNodes(folder.children ?? [], boundTabs),
-    tabIds: [],
-  }));
+  const spaces: Space[] = folders.map((folder, index) => {
+    const meta = resolveSpaceMeta(snapshot.spaceMeta, folder.title, folder.id);
+    return {
+      id: folder.id,
+      name: folder.title || 'Space',
+      hue: spaceHue(snapshot.spaceMeta, folder.title, index, folder.id),
+      icon: meta?.icon,
+      theme: meta?.theme,
+      pinned: toPinnedNodes(folder.children ?? [], boundTabs),
+      tabIds: [],
+    };
+  });
 
   const activeTab = snapshot.tabs.find((tab) => tab.active);
   const groupSpace = (groupId: number) =>

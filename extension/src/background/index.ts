@@ -12,7 +12,7 @@ import { Engine } from './engine';
 import { startNativeBridge } from './native-bridge';
 import { ensureRoot } from './root';
 import { syncShortcutsToBookmarks } from './shortcut-sync';
-import { STORAGE_KEYS, stampTabActivity, storage } from './storage';
+import { SPACE_META_SYNC_PREFIX, STORAGE_KEYS, stampTabActivity, storage } from './storage';
 
 const AUTO_ARCHIVE_ALARM = 'arcline:auto-archive';
 const ONBOARDING_SEEN_KEY = 'arcline:onboardingSeen';
@@ -81,15 +81,29 @@ async function bootstrap(recover: boolean): Promise<void> {
   await chrome.alarms.create(AUTO_ARCHIVE_ALARM, { periodInMinutes: 30 });
   const settings = await storage.getSettings();
   cachedCommandBarOpenMode = settings.commandBarOpenMode;
-  await syncShortcutsToBookmarks(settings);
+  await Promise.all([syncShortcutsToBookmarks(settings), storage.migrateSpaceMetaToSync()]);
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync' && STORAGE_KEYS.spaceMeta in changes) {
-    const incoming = changes[STORAGE_KEYS.spaceMeta]?.newValue;
-    if (incoming && typeof incoming === 'object') {
-      void chrome.storage.local.set({ [STORAGE_KEYS.spaceMeta]: incoming });
-    }
+  if (area === 'sync') {
+    const smKeys = Object.keys(changes).filter((k) => k.startsWith(SPACE_META_SYNC_PREFIX));
+    if (smKeys.length === 0) return;
+    void chrome.storage.local
+      .get(STORAGE_KEYS.spaceMeta)
+      .then((res) => {
+        const current = {
+          ...((res[STORAGE_KEYS.spaceMeta] as Record<string, unknown> | undefined) ?? {}),
+        };
+        for (const key of smKeys) {
+          const name = key.slice(SPACE_META_SYNC_PREFIX.length);
+          if (!name) continue;
+          const nextVal = changes[key]?.newValue;
+          if (nextVal && typeof nextVal === 'object') current[name] = nextVal;
+          else delete current[name];
+        }
+        return chrome.storage.local.set({ [STORAGE_KEYS.spaceMeta]: current });
+      })
+      .catch(() => undefined);
     return;
   }
   if (area !== 'local' || !(STORAGE_KEYS.settings in changes)) return;

@@ -120,11 +120,21 @@ export function lintWorkspace({ favorites = [], spaces = [] }) {
   const spaceByName = new Map();
   for (const s of spaces) {
     const arr = spaceByName.get(s.name) ?? [];
-    arr.push(s.id ?? null);
+    arr.push(s);
     spaceByName.set(s.name, arr);
   }
-  for (const [name, ids] of spaceByName.entries()) {
-    if (ids.length > 1) duplicateSpaces.push({ name, count: ids.length, ids });
+  for (const [name, list] of spaceByName.entries()) {
+    if (list.length > 1) {
+      const sigs = new Set(
+        list.map(s => folderSignature({ kind: 'folder', title: s.name, children: s.nodes ?? s.pinned ?? [] })),
+      );
+      duplicateSpaces.push({
+        name,
+        count: list.length,
+        ids: list.map(s => s.id ?? null),
+        identicalContent: sigs.size === 1,
+      });
+    }
   }
 
   const duplicateFolders = [];

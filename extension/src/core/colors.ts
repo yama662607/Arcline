@@ -42,12 +42,31 @@ export function groupColorForHue(hue: number): TabGroupColor {
   return 'pink';
 }
 
+export const SPACE_META_ID_PREFIX = 'id:';
+
+export function spaceMetaIdKey(spaceId: string): string {
+  return `${SPACE_META_ID_PREFIX}${spaceId}`;
+}
+
+export function resolveSpaceMeta(
+  spaceMeta: Record<string, SpaceMeta>,
+  spaceName: string,
+  spaceId?: string,
+): SpaceMeta | undefined {
+  if (spaceId) {
+    const byId = spaceMeta[spaceMetaIdKey(spaceId)];
+    if (byId) return byId;
+  }
+  return spaceMeta[spaceName];
+}
+
 export function spaceHue(
   spaceMeta: Record<string, SpaceMeta>,
   spaceName: string,
   index: number,
+  spaceId?: string,
 ): number {
-  const saved = spaceMeta[spaceName]?.hue;
+  const saved = resolveSpaceMeta(spaceMeta, spaceName, spaceId)?.hue;
   if (typeof saved === 'number' && Number.isFinite(saved)) {
     return normalizeHue(saved);
   }

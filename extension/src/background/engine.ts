@@ -1,5 +1,5 @@
 import { mergeArchive, selectTabsToArchive } from '../core/archive';
-import { groupColorForHue, nextHue } from '../core/colors';
+import { groupColorForHue, nextHue, resolveSpaceMeta, spaceMetaIdKey } from '../core/colors';
 import { isOverlayCapableUrl } from '../core/overlay-continuity';
 import { findFavoriteUrlMatch } from '../core/shortcut-keys';
 import {
@@ -416,11 +416,12 @@ export class Engine {
           ctx.spaces.map((s) => s.title),
         );
         const hue = cmd.hue ?? nextHue(ctx.spaces.map((s) => hueOf(ctx, s.id)));
+        const folder = await chrome.bookmarks.create({ parentId: ctx.ids.rootId, title });
         await storage.setSpaceMeta({
           ...ctx.spaceMeta,
+          [spaceMetaIdKey(folder.id)]: { hue, icon: cmd.icon },
           [title]: { hue, icon: cmd.icon },
         });
-        const folder = await chrome.bookmarks.create({ parentId: ctx.ids.rootId, title });
         await switchSpace(await loadContext(cmd.windowId), folder.id, { allowEmptyPage: false });
         return folder.id;
       }
@@ -440,7 +441,9 @@ export class Engine {
                 ctx.spaces.filter((s) => s.id !== cmd.spaceId).map((s) => s.title),
               )
           : space.title;
-        const prevMeta = ctx.spaceMeta[space.title] ?? { hue: hueOf(ctx, cmd.spaceId) };
+        const prevMeta = resolveSpaceMeta(ctx.spaceMeta, space.title, space.id) ?? {
+          hue: hueOf(ctx, cmd.spaceId),
+        };
         const nextIcon =
           cmd.icon === '' ? undefined : cmd.icon !== undefined ? cmd.icon : prevMeta.icon;
         const nextMeta = {
@@ -449,8 +452,16 @@ export class Engine {
           theme: cmd.theme !== undefined ? cmd.theme : prevMeta.theme,
         };
         const updatedMeta = { ...ctx.spaceMeta };
-        delete updatedMeta[space.title];
-        updatedMeta[nextTitle] = nextMeta;
+        const otherSharesOldTitle = ctx.spaces.some(
+          (s) => s.id !== cmd.spaceId && s.title === space.title,
+        );
+        if (nextTitle !== space.title && !otherSharesOldTitle) {
+          delete updatedMeta[space.title];
+        }
+        updatedMeta[spaceMetaIdKey(cmd.spaceId)] = nextMeta;
+        if (!otherSharesOldTitle || nextTitle !== space.title) {
+          updatedMeta[nextTitle] = nextMeta;
+        }
         await storage.setSpaceMeta(updatedMeta);
         if (nextTitle !== space.title) {
           await chrome.bookmarks.update(cmd.spaceId, { title: nextTitle });
@@ -1057,11 +1068,14 @@ export class Engine {
             existingByName.set(sp.name, targetSpaceId);
           }
           if (sp.hue !== undefined || sp.icon !== undefined || sp.theme !== undefined) {
-            nextMeta[sp.name] = {
-              hue: sp.hue ?? nextMeta[sp.name]?.hue ?? 235,
-              icon: sp.icon ?? nextMeta[sp.name]?.icon,
-              theme: sp.theme ?? nextMeta[sp.name]?.theme,
+            const existingMeta = resolveSpaceMeta(nextMeta, sp.name, targetSpaceId);
+            const mergedMeta = {
+              hue: sp.hue ?? existingMeta?.hue ?? 235,
+              icon: sp.icon ?? existingMeta?.icon,
+              theme: sp.theme ?? existingMeta?.theme,
             };
+            nextMeta[spaceMetaIdKey(targetSpaceId)] = mergedMeta;
+            nextMeta[sp.name] = mergedMeta;
           }
           await importNodesRecursive(targetSpaceId, sp.pinned);
         }

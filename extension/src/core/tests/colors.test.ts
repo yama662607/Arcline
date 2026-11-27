@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { groupColorForHue, nextHue, normalizeHue, rgbToHue, spaceHue } from '../colors';
+import {
+  groupColorForHue,
+  nextHue,
+  normalizeHue,
+  resolveSpaceMeta,
+  rgbToHue,
+  spaceHue,
+  spaceMetaIdKey,
+} from '../colors';
 
 describe('colors', () => {
   it('normalizes negative (neutral) and >360 hues', () => {
@@ -29,6 +37,14 @@ describe('colors', () => {
   it('resolves saved spaceMeta hue or falls back to preset', () => {
     expect(spaceHue({ Main: { hue: 152 } }, 'Main', 0)).toBe(152);
     expect(spaceHue({}, 'Other', 1)).toBe(235);
+    const meta = {
+      Vim: { hue: 120, icon: '📝' },
+      [spaceMetaIdKey('42')]: { hue: 280, icon: '⚡' },
+    };
+    expect(resolveSpaceMeta(meta, 'Vim', '42')).toEqual({ hue: 280, icon: '⚡' });
+    expect(resolveSpaceMeta(meta, 'Vim', '99')).toEqual({ hue: 120, icon: '📝' });
+    expect(spaceHue(meta, 'Vim', 0, '42')).toBe(280);
+    expect(spaceHue(meta, 'Vim', 0, '99')).toBe(120);
   });
 
   it('converts RGB midTone to hue', () => {
