@@ -1,4 +1,4 @@
-import { Archive, Plus, Settings as SettingsIcon } from 'lucide-react';
+import { Archive, PanelLeft, PanelLeftClose, Plus, Settings as SettingsIcon } from 'lucide-react';
 import { useState } from 'react';
 import type { Space } from '../../core/types';
 import { useT } from '../i18n';
@@ -10,9 +10,13 @@ const SPACE_DRAG_MIME = 'application/x-arcline-space';
 interface SpaceSwitcherProps {
   spaces: Space[];
   activeSpaceId: string;
+  isOverlay: boolean;
+  archiveFanOpen: boolean;
+  archivedCount: number;
   onSelect: (spaceId: string) => void;
   onCreate: () => void;
-  onOpenArchive: () => void;
+  onToggleArchiveFan: () => void;
+  onToggleSidebarMode: () => void;
   onOpenSettings: () => void;
   onMoveSpace: (spaceId: string, index: number) => void;
   onDropOnSpace: (payload: DragPayload, targetSpaceId: string) => void;
@@ -22,9 +26,13 @@ interface SpaceSwitcherProps {
 export function SpaceSwitcher({
   spaces,
   activeSpaceId,
+  isOverlay,
+  archiveFanOpen,
+  archivedCount,
   onSelect,
   onCreate,
-  onOpenArchive,
+  onToggleArchiveFan,
+  onToggleSidebarMode,
   onOpenSettings,
   onMoveSpace,
   onDropOnSpace,
@@ -52,16 +60,46 @@ export function SpaceSwitcher({
         </div>
       )}
 
-      <button
-        type="button"
-        title={t('sidebar.switcher.archiveTitle')}
-        aria-label={t('sidebar.switcher.archiveLabel')}
-        onClick={onOpenArchive}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all hover:bg-[var(--hover)] hover:text-[var(--ink)] active:scale-95 cursor-pointer"
-        style={{ color: 'var(--ink-muted)' }}
-      >
-        <Archive size={15} strokeWidth={1.8} />
-      </button>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          data-arcline-archive-trigger="true"
+          title={t('sidebar.switcher.archiveTitle')}
+          aria-label={t('sidebar.switcher.archiveLabel')}
+          aria-expanded={archiveFanOpen}
+          onClick={onToggleArchiveFan}
+          className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all hover:bg-[var(--hover)] hover:text-[var(--ink)] active:scale-95 cursor-pointer"
+          style={{
+            color: archiveFanOpen ? 'var(--ink)' : 'var(--ink-muted)',
+            backgroundColor: archiveFanOpen ? 'var(--hover)' : undefined,
+          }}
+        >
+          <Archive size={15} strokeWidth={1.8} />
+          {archivedCount > 0 && !archiveFanOpen && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1 right-1 h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: 'var(--accent)' }}
+            />
+          )}
+        </button>
+
+        <button
+          type="button"
+          data-arcline-sidebar-mode-toggle="true"
+          title={t(isOverlay ? 'sidebar.switcher.dockTitle' : 'sidebar.switcher.floatTitle')}
+          aria-label={t(isOverlay ? 'sidebar.switcher.dockTitle' : 'sidebar.switcher.floatTitle')}
+          onClick={onToggleSidebarMode}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all hover:bg-[var(--hover)] hover:text-[var(--ink)] active:scale-95 cursor-pointer"
+          style={{ color: isOverlay ? 'var(--ink-muted)' : 'var(--accent)' }}
+        >
+          {isOverlay ? (
+            <PanelLeft size={15} strokeWidth={1.8} />
+          ) : (
+            <PanelLeftClose size={15} strokeWidth={1.8} />
+          )}
+        </button>
+      </div>
 
       <nav
         aria-label={t('sidebar.switcher.spaces')}

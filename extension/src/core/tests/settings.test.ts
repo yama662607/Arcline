@@ -28,7 +28,7 @@ describe('completeSettings', () => {
       edgeTriggerWidthPx: 24,
       edgeOpenDelayMs: 0,
       edgeCloseDelayMs: 1200,
-      overlayWidthPx: 240,
+      overlayWidthPx: 220,
       swipeToSwitchSpace: false,
       openEmptySpacePage: false,
       language: 'auto',

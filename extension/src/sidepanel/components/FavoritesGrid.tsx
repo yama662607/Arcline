@@ -1,5 +1,5 @@
 import { Plus, VolumeX, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Favorite, LiveTab } from '../../core/types';
 import { useT } from '../i18n';
 import { Favicon } from './Favicon';
@@ -49,13 +49,33 @@ export function FavoritesGrid({
   const [gridDragOver, setGridDragOver] = useState(false);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const [maxCols, setMaxCols] = useState(4);
 
-  // Authentic Arc Browser 4-column tile grid (scales cleanly when fewer than 4 items)
-  const columns =
-    favorites.length === 0 ? 1 : favorites.length <= 3 ? Math.max(2, favorites.length) : 4;
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const updateCols = (width: number) => {
+      // Inner grid width (subtracting horizontal px-3 = 24px padding); ~60px per tile + 8px gap
+      const inner = Math.max(0, width - 24);
+      const next = Math.max(2, Math.min(8, Math.floor((inner + 8) / 64)));
+      setMaxCols(next);
+    };
+    updateCols(el.clientWidth);
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (typeof w === 'number' && w > 0) updateCols(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Responsive Arc tile grid: adapts columns smoothly as sidebar/window width changes
+  const columns = favorites.length === 0 ? 1 : Math.min(maxCols, Math.max(2, favorites.length));
 
   return (
     <section
+      ref={sectionRef}
       aria-label={t('sidebar.favorites.label')}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes(DRAG_MIME)) return;

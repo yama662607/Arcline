@@ -38,6 +38,7 @@ import type { Settings } from '../core/types';
   let commandBarOpen = false;
   let commandBarOpenSeq = 0;
   let tabHidden = false;
+  let nativeSidePanelOpen = false;
   let hostEl: HTMLDivElement | null = null;
   let shadow: ShadowRoot | null = null;
   let edgeEl: HTMLDivElement | null = null;
@@ -267,7 +268,7 @@ import type { Settings } from '../core/types';
         top: 0;
         right: 0;
         bottom: 0;
-        width: 7px;
+        width: 8px;
         cursor: ew-resize;
         background: transparent;
         display: flex;
@@ -387,7 +388,8 @@ import type { Settings } from '../core/types';
   function applyDimensions(): void {
     if (edgeEl) {
       edgeEl.style.width = `${settings.edgeTriggerWidthPx}px`;
-      edgeEl.style.pointerEvents = settings.edgeHoverEnabled ? 'auto' : 'none';
+      edgeEl.style.pointerEvents =
+        settings.edgeHoverEnabled && !nativeSidePanelOpen ? 'auto' : 'none';
     }
     if (glassBackdropEl) {
       glassBackdropEl.style.width = `${settings.overlayWidthPx}px`;
@@ -480,15 +482,15 @@ import type { Settings } from '../core/types';
     cmdBackdropEl = cmdModal;
 
     edge.addEventListener('pointerenter', (e) => {
-      if (document.hidden || tabHidden || unloadTimer !== undefined) return;
+      if (document.hidden || tabHidden || nativeSidePanelOpen || unloadTimer !== undefined) return;
       machine.handlePointerMove(1, e.buttons);
     });
     edge.addEventListener('mouseenter', (e) => {
-      if (document.hidden || tabHidden || unloadTimer !== undefined) return;
+      if (document.hidden || tabHidden || nativeSidePanelOpen || unloadTimer !== undefined) return;
       machine.handlePointerMove(1, e.buttons);
     });
     edge.addEventListener('click', () => {
-      if (!document.hidden && !tabHidden && settings.edgeHoverEnabled) {
+      if (!document.hidden && !tabHidden && !nativeSidePanelOpen && settings.edgeHoverEnabled) {
         machine.forceOpen();
       }
     });
@@ -531,7 +533,7 @@ import type { Settings } from '../core/types';
       }
 
       const onMove = (ev: PointerEvent) => {
-        const nextWidth = Math.max(240, Math.min(460, Math.round(toUnzoomedPx(ev.clientX) - 8)));
+        const nextWidth = Math.max(220, Math.min(560, Math.round(toUnzoomedPx(ev.clientX) - 8)));
         settings = { ...settings, overlayWidthPx: nextWidth };
         applyDimensions();
         machine.updateConfig(currentConfig());
@@ -739,6 +741,7 @@ import type { Settings } from '../core/types';
   }
 
   function showPanel(): void {
+    if (nativeSidePanelOpen) return;
     ensureHostMounted();
     if (!panelEl) return;
     if (unloadTimer) {
@@ -850,15 +853,31 @@ import type { Settings } from '../core/types';
   async function loadInitialState(): Promise<{ autoOpen: boolean }> {
     try {
       const res = (await chrome.runtime.sendMessage({ arclineInit: true })) as
-        | { zoom?: number; autoOpen?: boolean }
+        | { zoom?: number; autoOpen?: boolean; nativeSidePanelOpen?: boolean }
         | undefined;
       if (typeof res?.zoom === 'number') {
         setPageZoom(res.zoom);
       }
-      return { autoOpen: Boolean(res?.autoOpen) };
+      if (typeof res?.nativeSidePanelOpen === 'boolean') {
+        setNativeSidePanelOpen(res.nativeSidePanelOpen);
+      }
+      return { autoOpen: Boolean(res?.autoOpen) && !nativeSidePanelOpen };
     } catch {
       return { autoOpen: false };
     }
+  }
+
+  function setNativeSidePanelOpen(open: boolean): void {
+    nativeSidePanelOpen = open;
+    if (open && machine.isOpen) {
+      suppressStateReport = true;
+      try {
+        machine.forceClose();
+      } finally {
+        suppressStateReport = false;
+      }
+    }
+    applyDimensions();
   }
 
   async function loadInitialZoom(): Promise<void> {
@@ -931,6 +950,7 @@ import type { Settings } from '../core/types';
     tabHidden = false;
     const unzoomedX = toUnzoomedPx(e.clientX);
     lastKnownPointerX = unzoomedX;
+    if (nativeSidePanelOpen) return;
     if (machine.isOpen && Date.now() < forceOpenGraceUntil) return;
     machine.handlePointerMove(unzoomedX, e.buttons);
   };
@@ -1168,8 +1188,14 @@ import type { Settings } from '../core/types';
           arclineOverlay?: 'toggle' | 'open' | 'close' | 'tab-hidden';
           arclineCommandBar?: 'open' | 'toggle' | 'close';
           arclineZoom?: number;
+          arclineNativeSidePanel?: boolean;
         }
       | undefined;
+    if (typeof msg?.arclineNativeSidePanel === 'boolean') {
+      setNativeSidePanelOpen(msg.arclineNativeSidePanel);
+      sendResponse({ ok: true });
+      return false;
+    }
     if (typeof msg?.arclineZoom === 'number') {
       setPageZoom(msg.arclineZoom);
       sendResponse({ ok: true, zoom: pageZoom });

@@ -58,6 +58,7 @@ import {
   subscribeToWindowUpdates,
   toggleFolderOpen,
 } from './api';
+import { ArchiveFan } from './components/ArchiveFan';
 import { ContextMenu, type ContextMenuItem, type ContextMenuState } from './components/ContextMenu';
 import { Favicon } from './components/Favicon';
 import { type DragPayload, FavoritesGrid } from './components/FavoritesGrid';
@@ -144,6 +145,7 @@ export function App() {
   const [previewTheme, setPreviewTheme] = useState<SpaceTheme | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTabId>('general');
+  const [archiveFanOpen, setArchiveFanOpen] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [hostSidebarWidth, setHostSidebarWidth] = useState<number>(DEFAULT_SETTINGS.overlayWidthPx);
@@ -185,6 +187,7 @@ export function App() {
       spaceModal ||
       themeModalSpace ||
       settingsOpen ||
+      archiveFanOpen ||
       renamingId ||
       renamingSpace ||
       isDragging ||
@@ -694,21 +697,45 @@ export function App() {
     return hits.slice(0, 30);
   }, [query, state.favorites, state.spaces, state.tabs, archivedTabs]);
 
+  const openRestrictedSidePanelIfNeeded = useCallback(
+    (url?: string) => {
+      if (!isOverlay || windowId === null || !isRestrictedTabUrl(url)) return;
+      chrome.runtime
+        ?.sendMessage?.({ arclineSetSidePanelMode: 'auto-fallback' })
+        .catch(() => undefined);
+      chrome.sidePanel?.open?.({ windowId }).catch(() => undefined);
+      window.parent.postMessage({ type: 'arcline:overlay-close' }, '*');
+    },
+    [isOverlay, windowId],
+  );
+
+  const handleToggleSidebarMode = useCallback(() => {
+    if (windowId === null) return;
+    if (isOverlay) {
+      // Dock floating overlay into persistent native Side Panel (user gesture preserved synchronously)
+      chrome.runtime?.sendMessage?.({ arclineSetSidePanelMode: 'docked' }).catch(() => undefined);
+      chrome.sidePanel?.open?.({ windowId }).catch(() => undefined);
+      window.parent.postMessage({ type: 'arcline:overlay-close' }, '*');
+      return;
+    }
+    // Close persistent native Side Panel and return to floating overlay mode
+    chrome.runtime?.sendMessage?.({ arclineCloseNativeSidePanel: true }).catch(() => undefined);
+    window.close();
+  }, [isOverlay, windowId]);
+
   const activateTabWithFallback = useCallback(
     (tabId: number, url?: string) => {
       if (windowId === null) return;
-      if (isOverlay && isRestrictedTabUrl(url)) {
-        // Open native Side Panel synchronously inside the user click when switching to brave:// / chrome://
-        chrome.sidePanel?.open?.({ windowId }).catch(() => undefined);
-      }
+      openRestrictedSidePanelIfNeeded(url);
       void runCmd({ type: 'activateTab', windowId, tabId });
     },
-    [windowId, isOverlay, runCmd],
+    [windowId, openRestrictedSidePanelIfNeeded, runCmd],
   );
 
   const openSearchHit = useCallback(
     (hit: QuickSearchHit) => {
       if (windowId === null || !activeSpace) return;
+      openRestrictedSidePanelIfNeeded(hit.url);
       if (hit.kind === 'favorite') {
         void runCmd({ type: 'openFavorite', windowId, favoriteId: String(hit.id) });
       } else if (hit.kind === 'pin') {
@@ -726,7 +753,7 @@ export function App() {
       setQuery('');
       setSearchOpen(false);
     },
-    [windowId, activeSpace, runCmd, activateTabWithFallback],
+    [windowId, activeSpace, openRestrictedSidePanelIfNeeded, runCmd, activateTabWithFallback],
   );
 
   useEffect(() => {
@@ -1699,7 +1726,12 @@ export function App() {
         favorites={state.favorites}
         tabs={state.tabs}
         activeTabId={state.activeTabId}
-        onOpen={(favoriteId) => void runCmd({ type: 'openFavorite', windowId, favoriteId })}
+        onOpen={(favoriteId) => {
+          const fav = state.favorites.find((f) => f.id === favoriteId);
+          const live = fav?.tabId !== undefined ? state.tabs.get(fav.tabId) : undefined;
+          openRestrictedSidePanelIfNeeded(live?.url ?? fav?.url);
+          void runCmd({ type: 'openFavorite', windowId, favoriteId });
+        }}
         onUnload={(favoriteId) => void runCmd({ type: 'unloadFavorite', windowId, favoriteId })}
         onToggleMute={(tabId) => void runCmd({ type: 'toggleMuteTab', tabId })}
         onAddActiveTab={() => {
@@ -1831,7 +1863,23 @@ export function App() {
                 });
                 void toggleFolderOpen(folderId);
               }}
-              onOpenPin={(pinId) => void runCmd({ type: 'openPin', windowId, pinId })}
+              onOpenPin={(pinId) => {
+                const findPinUrl = (nodes: PinnedNode[]): string | undefined => {
+                  for (const n of nodes) {
+                    if (n.kind === 'pin' && n.id === pinId) {
+                      const live = n.tabId !== undefined ? state.tabs.get(n.tabId) : undefined;
+                      return live?.url ?? n.url;
+                    }
+                    if (n.kind === 'folder') {
+                      const hit = findPinUrl(n.children);
+                      if (hit) return hit;
+                    }
+                  }
+                  return undefined;
+                };
+                openRestrictedSidePanelIfNeeded(findPinUrl(activeSpace.pinned));
+                void runCmd({ type: 'openPin', windowId, pinId });
+              }}
               onUnloadPin={(pinId) => void runCmd({ type: 'unloadPin', windowId, pinId })}
               onResetPin={(pinId) => {
                 void runCmd({ type: 'resetPin', windowId, pinId });
@@ -1903,17 +1951,35 @@ export function App() {
         </output>
       )}
 
+      {/* Arc-style Archive Fan popover rising above the bottom-left Archive button */}
+      <ArchiveFan
+        open={archiveFanOpen}
+        archivedTabs={archivedTabs}
+        onClose={() => setArchiveFanOpen(false)}
+        onRestore={(archiveId) => {
+          void runCmd({ type: 'restoreArchived', windowId, spaceId: activeSpace.id, archiveId });
+          showToast(t('sidebar.toast.archiveRestored'));
+        }}
+        onRemove={(archiveId) => void runCmd({ type: 'removeArchived', archiveId })}
+        onOpenAll={() => {
+          setSettingsTab('archive');
+          setSettingsOpen(true);
+        }}
+      />
+
       {/* Bottom Arc-style Space Switcher */}
       <SpaceSwitcher
         spaces={state.spaces}
         activeSpaceId={activeSpace.id}
+        isOverlay={isOverlay}
+        archiveFanOpen={archiveFanOpen}
+        archivedCount={archivedTabs.length}
         onSelect={switchToSpace}
         onCreate={() => setSpaceModal({ mode: 'create' })}
-        onOpenArchive={() => {
-          setSettingsTab('archive');
-          setSettingsOpen(true);
-        }}
+        onToggleArchiveFan={() => setArchiveFanOpen((prev) => !prev)}
+        onToggleSidebarMode={handleToggleSidebarMode}
         onOpenSettings={() => {
+          setArchiveFanOpen(false);
           setSettingsTab('general');
           setSettingsOpen(true);
         }}

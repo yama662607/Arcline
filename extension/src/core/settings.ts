@@ -167,7 +167,7 @@ export function completeSettings(partial?: Partial<Settings> | null): Settings {
       1200,
       DEFAULT_SETTINGS.edgeCloseDelayMs,
     ),
-    overlayWidthPx: clampInt(partial?.overlayWidthPx, 240, 460, DEFAULT_SETTINGS.overlayWidthPx),
+    overlayWidthPx: clampInt(partial?.overlayWidthPx, 220, 560, DEFAULT_SETTINGS.overlayWidthPx),
     swipeToSwitchSpace,
     openEmptySpacePage,
     language,
