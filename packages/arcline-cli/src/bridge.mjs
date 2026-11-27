@@ -181,7 +181,7 @@ export function uninstallBridge({ browser = 'brave' } = {}) {
   return { browser, manifestPath: manifestPaths[0], removedPaths, removed: removedPaths.length > 0 };
 }
 
-export function callBridge(method, params = {}, { timeoutMs = 8000 } = {}) {
+function callBridgeOnce(method, params = {}, { timeoutMs = 8000 } = {}) {
   const sock = bridgeSocketPath();
   return new Promise((resolve, reject) => {
     const id = randomUUID();
@@ -214,7 +214,8 @@ export function callBridge(method, params = {}, { timeoutMs = 8000 } = {}) {
       const line = buf.slice(0, nl).trim();
       try {
         const resp = JSON.parse(line);
-        if (resp.ok) finish(null, resp.data);
+        if (resp.ok && resp.data !== undefined) finish(null, resp.data);
+        else if (resp.ok) finish(new CliError('BRIDGE_RECONNECTING', `Empty bridge response on ${method}.`));
         else finish(new CliError(resp.error?.code || 'BRIDGE_ERROR', resp.error?.message || `Bridge error on ${method}`));
       } catch (e) {
         finish(new CliError('BRIDGE_PROTOCOL', `Invalid bridge response: ${e.message}`));
@@ -234,6 +235,22 @@ export function callBridge(method, params = {}, { timeoutMs = 8000 } = {}) {
       }
     });
   });
+}
+
+export async function callBridge(method, params = {}, options = {}) {
+  const maxAttempts = options.retries ?? 3;
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await callBridgeOnce(method, params, options);
+    } catch (err) {
+      lastErr = err;
+      const retryable = err?.code === 'BRIDGE_RECONNECTING' || err?.code === 'BRIDGE_CLOSED';
+      if (!retryable || attempt >= maxAttempts) throw err;
+      await new Promise((r) => setTimeout(r, 250 * attempt));
+    }
+  }
+  throw lastErr;
 }
 
 export async function bridgeStatus() {

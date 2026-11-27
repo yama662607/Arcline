@@ -84,14 +84,33 @@ const server = net.createServer((socket) => {
   });
 });
 
+let mySocketIno = null;
+
 function cleanupAndExit(code = 0) {
+  for (const [id, client] of pending.entries()) {
+    if (!client.destroyed) {
+      try {
+        client.write(`${JSON.stringify({ id, ok: false, error: { code: 'BRIDGE_RECONNECTING', message: 'Arcline bridge host is restarting.' } })}\n`);
+        client.end();
+      } catch { /* ignore */ }
+    }
+  }
+  pending.clear();
   try { server.close(); } catch { /* ignore */ }
-  try { fs.unlinkSync(socketPath); } catch { /* ignore */ }
+  // Only unlink the socket if it is still OUR inode (never delete a newer host's socket during extension reload)
+  try {
+    if (mySocketIno !== null && fs.statSync(socketPath).ino === mySocketIno) {
+      fs.unlinkSync(socketPath);
+    }
+  } catch { /* ignore */ }
   process.exit(code);
 }
 
 server.listen(socketPath, () => {
-  try { fs.chmodSync(socketPath, 0o600); } catch { /* ignore */ }
+  try {
+    fs.chmodSync(socketPath, 0o600);
+    mySocketIno = fs.statSync(socketPath).ino;
+  } catch { /* ignore */ }
 });
 
 server.on('error', () => cleanupAndExit(1));
