@@ -14,7 +14,6 @@ export default defineConfig({
       input: {
         sidepanel: resolve(import.meta.dirname, 'sidepanel.html'),
         emptySpace: resolve(import.meta.dirname, 'empty-space.html'),
-        newtab: resolve(import.meta.dirname, 'newtab.html'),
         onboarding: resolve(import.meta.dirname, 'onboarding.html'),
       },
       output: {

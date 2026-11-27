@@ -98,8 +98,5 @@
       "description": "__MSG_cmdOpenCommandBar__",
       "global": true
     }
-  },
-  "chrome_url_overrides": {
-    "newtab": "newtab.html"
   }
 }

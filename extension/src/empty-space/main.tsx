@@ -277,13 +277,27 @@ function EmptySpaceCanvas() {
       setBarVisible(false);
     } else {
       // Opened as a New Tab Command Bar (Cmd+T in "newtab" mode): pressing Esc activates the
-      // exact original tab (returnTabId) and closes this empty tab, unless it's the only tab.
+      // exact original tab (returnTabId) — or falls back to the most recent normal webpage —
+      // and closes this empty tab, unless it's the only tab in the window.
       if (typeof chrome !== 'undefined' && chrome.tabs?.getCurrent && chrome.tabs?.query) {
         void Promise.all([chrome.tabs.getCurrent(), chrome.tabs.query({ currentWindow: true })])
           .then(async ([cur, all]) => {
             if (cur?.id !== undefined && all.length > 1) {
-              if (returnTabId !== undefined && returnTabId !== cur.id) {
-                await chrome.tabs.update(returnTabId, { active: true }).catch(() => undefined);
+              const validTarget =
+                (returnTabId !== undefined && returnTabId !== cur.id
+                  ? all.find((tab) => tab.id === returnTabId)
+                  : undefined) ??
+                all
+                  .filter(
+                    (tab) =>
+                      tab.id !== undefined &&
+                      tab.id !== cur.id &&
+                      !(tab.url ?? '').includes('empty-space.html?commandBar=1') &&
+                      !/^(?:chrome|brave):\/\//i.test(tab.url ?? ''),
+                  )
+                  .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0];
+              if (validTarget?.id !== undefined) {
+                await chrome.tabs.update(validTarget.id, { active: true }).catch(() => undefined);
               }
               await chrome.tabs.remove(cur.id);
               return;

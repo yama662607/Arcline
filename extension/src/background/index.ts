@@ -70,7 +70,7 @@ void chrome.tabs
   .then((activeTabs) => {
     for (const t of activeTabs) {
       const url = t.url ?? t.pendingUrl;
-      if (t.id !== undefined && url && !isNativeNewTabUrl(url)) {
+      if (t.id !== undefined && isReturnableContentUrl(url)) {
         lastContentTabByWindow.set(t.windowId, { tabId: t.id, url });
       }
     }
@@ -365,9 +365,26 @@ const transientNewTabIds = new Set<number>();
 const NATIVE_NEWTAB_RE = /^(?:chrome|brave):\/\/newtab\/?$/i;
 
 function isNativeNewTabUrl(url?: string): boolean {
+  return Boolean(url && NATIVE_NEWTAB_RE.test(url));
+}
+
+function isCommandBarTabUrl(url?: string): boolean {
   if (!url) return false;
-  if (NATIVE_NEWTAB_RE.test(url)) return true;
-  return url === chrome.runtime.getURL('newtab.html');
+  return url.startsWith(chrome.runtime.getURL('empty-space.html')) && url.includes('commandBar=1');
+}
+
+function isReturnableContentUrl(url?: string): url is string {
+  return Boolean(
+    url && !isNativeNewTabUrl(url) && !isCommandBarTabUrl(url) && isOverlayCapableUrl(url),
+  );
+}
+
+function buildCommandBarTabUrl(returnTabId?: number, excludeTabId?: number): string {
+  const validReturnId =
+    returnTabId !== undefined && returnTabId !== excludeTabId ? returnTabId : undefined;
+  return chrome.runtime.getURL(
+    `empty-space.html?commandBar=1${validReturnId !== undefined ? `&returnTabId=${validReturnId}` : ''}`,
+  );
 }
 
 function canPopupCommandBarOnUrl(url?: string): boolean {
@@ -380,20 +397,25 @@ chrome.tabs.onCreated.addListener((tab) => {
     const createdTabId = tab.id;
     const winId = tab.windowId;
     if (cachedCommandBarOpenMode === 'newtab') {
-      const returnTabId = lastContentTabByWindow.get(winId)?.tabId ?? tab.openerTabId;
-      const targetUrl = chrome.runtime.getURL(
-        `empty-space.html?commandBar=1${
-          returnTabId !== undefined && returnTabId !== createdTabId
-            ? `&returnTabId=${returnTabId}`
-            : ''
-        }`,
-      );
+      const cachedReturnId = lastContentTabByWindow.get(winId)?.tabId;
+      const returnTabId =
+        cachedReturnId !== undefined && cachedReturnId !== createdTabId
+          ? cachedReturnId
+          : tab.openerTabId;
+      const targetUrl = buildCommandBarTabUrl(returnTabId, createdTabId);
       transientNewTabIds.add(createdTabId);
       setTimeout(() => transientNewTabIds.delete(createdTabId), 2000);
-      // Create a fresh non-NTP tab and remove the chrome://newtab/ tab so Chromium/Brave's
-      // NewTabFooter ("Arcline | Customize Brave") never attaches to the WebContents.
+      // Create a fresh non-NTP tab and remove the chrome://newtab/ tab so Brave never renders
+      // its native NTP / Customize bar and focuses the Command Bar directly.
       void chrome.tabs
-        .create({ windowId: winId, url: targetUrl, active: true })
+        .create({
+          windowId: winId,
+          url: targetUrl,
+          active: true,
+          ...(returnTabId !== undefined && returnTabId !== createdTabId
+            ? { openerTabId: returnTabId }
+            : {}),
+        })
         .then(() => chrome.tabs.remove(createdTabId).catch(() => undefined))
         .catch(() => {
           void chrome.tabs.update(createdTabId, { url: targetUrl }).catch(() => undefined);
@@ -432,16 +454,21 @@ chrome.tabs.onCreated.addListener((tab) => {
         const settings = await storage.getSettings();
         cachedCommandBarOpenMode = settings.commandBarOpenMode;
         if (settings.commandBarOpenMode === 'newtab') {
-          const fallbackReturnId = lastContentTabByWindow.get(winId)?.tabId ?? tab.openerTabId;
-          const targetUrl = chrome.runtime.getURL(
-            `empty-space.html?commandBar=1${
-              fallbackReturnId !== undefined && fallbackReturnId !== createdTabId
-                ? `&returnTabId=${fallbackReturnId}`
-                : ''
-            }`,
-          );
+          const cachedReturnId = lastContentTabByWindow.get(winId)?.tabId;
+          const fallbackReturnId =
+            cachedReturnId !== undefined && cachedReturnId !== createdTabId
+              ? cachedReturnId
+              : tab.openerTabId;
+          const targetUrl = buildCommandBarTabUrl(fallbackReturnId, createdTabId);
           await chrome.tabs
-            .create({ windowId: winId, url: targetUrl, active: true })
+            .create({
+              windowId: winId,
+              url: targetUrl,
+              active: true,
+              ...(fallbackReturnId !== undefined && fallbackReturnId !== createdTabId
+                ? { openerTabId: fallbackReturnId }
+                : {}),
+            })
             .then(() => chrome.tabs.remove(createdTabId).catch(() => undefined))
             .catch(() =>
               chrome.tabs.update(createdTabId, { url: targetUrl }).catch(() => undefined),
@@ -452,19 +479,32 @@ chrome.tabs.onCreated.addListener((tab) => {
         if (tab.openerTabId !== undefined && tab.openerTabId !== createdTabId) {
           prevTab = await chrome.tabs.get(tab.openerTabId).catch(() => undefined);
         }
-        if (!prevTab || prevTab.windowId !== winId) {
+        if (
+          !prevTab ||
+          prevTab.windowId !== winId ||
+          !isReturnableContentUrl(prevTab.url ?? prevTab.pendingUrl)
+        ) {
           const allTabs = await chrome.tabs.query({ windowId: winId }).catch(() => []);
-          prevTab = allTabs
-            .filter((t) => t.id !== undefined && t.id !== createdTabId && !isNativeNewTabUrl(t.url))
-            .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0];
+          prevTab =
+            allTabs
+              .filter(
+                (t) =>
+                  t.id !== undefined &&
+                  t.id !== createdTabId &&
+                  isReturnableContentUrl(t.url ?? t.pendingUrl),
+              )
+              .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0] ?? prevTab;
         }
         const prevUrl = prevTab?.url ?? prevTab?.pendingUrl;
         if (!prevTab?.id || !prevUrl || !canPopupCommandBarOnUrl(prevUrl)) {
           transientNewTabIds.delete(createdTabId);
-          // Even when falling back to a tab (e.g. from brave://), redirect away from brave://newtab so Customize bar never shows
+          const targetUrl = buildCommandBarTabUrl(prevTab?.id, createdTabId);
           await chrome.tabs
-            .update(createdTabId, { url: chrome.runtime.getURL('empty-space.html?commandBar=1') })
-            .catch(() => undefined);
+            .create({ windowId: winId, url: targetUrl, active: true })
+            .then(() => chrome.tabs.remove(createdTabId).catch(() => undefined))
+            .catch(() =>
+              chrome.tabs.update(createdTabId, { url: targetUrl }).catch(() => undefined),
+            );
           return;
         }
         const prevId = prevTab.id;
@@ -516,7 +556,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
     .get(tabId)
     .then((t) => {
       const url = t.url ?? t.pendingUrl;
-      if (url && !isNativeNewTabUrl(url)) {
+      if (isReturnableContentUrl(url)) {
         lastContentTabByWindow.set(windowId, { tabId, url });
       }
       updateActionHintForTab(tabId, url);
@@ -564,7 +604,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.url) {
-    if (tab.active && !isNativeNewTabUrl(changeInfo.url)) {
+    if (tab.active && isReturnableContentUrl(changeInfo.url)) {
       lastContentTabByWindow.set(tab.windowId, { tabId, url: changeInfo.url });
     }
     updateActionHintForTab(tabId, changeInfo.url);

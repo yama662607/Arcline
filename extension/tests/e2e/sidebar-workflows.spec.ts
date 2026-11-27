@@ -332,11 +332,11 @@ test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
     await modalInput.press('Escape');
     await expect(modalIframe).toHaveCount(0);
 
-    // 2. Newtab mode: Cmd+T creates a fresh non-NTP tab (eliminates Brave Customize bar),
-    //    supports @alias + site-search + live i18n, and Escape returns to the EXACT original tab (tabA),
-    //    not just an adjacent rightmost tab!
-    const tabOther = await arcline.context.newPage();
-    await tabOther.goto(`${arcline.serverUrl}/page/other-rightmost`);
+    // 2. Newtab mode: Cmd+T creates a fresh non-NTP tab (without chrome_url_overrides.newtab so
+    //    Brave's Customize footer never attaches), supports @alias + site-search + live i18n, and
+    //    Escape returns to the EXACT original webpage (tabA) even when chrome://extensions is open!
+    const tabExt = await arcline.context.newPage();
+    await tabExt.goto('chrome://extensions');
     await tabA.bringToFront();
     await arcline.worker.evaluate(async () => {
       const tabs = await chrome.tabs.query({});
@@ -364,13 +364,12 @@ test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
       })
       .toContain(`chrome-extension://${arcline.extensionId}/empty-space.html?commandBar=1`);
     expect(newTabUrl).not.toMatch(/^(?:chrome|brave):\/\/newtab/i);
-    // Ensure chrome_url_overrides.newtab uses a separate redirector path (newtab.html),
-    // never empty-space.html, so Chromium/Brave's NewTabFooter ("Customize") never attaches.
+    // Manifest must NOT declare chrome_url_overrides.newtab, otherwise Chromium/Brave's
+    // NewTabFooterController attaches "Arcline | Customize Brave" to extension pages.
     const manifestNtp = await arcline.worker.evaluate(
-      () => chrome.runtime.getManifest().chrome_url_overrides?.newtab ?? '',
+      () => chrome.runtime.getManifest().chrome_url_overrides?.newtab ?? null,
     );
-    expect(manifestNtp).toBe('newtab.html');
-    expect(newTabUrl).not.toContain(`/${manifestNtp}`);
+    expect(manifestNtp).toBeNull();
 
     const newTabPage = arcline.context
       .pages()
