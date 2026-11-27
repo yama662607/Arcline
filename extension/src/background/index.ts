@@ -380,14 +380,24 @@ chrome.tabs.onCreated.addListener((tab) => {
     const createdTabId = tab.id;
     const winId = tab.windowId;
     if (cachedCommandBarOpenMode === 'newtab') {
-      // Redirect native chrome://newtab / brave://newtab straight to our extension URL so
-      // Chromium never renders its bottom "Arcline | Customize" bar and focuses the Command Bar.
-      const targetUrl = chrome.runtime.getURL('empty-space.html?commandBar=1');
-      void chrome.tabs.update(createdTabId, { url: targetUrl }).catch(() => {
-        setTimeout(() => {
+      const returnTabId = lastContentTabByWindow.get(winId)?.tabId ?? tab.openerTabId;
+      const targetUrl = chrome.runtime.getURL(
+        `empty-space.html?commandBar=1${
+          returnTabId !== undefined && returnTabId !== createdTabId
+            ? `&returnTabId=${returnTabId}`
+            : ''
+        }`,
+      );
+      transientNewTabIds.add(createdTabId);
+      setTimeout(() => transientNewTabIds.delete(createdTabId), 2000);
+      // Create a fresh non-NTP tab and remove the chrome://newtab/ tab so Chromium/Brave's
+      // NewTabFooter ("Arcline | Customize Brave") never attaches to the WebContents.
+      void chrome.tabs
+        .create({ windowId: winId, url: targetUrl, active: true })
+        .then(() => chrome.tabs.remove(createdTabId).catch(() => undefined))
+        .catch(() => {
           void chrome.tabs.update(createdTabId, { url: targetUrl }).catch(() => undefined);
-        }, 60);
-      });
+        });
       return;
     }
     const cachedPrev = lastContentTabByWindow.get(winId);
@@ -422,10 +432,20 @@ chrome.tabs.onCreated.addListener((tab) => {
         const settings = await storage.getSettings();
         cachedCommandBarOpenMode = settings.commandBarOpenMode;
         if (settings.commandBarOpenMode === 'newtab') {
-          transientNewTabIds.delete(createdTabId);
+          const fallbackReturnId = lastContentTabByWindow.get(winId)?.tabId ?? tab.openerTabId;
+          const targetUrl = chrome.runtime.getURL(
+            `empty-space.html?commandBar=1${
+              fallbackReturnId !== undefined && fallbackReturnId !== createdTabId
+                ? `&returnTabId=${fallbackReturnId}`
+                : ''
+            }`,
+          );
           await chrome.tabs
-            .update(createdTabId, { url: chrome.runtime.getURL('empty-space.html?commandBar=1') })
-            .catch(() => undefined);
+            .create({ windowId: winId, url: targetUrl, active: true })
+            .then(() => chrome.tabs.remove(createdTabId).catch(() => undefined))
+            .catch(() =>
+              chrome.tabs.update(createdTabId, { url: targetUrl }).catch(() => undefined),
+            );
           return;
         }
         let prevTab: chrome.tabs.Tab | undefined;

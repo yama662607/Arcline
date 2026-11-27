@@ -135,6 +135,12 @@ function EmptySpaceCanvas() {
   const isPopup = params.get('popup') === '1';
   const isModal = params.get('mode') === 'modal';
   const isCommandBarExplicit = params.get('commandBar') === '1';
+  const returnTabId = useMemo(() => {
+    const raw = params.get('returnTabId');
+    if (!raw) return undefined;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isInteger(parsed) ? parsed : undefined;
+  }, [params]);
   const initialBarVisible = isModal || isPopup || isCommandBarExplicit || !requestedSpaceId;
 
   const [barVisible, setBarVisible] = useState(initialBarVisible);
@@ -270,23 +276,26 @@ function EmptySpaceCanvas() {
     } else if (requestedSpaceId && !isCommandBarExplicit) {
       setBarVisible(false);
     } else {
-      // Opened as a New Tab Command Bar (Cmd+T in "newtab" mode): pressing Esc closes this
-      // empty tab to return to the previous page, unless it's the only tab in the window.
+      // Opened as a New Tab Command Bar (Cmd+T in "newtab" mode): pressing Esc activates the
+      // exact original tab (returnTabId) and closes this empty tab, unless it's the only tab.
       if (typeof chrome !== 'undefined' && chrome.tabs?.getCurrent && chrome.tabs?.query) {
         void Promise.all([chrome.tabs.getCurrent(), chrome.tabs.query({ currentWindow: true })])
-          .then(([cur, all]) => {
+          .then(async ([cur, all]) => {
             if (cur?.id !== undefined && all.length > 1) {
-              return chrome.tabs.remove(cur.id);
+              if (returnTabId !== undefined && returnTabId !== cur.id) {
+                await chrome.tabs.update(returnTabId, { active: true }).catch(() => undefined);
+              }
+              await chrome.tabs.remove(cur.id);
+              return;
             }
             setBarVisible(false);
-            return undefined;
           })
           .catch(() => setBarVisible(false));
       } else {
         setBarVisible(false);
       }
     }
-  }, [isModal, isPopup, requestedSpaceId, isCommandBarExplicit]);
+  }, [isModal, isPopup, requestedSpaceId, isCommandBarExplicit, returnTabId]);
 
   // Keep modal iframe background transparent so the active webpage shows directly behind the card
   useEffect(() => {
@@ -321,9 +330,10 @@ function EmptySpaceCanvas() {
     return () => window.removeEventListener('pointerdown', onOutsidePointerDown);
   }, [barVisible, isModal, isPopup, closeModal]);
 
-  // Dismiss Command Bar on Escape even when focus moved to a result button or clear button
+  // Dismiss Command Bar on Escape even when focus moved to a result button, clear button,
+  // or after clicking outside on an explicit Command Bar New Tab.
   useEffect(() => {
-    if (!barVisible) return;
+    if (!barVisible && !isCommandBarExplicit) return;
     const onWindowKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (e.target instanceof HTMLInputElement) return;
@@ -332,7 +342,7 @@ function EmptySpaceCanvas() {
     };
     window.addEventListener('keydown', onWindowKeyDown);
     return () => window.removeEventListener('keydown', onWindowKeyDown);
-  }, [barVisible, closeModal]);
+  }, [barVisible, isCommandBarExplicit, closeModal]);
 
   // Allow background/overlay to reveal or toggle the Command Bar on an empty Space canvas
   useEffect(() => {

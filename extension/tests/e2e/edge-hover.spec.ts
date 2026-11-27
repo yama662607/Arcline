@@ -250,8 +250,10 @@ test.describe('Left-edge auto-hide hover overlay', () => {
     }
 
     await page.mouse.move(1220, 300);
-    await page.waitForTimeout(320);
+    await page.waitForTimeout(460);
     expect((await readOverlayState(page)).open).toBe(true);
+    await page.mouse.click(1220, 300);
+    await expect(dialog).toBeHidden();
     await page.mouse.click(1220, 300);
     await expect.poll(async () => (await readOverlayState(page)).open).toBe(false);
 

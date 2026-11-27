@@ -22,9 +22,11 @@ async function redirectIfStillOpen(): Promise<void> {
     if (settings.commandBarOpenMode === 'popup') {
       await new Promise((r) => setTimeout(r, 120));
     }
-    await chrome.tabs.update(tab.id, {
-      url: chrome.runtime.getURL('empty-space.html?commandBar=1'),
-    });
+    const targetUrl = chrome.runtime.getURL('empty-space.html?commandBar=1');
+    await chrome.tabs
+      .create({ windowId: tab.windowId, url: targetUrl, active: true })
+      .then(() => chrome.tabs.remove(tab.id as number).catch(() => undefined))
+      .catch(() => chrome.tabs.update(tab.id as number, { url: targetUrl }));
   } catch {
     // Tab was already closed by background popup interception
   }

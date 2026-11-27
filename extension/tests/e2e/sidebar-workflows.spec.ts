@@ -332,8 +332,17 @@ test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
     await modalInput.press('Escape');
     await expect(modalIframe).toHaveCount(0);
 
-    // 2. Newtab mode: Cmd+T redirects off chrome://newtab / brave://newtab (eliminates Brave Customize bar),
-    //    supports @alias + site-search + live i18n, and closes tab on Escape
+    // 2. Newtab mode: Cmd+T creates a fresh non-NTP tab (eliminates Brave Customize bar),
+    //    supports @alias + site-search + live i18n, and Escape returns to the EXACT original tab (tabA),
+    //    not just an adjacent rightmost tab!
+    const tabOther = await arcline.context.newPage();
+    await tabOther.goto(`${arcline.serverUrl}/page/other-rightmost`);
+    await tabA.bringToFront();
+    await arcline.worker.evaluate(async () => {
+      const tabs = await chrome.tabs.query({});
+      const host = tabs.find((t) => t.url?.includes('/page/cmd-t-host'));
+      if (host?.id !== undefined) await chrome.tabs.update(host.id, { active: true });
+    });
     await arcline.setSettings({ commandBarOpenMode: 'newtab' });
     await tabA.waitForTimeout(80);
     const tabsBeforeNewtab = await arcline.worker.evaluate(
@@ -390,9 +399,17 @@ test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
     const enInput = newTabPage!.getByRole('textbox', { name: 'Arcline Command Bar' });
     await expect(enInput).toBeVisible();
     await enInput.press('Escape'); // clears active query + site-search chip
-    await enInput.press('Escape'); // closes empty New Tab
+    await enInput.press('Escape'); // closes empty New Tab and returns directly to tabA
     await expect
       .poll(async () => (await arcline.worker.evaluate(async () => (await chrome.tabs.query({})).length)))
       .toBe(tabsBeforeNewtab);
+    await expect
+      .poll(async () =>
+        arcline.worker.evaluate(async () => {
+          const [t] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          return t?.url ?? '';
+        }),
+      )
+      .toContain('/page/cmd-t-host');
   });
 });
