@@ -1938,8 +1938,6 @@ export function App() {
 
             <TemporaryTabs
               spaceId={activeSpace.id}
-              spaceName={activeSpace.name}
-              openEmptySpacePage={settings.openEmptySpacePage}
               tabIds={activeSpace.tabIds}
               tabs={state.tabs}
               activeTabId={state.activeTabId}

@@ -187,12 +187,17 @@ test.describe('Left-edge auto-hide hover overlay', () => {
     const tabBtn = frame.getByRole('button', { name: /Page CURRENT/i }).first();
     await tabBtn.click({ button: 'right', position: { x: 155, y: 14 } });
     await expect(menu).toBeVisible();
+    await expect(frame.locator('[data-arcline-ready="true"]')).toHaveAttribute(
+      'data-stage-expanded',
+      'true',
+    );
     const menuBox = await menu.boundingBox();
     expect(menuBox).not.toBeNull();
     if (menuBox) {
       expect(menuBox.x + menuBox.width).toBeGreaterThan(276);
     }
-    await frame.getByRole('menuitem', { name: '他の Space へ移動' }).hover();
+    const moveMenuItem = frame.getByRole('menuitem', { name: '他の Space へ移動' });
+    await moveMenuItem.hover();
     await expect(frame.getByRole('menuitem', { name: 'TargetSpace' })).toBeVisible();
     await frame.getByRole('menuitem', { name: 'URLをコピー' }).click();
     await expect(frame.getByRole('status')).toContainText('コピー');
@@ -219,7 +224,6 @@ test.describe('Left-edge auto-hide hover overlay', () => {
       'data-active-space',
       'TargetSpace',
     );
-    await expect(frame.locator('[data-empty-space-card="true"]')).toBeVisible();
     expect(page.url()).toBe(`${arcline.serverUrl}/page/current`);
 
     // Immediate reverse swipe without moving cursor switches back without triggering browser Back

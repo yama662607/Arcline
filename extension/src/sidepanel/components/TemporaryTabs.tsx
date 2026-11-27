@@ -1,4 +1,4 @@
-import { ArrowDown, Layers, Pin, Plus, Sparkles, VolumeX, X } from 'lucide-react';
+import { ArrowDown, Pin, Plus, VolumeX, X } from 'lucide-react';
 import { useState } from 'react';
 import type { LiveTab } from '../../core/types';
 import { useT } from '../i18n';
@@ -21,8 +21,6 @@ function isEmptySpaceCanvasTab(tab: LiveTab): boolean {
 
 interface TemporaryTabsProps {
   spaceId: string;
-  spaceName: string;
-  openEmptySpacePage: boolean;
   tabIds: number[];
   tabs: Map<number, LiveTab>;
   activeTabId?: number;
@@ -38,8 +36,6 @@ interface TemporaryTabsProps {
 
 export function TemporaryTabs({
   spaceId,
-  spaceName,
-  openEmptySpacePage,
   tabIds,
   tabs,
   activeTabId,
@@ -57,13 +53,9 @@ export function TemporaryTabs({
   const [sectionDragOver, setSectionDragOver] = useState(false);
   const [draggingTabId, setDraggingTabId] = useState<number | null>(null);
 
-  const allSpaceTabs = tabIds
+  const liveTabs = tabIds
     .map((id) => tabs.get(id))
-    .filter((t): t is LiveTab => t !== undefined);
-  const liveTabs = allSpaceTabs.filter((t) => !isEmptySpaceCanvasTab(t));
-  const showingCanvasTab = allSpaceTabs.some(
-    (t) => isEmptySpaceCanvasTab(t) && t.id === activeTabId,
-  );
+    .filter((t): t is LiveTab => t !== undefined && !isEmptySpaceCanvasTab(t));
 
   return (
     <section
@@ -138,35 +130,7 @@ export function TemporaryTabs({
         <span>{t('sidebar.temp.newTab')}</span>
       </button>
 
-      {/* Clear Empty-Space Status Feedback Card when no temporary tabs are open in this Space */}
-      {liveTabs.length === 0 ? (
-        <div
-          data-empty-space-card="true"
-          className="mt-1 flex flex-col items-center gap-1.5 rounded-xl border border-dashed px-3 py-3.5 text-center"
-          style={{
-            borderColor: 'var(--rule)',
-            backgroundColor: 'color-mix(in oklch, var(--tile) 55%, transparent)',
-            color: 'var(--ink-muted)',
-          }}
-        >
-          <div
-            className="flex items-center gap-1.5 text-[12px] font-medium"
-            style={{ color: 'var(--ink)' }}
-          >
-            {showingCanvasTab || openEmptySpacePage ? (
-              <Sparkles size={13} style={{ color: 'var(--accent)' }} />
-            ) : (
-              <Layers size={13} />
-            )}
-            <span>{t('sidebar.temp.empty', { name: spaceName })}</span>
-          </div>
-          <p className="m-0 text-[11px] leading-snug">
-            {showingCanvasTab || openEmptySpacePage
-              ? t('sidebar.temp.emptyThemePage')
-              : t('sidebar.temp.emptyWaiting')}
-          </p>
-        </div>
-      ) : (
+      {liveTabs.length > 0 && (
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
           {liveTabs.map((tab, idx) => {
             const isActive = tab.id === activeTabId;
