@@ -601,19 +601,60 @@ test.describe('Left-edge auto-hide hover overlay', () => {
     await tabA.waitForTimeout(200);
     expect((await readOverlayState(tabA)).open).toBe(false);
 
-    // 2. Open overlay on tabA, then navigate to another page -> overlay auto-opens on destination
+    // Seed enough pins so the sidebar list is scrollable and we can verify scroll preservation across tab switches
+    await arcline.worker.evaluate(async () => {
+      const rootRes = await chrome.storage.local.get('arcline:root');
+      const rootId = (rootRes['arcline:root'] as { rootId?: string } | undefined)?.rootId;
+      if (!rootId) return;
+      const children = await chrome.bookmarks.getChildren(rootId);
+      const mainSpace = children.find((c) => c.title !== 'Favorites');
+      if (!mainSpace) return;
+      for (let i = 1; i <= 26; i += 1) {
+        await chrome.bookmarks.create({
+          parentId: mainSpace.id,
+          title: `Scrollable Pin ${i}`,
+          url: `https://example.com/scroll-pin-${i}`,
+        });
+      }
+    });
+
+    // 2. Open overlay on tabA, scroll down, then navigate to another page -> overlay auto-opens AND preserves scrollTop
     await tabA.mouse.move(2, 260);
     await expect.poll(async () => (await readOverlayState(tabA)).open).toBe(true);
+    const frameA = tabA.frameLocator('#arcline-overlay-host iframe');
+    await expect(frameA.locator('[data-arcline-ready="true"]')).toBeVisible();
+    await expect(frameA.getByText('Scrollable Pin 26')).toBeAttached();
+    await frameA.locator('main.arcline-scroll').evaluate((el) => {
+      el.scrollTop = 220;
+      el.dispatchEvent(new Event('scroll'));
+    });
+    await tabA.waitForTimeout(150);
 
     await tabA.goto(`${arcline.serverUrl}/page/beta`);
     await expect.poll(async () => (await readOverlayState(tabA)).hostPresent).toBe(true);
     await expect.poll(async () => (await readOverlayState(tabA)).open).toBe(true);
+    await expect
+      .poll(async () =>
+        tabA
+          .frameLocator('#arcline-overlay-host iframe')
+          .locator('main.arcline-scroll')
+          .evaluate((el) => el.scrollTop),
+      )
+      .toBeGreaterThanOrEqual(180);
 
-    // 3. Open a second tab while overlay is open -> destination tab also auto-opens overlay
+    // 3. Open a second tab while overlay is open -> destination tab also auto-opens overlay AND preserves scrollTop
     const tabB = await arcline.context.newPage();
     await tabB.goto(`${arcline.serverUrl}/page/gamma`);
     await expect.poll(async () => (await readOverlayState(tabB)).hostPresent).toBe(true);
     await expect.poll(async () => (await readOverlayState(tabB)).open).toBe(true);
+    await expect
+      .poll(async () =>
+        tabB
+          .frameLocator('#arcline-overlay-host iframe')
+          .locator('main.arcline-scroll')
+          .evaluate((el) => el.scrollTop),
+      )
+      .toBeGreaterThanOrEqual(180);
 
     // 4. Explicitly close overlay by moving mouse out past grace period, then navigate -> stays CLOSED!
     await tabB.waitForTimeout(420);

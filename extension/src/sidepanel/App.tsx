@@ -117,6 +117,8 @@ function isInsideOverflowingHScroll(target: EventTarget | null): boolean {
   return scroller.scrollWidth > scroller.clientWidth + 2;
 }
 
+const SIDEBAR_SCROLL_STORAGE_KEY = 'arcline:sidebarScroll';
+
 function isRestrictedTabUrl(url?: string): boolean {
   if (!url) return false;
   if (/^https?:\/\//i.test(url)) {
@@ -156,9 +158,13 @@ export function App() {
   );
 
   const shellRef = useRef<HTMLDivElement>(null);
+  const mainScrollRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const spaceAnimTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const scrollSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const scrollRestoringRef = useRef(false);
+  const lastUserScrollAtRef = useRef(0);
   const swipeMachineRef = useRef<SpaceSwipeMachine | null>(null);
 
   const isOverlay = useMemo(
@@ -214,8 +220,115 @@ export function App() {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       if (spaceAnimTimerRef.current) clearTimeout(spaceAnimTimerRef.current);
+      if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current);
     };
   }, []);
+
+  const scrollKey =
+    windowId !== null && state.activeSpaceId ? `${windowId}:${state.activeSpaceId}` : null;
+
+  const persistScrollTop = useCallback((key: string, top: number) => {
+    if (typeof chrome === 'undefined' || !chrome.storage?.session) return;
+    const clamped = Math.max(0, Math.round(top));
+    void chrome.storage.session
+      .get(SIDEBAR_SCROLL_STORAGE_KEY)
+      .then((res) => {
+        const current =
+          (res[SIDEBAR_SCROLL_STORAGE_KEY] as Record<string, number> | undefined) ?? {};
+        if (current[key] === clamped) return;
+        return chrome.storage.session.set({
+          [SIDEBAR_SCROLL_STORAGE_KEY]: { ...current, [key]: clamped },
+        });
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const applyRestoredScrollTop = useCallback((top: number) => {
+    const el = mainScrollRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.round(top));
+    if (Math.abs(el.scrollTop - clamped) <= 1) return;
+    scrollRestoringRef.current = true;
+    el.scrollTop = clamped;
+    requestAnimationFrame(() => {
+      if (mainScrollRef.current && Math.abs(mainScrollRef.current.scrollTop - clamped) > 1) {
+        mainScrollRef.current.scrollTop = clamped;
+      }
+      scrollRestoringRef.current = false;
+    });
+  }, []);
+
+  const flushScrollTop = useCallback(() => {
+    if (!scrollKey || !mainScrollRef.current || query.trim()) return;
+    if (scrollSaveTimerRef.current) {
+      clearTimeout(scrollSaveTimerRef.current);
+      scrollSaveTimerRef.current = undefined;
+    }
+    persistScrollTop(scrollKey, mainScrollRef.current.scrollTop);
+  }, [persistScrollTop, query, scrollKey]);
+
+  const handleMainScroll = useCallback(() => {
+    if (scrollRestoringRef.current || !scrollKey || !mainScrollRef.current || query.trim()) return;
+    lastUserScrollAtRef.current = Date.now();
+    const top = mainScrollRef.current.scrollTop;
+    if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current);
+    scrollSaveTimerRef.current = setTimeout(() => {
+      scrollSaveTimerRef.current = undefined;
+      persistScrollTop(scrollKey, top);
+    }, 60);
+  }, [persistScrollTop, query, scrollKey]);
+
+  // Restore saved scroll position per (windowId, spaceId) on mount, space switch, and tab return
+  useEffect(() => {
+    if (!scrollKey || state.spaces.length === 0 || query.trim()) return;
+    if (typeof chrome === 'undefined' || !chrome.storage?.session) return;
+    let active = true;
+    const restoreFromSession = () => {
+      void chrome.storage.session
+        .get(SIDEBAR_SCROLL_STORAGE_KEY)
+        .then((res) => {
+          if (!active) return;
+          const map = res[SIDEBAR_SCROLL_STORAGE_KEY] as Record<string, number> | undefined;
+          const saved = map?.[scrollKey];
+          if (typeof saved === 'number' && Number.isFinite(saved)) {
+            applyRestoredScrollTop(saved);
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    restoreFromSession();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        restoreFromSession();
+      } else {
+        flushScrollTop();
+      }
+    };
+    const onStorageChange = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: string,
+    ) => {
+      if (areaName !== 'session' || !(SIDEBAR_SCROLL_STORAGE_KEY in changes)) return;
+      if (Date.now() - lastUserScrollAtRef.current < 150) return;
+      const map = changes[SIDEBAR_SCROLL_STORAGE_KEY]?.newValue as
+        | Record<string, number>
+        | undefined;
+      const nextTop = map?.[scrollKey];
+      if (typeof nextTop === 'number' && Number.isFinite(nextTop)) {
+        applyRestoredScrollTop(nextTop);
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    chrome.storage.onChanged?.addListener(onStorageChange);
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      chrome.storage.onChanged?.removeListener(onStorageChange);
+    };
+  }, [applyRestoredScrollTop, flushScrollTop, query, scrollKey, state.spaces.length]);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -1601,7 +1714,10 @@ export function App() {
 
       {/* Main scrollable area with Space swipe stage + empty-area context menu */}
       <main
+        ref={mainScrollRef}
         className="arcline-scroll relative flex min-h-0 flex-1 flex-col"
+        onScroll={handleMainScroll}
+        onPointerDown={flushScrollTop}
         onContextMenu={openBlankAreaMenu}
       >
         {query.trim() ? (
