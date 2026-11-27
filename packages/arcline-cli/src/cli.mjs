@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { CliError, readJson, writeExport } from './common.mjs';
 import { arcSidebarPaths, browsers, discoverProfiles, hasArcline, selectProfile } from './profiles.mjs';
-import { addPin, arclineRoot, exportBookmarks, lintBookmarks, lintWorkspace, listSpaces, readBookmarks, searchBookmarks, treeBookmarks } from './bookmarks.mjs';
+import { addPin, arclineRoot, exportBookmarks, lintBookmarks, lintWorkspace, listSpaces, readBookmarks, searchBookmarks, treeAllRoots, treeBookmarks } from './bookmarks.mjs';
 import { parseArcSidebar } from './arc.mjs';
 import { bridgeStatus, callBridge, installBridge, uninstallBridge } from './bridge.mjs';
 import { searchHistory } from './history.mjs';
@@ -20,10 +20,10 @@ Read & Navigation:
                                  List Spaces, recursive pin/folder counts and Favorites
   tree [--space <name|id>] [--live]
                                  Show full recursive tree with bookmark IDs for every node
-  lint [--live]                  Detect duplicate Spaces/folders/URLs, empty folders, URL titles
+  lint [--live] [--all-roots]    Detect duplicate Spaces/folders/URLs, empty folders, URL titles
   search <query> [--history] [--include-ids]
                                  Search Favorites, pinned links/folders, optionally History
-  export [--out <file>] [--include-ids]
+  export [--out <file>] [--include-ids] [--all-roots]
                                  Export clean portable workspace JSON
   import-arc [--file <path>] [--out <file>]
                                  Parse StorableSidebar.json; no browser mutation
@@ -32,6 +32,9 @@ Read & Navigation:
 Live Editing (via Native Messaging bridge — Brave/Chrome stays open & Syncs cleanly!):
   bridge install [--browser brave|chrome] [--extension-id <id>]
   bridge status | uninstall [--browser brave|chrome]
+  bookmarks tree [--root bar|other|mobile] [--live]
+  bookmarks delete --id <id> [--recursive] [--dry-run]
+  bookmarks move --id <id> --space <name|id> [--folder <a/b>] [--index <n>]
   space create --name <name> [--hue <0-359>] [--icon <icon>]
   space rename --space <name|id> --name <newName>
   space theme --space <name|id> [--hue <0-359>] [--icon <icon>]
@@ -69,13 +72,14 @@ const commandOptions = {
   doctor: [...profileOptions],
   spaces: [...profileOptions, 'live', 'include-ids'],
   tree: [...profileOptions, 'space', 'live'],
-  lint: [...profileOptions, 'live'],
+  lint: [...profileOptions, 'live', 'all-roots'],
   search: [...profileOptions, 'history', 'limit', 'include-ids'],
   'add-pin': [...profileOptions, 'space', 'url', 'title', 'folder', 'force'],
-  export: [...profileOptions, 'out', 'include-ids'],
+  export: [...profileOptions, 'out', 'include-ids', 'all-roots'],
   'import-arc': ['file', 'out'],
   open: ['browser', 'profile'],
   bridge: ['browser', 'extension-id'],
+  bookmarks: [...profileOptions, 'root', 'live', 'id', 'space', 'folder', 'index', 'recursive', 'dry-run'],
   space: ['space', 'name', 'hue', 'icon', 'dry-run'],
   pin: ['id', 'space', 'url', 'title', 'folder', 'index', 'recursive', 'dry-run'],
   folder: ['id', 'space', 'title', 'parent', 'recursive', 'dry-run'],
@@ -83,15 +87,15 @@ const commandOptions = {
   'site-search': ['id', 'prefix', 'new-prefix', 'label', 'url', 'accent'],
 };
 
-const subcommandCommands = new Set(['bridge', 'space', 'pin', 'folder', 'favorite', 'site-search']);
+const subcommandCommands = new Set(['bridge', 'bookmarks', 'space', 'pin', 'folder', 'favorite', 'site-search']);
 
 export function parseCli(argv) {
   const stringOpts = [
     'browser', 'profile', 'bookmarks', 'limit', 'space', 'url', 'title', 'folder', 'out', 'file',
-    'extension-id', 'name', 'hue', 'icon', 'id', 'index', 'parent', 'prefix', 'new-prefix', 'label', 'accent',
+    'extension-id', 'name', 'hue', 'icon', 'id', 'index', 'parent', 'prefix', 'new-prefix', 'label', 'accent', 'root',
   ];
   const options = Object.fromEntries(stringOpts.map(name => [name, { type: 'string' }]));
-  for (const name of ['json', 'history', 'force', 'version', 'live', 'include-ids', 'dry-run', 'recursive']) {
+  for (const name of ['json', 'history', 'force', 'version', 'live', 'include-ids', 'dry-run', 'recursive', 'all-roots']) {
     options[name] = { type: 'boolean' };
   }
   options.help = { type: 'boolean', short: 'h' };
@@ -190,6 +194,27 @@ export async function execute({ command, options, args }) {
     if (sub === 'uninstall') return { data: uninstallBridge({ browser: options.browser ?? 'brave' }), warnings };
     if (sub === 'status') return { data: await bridgeStatus(), warnings };
     throw new CliError('INVALID_ARGUMENT', `Unknown bridge subcommand: ${sub}. Use install, status, or uninstall.`);
+  }
+  if (command === 'bookmarks') {
+    const sub = args[0];
+    if (sub === 'tree') {
+      if (options.live) {
+        const live = await callBridge('bookmarks.tree', options.root ? { root: options.root } : {});
+        return { data: { ...live, via: 'bridge' }, warnings };
+      }
+      const profile = selectProfile(options);
+      return { data: treeAllRoots(readBookmarks(profile), options.root ?? ''), warnings };
+    }
+    if (sub === 'delete') {
+      if (!options.id) throw new CliError('INVALID_ARGUMENT', 'bookmarks delete requires --id.');
+      return { data: await callBridge('bookmarks.delete', { id: options.id, recursive: Boolean(options.recursive), dryRun: Boolean(options['dry-run']) }), warnings };
+    }
+    if (sub === 'move') {
+      if (!options.id || !options.space) throw new CliError('INVALID_ARGUMENT', 'bookmarks move requires --id and --space.');
+      const index = options.index !== undefined ? Number(options.index) : undefined;
+      return { data: await callBridge('bookmarks.move', { id: options.id, space: options.space, folder: options.folder, ...(Number.isInteger(index) ? { index } : {}) }), warnings };
+    }
+    throw new CliError('INVALID_ARGUMENT', `Unknown bookmarks subcommand: ${sub}. Use tree, delete, or move.`);
   }
   if (command === 'space') {
     const sub = args[0];
@@ -304,7 +329,12 @@ export async function execute({ command, options, args }) {
   }
   if (command === 'lint' && options.live) {
     const liveTree = await callBridge('space.tree');
-    return { data: { ...lintWorkspace(liveTree), via: 'bridge' }, warnings };
+    let externalRoots = [];
+    if (options['all-roots']) {
+      const all = await callBridge('bookmarks.tree');
+      externalRoots = all.roots ?? [];
+    }
+    return { data: { ...lintWorkspace({ ...liveTree, externalRoots }), via: 'bridge' }, warnings };
   }
   const profile = selectProfile(options);
   if (command === 'add-pin') {
@@ -341,11 +371,12 @@ export async function execute({ command, options, args }) {
     }
     return { data: { query, limit, results: results.slice(0, limit), history }, warnings };
   }
+  const allRoots = Boolean(options['all-roots']);
   const bookmarks = readBookmarks(profile);
   if (command === 'spaces') return { data: listSpaces(bookmarks, { includeIds }), warnings };
   if (command === 'tree') return { data: treeBookmarks(bookmarks, options.space), warnings };
-  if (command === 'lint') return { data: lintBookmarks(bookmarks), warnings };
-  const document = exportBookmarks(bookmarks, { includeIds });
+  if (command === 'lint') return { data: lintBookmarks(bookmarks, { allRoots }), warnings };
+  const document = exportBookmarks(bookmarks, { includeIds, allRoots });
   const out = options.out ? writeExport(options.out, document) : undefined;
   return { data: document, warnings, ...(out ? { out } : {}) };
 }

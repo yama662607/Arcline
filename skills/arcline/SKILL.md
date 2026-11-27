@@ -59,11 +59,17 @@ arcline bridge status --json
 Once connected, use these live CRUD commands (all go through official `chrome.bookmarks` / `chrome.storage` APIs):
 
 ```sh
-# Inspect live IDs & lint duplicates
+# Inspect live IDs & lint duplicates (add --all-roots to include Bookmarks Bar / Other / Mobile)
 arcline spaces --live --json
 arcline tree --live --json
 arcline tree --space <name|id> --live --json
-arcline lint --live --json
+arcline lint --live --all-roots --json
+
+# All browser bookmarks (Bookmarks Bar, Other, Mobile — including outside Arcline root)
+arcline bookmarks tree --root bar --live --json
+arcline bookmarks delete --id 2 --recursive --dry-run --json
+arcline bookmarks delete --id 2 --recursive --json
+arcline bookmarks move --id 42 --space Research --folder 'Imported' --json
 
 # Spaces
 arcline space create --name Research --hue 220 --json

@@ -2,7 +2,7 @@ import { resolveSpaceMeta, spaceHue } from '../core/colors';
 import { SITE_SEARCHES } from '../core/command-bar';
 import { sanitizeCustomSiteSearch } from '../core/settings';
 import { findFavoriteUrlMatch } from '../core/shortcut-keys';
-import { isSafeNavigableUrl, spaceFolders } from '../core/snapshot';
+import { findBookmark, isSafeNavigableUrl, spaceFolders } from '../core/snapshot';
 import type { BookmarkNode, CustomSiteSearch } from '../core/types';
 import type { Engine } from './engine';
 import { ensureRoot, loadRoot } from './root';
@@ -91,6 +91,109 @@ async function resolveNodePath(id: string): Promise<string[]> {
     cursor = node.parentId;
   }
   return parts;
+}
+
+async function getProtectedRootIds(): Promise<Set<string>> {
+  const protectedIds = new Set<string>(['0', '1', '2', '3']);
+  const [{ ids }, tree] = await Promise.all([loadRoot(), chrome.bookmarks.getTree()]);
+  protectedIds.add(ids.rootId);
+  protectedIds.add(ids.favoritesId);
+  for (const top of tree) {
+    protectedIds.add(top.id);
+    for (const child of top.children ?? []) {
+      protectedIds.add(child.id);
+    }
+  }
+  return protectedIds;
+}
+
+function classifyTopRootKey(
+  node: chrome.bookmarks.BookmarkTreeNode,
+  index: number,
+): 'bar' | 'other' | 'mobile' {
+  const ft = (node as { folderType?: string }).folderType;
+  if (ft === 'bookmarks-bar') return 'bar';
+  if (ft === 'other') return 'other';
+  if (ft === 'mobile') return 'mobile';
+  if (index === 0) return 'bar';
+  if (index === 1) return 'other';
+  return 'mobile';
+}
+
+async function deleteAnyBookmark(opts: {
+  engine: Engine;
+  id: string;
+  expectFolder: boolean;
+  recursive: boolean;
+  dryRun: boolean;
+}): Promise<Record<string, unknown>> {
+  const { engine, id, expectFolder, recursive, dryRun } = opts;
+  if (!id) throw new Error('id is required.');
+  const protectedIds = await getProtectedRootIds();
+  if (protectedIds.has(id)) {
+    throw new Error(
+      `Cannot delete protected root folder "${id}" (Bookmarks Bar, Other Bookmarks, Mobile Bookmarks, Arcline root, or Favorites).`,
+    );
+  }
+  const [sub] = await chrome.bookmarks.getSubTree(id).catch(() => []);
+  if (!sub) {
+    throw new Error(`${expectFolder ? 'Folder' : 'Bookmark'} not found: "${id}"`);
+  }
+  const isFolder = typeof sub.url !== 'string';
+  if (expectFolder && !isFolder) {
+    throw new Error(`Bookmark "${id}" is a pin, not a folder. Use pin delete instead.`);
+  }
+  const { root } = await loadRoot();
+  const inArclineRoot = Boolean(findBookmark(root, id));
+  const counts = isFolder ? summarizeTree(sub as BookmarkNode) : { pins: 1, folders: 0 };
+  const nodePath = await resolveNodePath(id);
+  const requiresRecursive = isFolder && (counts.pins > 0 || counts.folders > 0);
+  if (dryRun) {
+    return {
+      dryRun: true,
+      id,
+      kind: isFolder ? 'folder' : 'pin',
+      title: sub.title,
+      ...(sub.url ? { url: sub.url } : {}),
+      path: nodePath,
+      inArclineRoot,
+      ...counts,
+      requiresRecursive,
+      wouldSucceed: !requiresRecursive || recursive,
+      ...(requiresRecursive && !recursive
+        ? {
+            hint: `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders); pass --recursive to delete it and all contents.`,
+          }
+        : {}),
+    };
+  }
+  if (requiresRecursive && !recursive) {
+    throw new Error(
+      `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders). Pass --recursive to delete it and all contents, or --dry-run to preview.`,
+    );
+  }
+  if (inArclineRoot) {
+    const windowId = await resolveNormalWindowId();
+    await engine.run({ type: 'deleteBookmark', windowId, id });
+  } else if (isFolder) {
+    await chrome.bookmarks.removeTree(id);
+  } else {
+    await chrome.bookmarks.remove(id);
+  }
+  // Verify deletion actually succeeded — never report deleted:true if the node still exists!
+  const [remaining] = await chrome.bookmarks.getSubTree(id).catch(() => []);
+  if (remaining) {
+    throw new Error(`Failed to delete bookmark "${id}" ("${sub.title}"); node still exists.`);
+  }
+  return {
+    deleted: true,
+    id,
+    kind: isFolder ? 'folder' : 'pin',
+    title: sub.title,
+    path: nodePath,
+    inArclineRoot,
+    ...counts,
+  };
 }
 
 async function ensureFolderPath(spaceNode: BookmarkNode, folderPath?: string): Promise<string> {
@@ -296,41 +399,13 @@ async function handleBridgeMethod(
 
     case 'pin.delete': {
       const id = typeof params.id === 'string' ? params.id.trim() : '';
-      const dryRun = Boolean(params.dryRun);
-      const recursive = Boolean(params.recursive);
-      if (!id) throw new Error('id is required.');
-      const [sub] = await chrome.bookmarks.getSubTree(id).catch(() => []);
-      if (!sub) throw new Error(`Bookmark not found: "${id}"`);
-      const isFolder = typeof sub.url !== 'string';
-      const counts = isFolder ? summarizeTree(sub) : { pins: 1, folders: 0 };
-      const nodePath = await resolveNodePath(id);
-      const requiresRecursive = isFolder && (counts.pins > 0 || counts.folders > 0);
-      if (dryRun) {
-        return {
-          dryRun: true,
-          id,
-          kind: isFolder ? 'folder' : 'pin',
-          title: sub.title,
-          ...(sub.url ? { url: sub.url } : {}),
-          path: nodePath,
-          ...counts,
-          requiresRecursive,
-          wouldSucceed: !requiresRecursive || recursive,
-          ...(requiresRecursive && !recursive
-            ? {
-                hint: `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders); pass --recursive to delete it and all contents.`,
-              }
-            : {}),
-        };
-      }
-      if (requiresRecursive && !recursive) {
-        throw new Error(
-          `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders). Pass --recursive to delete it and all contents, or --dry-run to preview.`,
-        );
-      }
-      const windowId = await resolveNormalWindowId();
-      await engine.run({ type: 'deleteBookmark', windowId, id });
-      return { deleted: true, id, kind: isFolder ? 'folder' : 'pin', title: sub.title, ...counts };
+      return deleteAnyBookmark({
+        engine,
+        id,
+        expectFolder: false,
+        recursive: Boolean(params.recursive),
+        dryRun: Boolean(params.dryRun),
+      });
     }
 
     case 'folder.create': {
@@ -348,56 +423,88 @@ async function handleBridgeMethod(
       const id = typeof params.id === 'string' ? params.id.trim() : '';
       const title = typeof params.title === 'string' ? params.title.trim() : '';
       if (!id || !title) throw new Error('id and title are required.');
+      const protectedIds = await getProtectedRootIds();
+      if (protectedIds.has(id)) {
+        throw new Error(`Cannot rename protected root folder "${id}".`);
+      }
       const [node] = await chrome.bookmarks.get(id).catch(() => []);
       if (!node) throw new Error(`Folder not found: "${id}"`);
       if (typeof node.url === 'string') {
         throw new Error(`Bookmark "${id}" is a pin, not a folder. Use pin rename instead.`);
       }
-      await engine.run({ type: 'renameBookmark', id, title });
+      await chrome.bookmarks.update(id, { title });
       return { id, previousTitle: node.title, title };
     }
 
     case 'folder.delete': {
       const id = typeof params.id === 'string' ? params.id.trim() : '';
-      const dryRun = Boolean(params.dryRun);
-      const recursive = Boolean(params.recursive);
-      if (!id) throw new Error('id is required.');
-      const { ids } = await loadRoot();
-      if (id === ids.rootId || id === ids.favoritesId) {
-        throw new Error('Cannot delete the Arcline root or Favorites folder.');
+      return deleteAnyBookmark({
+        engine,
+        id,
+        expectFolder: true,
+        recursive: Boolean(params.recursive),
+        dryRun: Boolean(params.dryRun),
+      });
+    }
+
+    case 'bookmarks.tree': {
+      const rootFilter = typeof params.root === 'string' ? params.root.trim().toLowerCase() : '';
+      const tree = await chrome.bookmarks.getTree();
+      const topChildren = tree[0]?.children ?? [];
+      const roots = topChildren
+        .map((node, index) => {
+          const key = classifyTopRootKey(node, index);
+          const counts = summarizeTree(node as BookmarkNode);
+          return {
+            key,
+            id: node.id,
+            title: node.title || key,
+            ...counts,
+            nodes: toTreeDto(node.children as BookmarkNode[] | undefined),
+          };
+        })
+        .filter((r) => !rootFilter || rootFilter === 'all' || r.key === rootFilter);
+      return { roots };
+    }
+
+    case 'bookmarks.delete': {
+      const id = typeof params.id === 'string' ? params.id.trim() : '';
+      return deleteAnyBookmark({
+        engine,
+        id,
+        expectFolder: false,
+        recursive: Boolean(params.recursive),
+        dryRun: Boolean(params.dryRun),
+      });
+    }
+
+    case 'bookmarks.move': {
+      const id = typeof params.id === 'string' ? params.id.trim() : '';
+      const spaceRef = typeof params.space === 'string' ? params.space : '';
+      const folder = typeof params.folder === 'string' ? params.folder : undefined;
+      const index =
+        typeof params.index === 'number' && Number.isInteger(params.index) && params.index >= 0
+          ? params.index
+          : undefined;
+      if (!id || !spaceRef) throw new Error('id and space are required.');
+      const protectedIds = await getProtectedRootIds();
+      if (protectedIds.has(id)) {
+        throw new Error(`Cannot move protected root folder "${id}".`);
       }
-      const [sub] = await chrome.bookmarks.getSubTree(id).catch(() => []);
-      if (!sub) throw new Error(`Folder not found: "${id}"`);
-      if (typeof sub.url === 'string') {
-        throw new Error(`Bookmark "${id}" is a pin, not a folder. Use pin delete instead.`);
-      }
-      const counts = summarizeTree(sub);
-      const nodePath = await resolveNodePath(id);
-      const requiresRecursive = counts.pins > 0 || counts.folders > 0;
-      if (dryRun) {
-        return {
-          dryRun: true,
-          id,
-          title: sub.title,
-          path: nodePath,
-          ...counts,
-          requiresRecursive,
-          wouldSucceed: !requiresRecursive || recursive,
-          ...(requiresRecursive && !recursive
-            ? {
-                hint: `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders); pass --recursive to delete it and all contents.`,
-              }
-            : {}),
-        };
-      }
-      if (requiresRecursive && !recursive) {
-        throw new Error(
-          `Folder "${sub.title}" (${id}) is not empty (${counts.pins} pins, ${counts.folders} folders). Pass --recursive to delete it and all contents, or --dry-run to preview.`,
-        );
-      }
-      const windowId = await resolveNormalWindowId();
-      await engine.run({ type: 'deleteBookmark', windowId, id });
-      return { deleted: true, id, title: sub.title, path: nodePath, ...counts };
+      const [node] = await chrome.bookmarks.get(id).catch(() => []);
+      if (!node) throw new Error(`Bookmark not found: "${id}"`);
+      const space = await resolveSpaceByIdOrName(spaceRef);
+      const parentId = await ensureFolderPath(space, folder);
+      await chrome.bookmarks.move(id, { parentId, ...(index !== undefined ? { index } : {}) });
+      return {
+        moved: true,
+        id,
+        title: node.title,
+        kind: typeof node.url === 'string' ? 'pin' : 'folder',
+        space: space.title,
+        parentId,
+        folder: folder ?? null,
+      };
     }
 
     case 'favorite.add': {

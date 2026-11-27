@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { sanitizeUrl, writeExport } from '../src/common.mjs';
-import { addPin, addPinToDocument, arclineRoot, bookmarkChecksum, exportBookmarks, lintBookmarks, listSpaces, searchBookmarks, treeBookmarks } from '../src/bookmarks.mjs';
+import { addPin, addPinToDocument, arclineRoot, bookmarkChecksum, exportBookmarks, lintBookmarks, listSpaces, searchBookmarks, treeAllRoots, treeBookmarks } from '../src/bookmarks.mjs';
 import { parseArcSidebar } from '../src/arc.mjs';
 import { arcSidebarPaths, browserRoots, browserRunning, discoverProfiles, selectProfile } from '../src/profiles.mjs';
 import { copyHistory, searchHistory } from '../src/history.mjs';
@@ -485,6 +485,17 @@ test('tree, lint, and --include-ids expose bookmark IDs and detect duplicates/em
   assert.equal(report.summary.emptyFolders, 1);
   assert.equal(report.summary.urlAsTitlePins, 1);
   assert.equal(report.summary.mismatchedUrlTitlePins, 1);
+
+  // --all-roots includes Bookmarks Bar and detects cross-root URL overlap with Arcline
+  doc.roots.bookmark_bar.children.push(folder('300', 'OldBarFavs', [pin('301', 'GitHub Copy', 'https://github.com/')]));
+  const barTree = treeAllRoots(doc, 'bar');
+  assert.equal(barTree.roots.length, 1);
+  assert.equal(barTree.roots[0].key, 'bar');
+  const allExport = exportBookmarks(doc, { includeIds: true, allRoots: true });
+  assert.ok(Array.isArray(allExport.externalRoots));
+  const allLint = lintBookmarks(doc, { allRoots: true });
+  assert.equal(allLint.summary.crossRootDuplicateUrls, 1);
+  assert.ok(allLint.duplicateUrls.some(d => d.url === 'https://github.com/' && d.crossRoot === true));
 });
 
 test('discoverProfiles respects ARCLINE_BROWSER and ARCLINE_PROFILE env defaults', t => {

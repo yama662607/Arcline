@@ -25,7 +25,52 @@ function cleanNode(node, includeIds = false) {
   return null;
 }
 
-export function exportBookmarks(document, { includeIds = false } = {}) {
+const ROOT_KEY_MAP = [
+  { key: 'bar', prop: 'bookmark_bar', fallbackTitle: 'Bookmarks Bar' },
+  { key: 'other', prop: 'other', fallbackTitle: 'Other Bookmarks' },
+  { key: 'mobile', prop: 'synced', fallbackTitle: 'Mobile Bookmarks' },
+];
+
+export function treeAllRoots(document, rootFilter = '') {
+  const filter = rootFilter.trim().toLowerCase();
+  const roots = [];
+  for (const { key, prop, fallbackTitle } of ROOT_KEY_MAP) {
+    if (filter && filter !== 'all' && filter !== key) continue;
+    const node = document?.roots?.[prop];
+    if (!node || typeof node !== 'object') continue;
+    const nodes = (node.children ?? []).map(child => cleanNode(child, true)).filter(Boolean);
+    roots.push({
+      key,
+      id: node.id !== undefined ? String(node.id) : null,
+      title: node.name || fallbackTitle,
+      ...countNodes(nodes),
+      nodes,
+    });
+  }
+  return { roots };
+}
+
+export function extractExternalRoots(document, { includeIds = false } = {}) {
+  const roots = [];
+  for (const { key, prop, fallbackTitle } of ROOT_KEY_MAP) {
+    const node = document?.roots?.[prop];
+    if (!node || typeof node !== 'object') continue;
+    const rawChildren = (node.children ?? []).filter(
+      child => !(key === 'other' && child.type === 'folder' && child.name === 'Arcline'),
+    );
+    const nodes = rawChildren.map(child => cleanNode(child, includeIds)).filter(Boolean);
+    roots.push({
+      key,
+      ...(includeIds && node.id !== undefined ? { id: String(node.id) } : {}),
+      title: node.name || fallbackTitle,
+      ...countNodes(nodes),
+      nodes,
+    });
+  }
+  return roots;
+}
+
+export function exportBookmarks(document, { includeIds = false, allRoots = false } = {}) {
   const root = arclineRoot(document);
   const favorites = [];
   const spaces = [];
@@ -35,7 +80,9 @@ export function exportBookmarks(document, { includeIds = false } = {}) {
     if (node.name === 'Favorites') favorites.push(...children);
     else spaces.push({ ...(includeIds && node.id !== undefined ? { id: String(node.id) } : {}), name: node.name, pinned: children });
   }
-  return portable(favorites, spaces);
+  const base = portable(favorites, spaces);
+  if (!allRoots) return base;
+  return { ...base, externalRoots: extractExternalRoots(document, { includeIds }) };
 }
 
 export function listSpaces(document, { includeIds = false } = {}) {
@@ -115,7 +162,7 @@ function folderSignature(node) {
   return `F:${node.title}[${(node.children ?? []).map(folderSignature).join(',')}]`;
 }
 
-export function lintWorkspace({ favorites = [], spaces = [] }) {
+export function lintWorkspace({ favorites = [], spaces = [], externalRoots = [] }) {
   const duplicateSpaces = [];
   const spaceByName = new Map();
   for (const s of spaces) {
@@ -142,7 +189,7 @@ export function lintWorkspace({ favorites = [], spaces = [] }) {
   const urlOccurrences = new Map();
   const urlAsTitlePins = [];
 
-  const checkSiblings = (nodes, spaceName, parentPath) => {
+  const checkSiblings = (nodes, scopeName, parentPath, inArcline) => {
     const foldersByTitle = new Map();
     for (const node of nodes ?? []) {
       const nodePath = [...parentPath, node.title];
@@ -151,20 +198,21 @@ export function lintWorkspace({ favorites = [], spaces = [] }) {
         list.push(node);
         foldersByTitle.set(node.title, list);
         if (!node.children || node.children.length === 0) {
-          emptyFolders.push({ id: node.id ?? null, space: spaceName, path: nodePath });
+          emptyFolders.push({ id: node.id ?? null, space: scopeName, inArcline, path: nodePath });
         } else {
-          checkSiblings(node.children, spaceName, nodePath);
+          checkSiblings(node.children, scopeName, nodePath, inArcline);
         }
       } else if (node.kind === 'pin' && node.url) {
         const occ = urlOccurrences.get(node.url) ?? [];
-        occ.push({ id: node.id ?? null, space: spaceName, path: nodePath, title: node.title });
+        occ.push({ id: node.id ?? null, space: scopeName, inArcline, path: nodePath, title: node.title });
         urlOccurrences.set(node.url, occ);
         if (/^https?:\/\//i.test(node.title.trim())) {
           const titleNorm = node.title.trim().replace(/\/+$/, '');
           const urlNorm = node.url.trim().replace(/\/+$/, '');
           urlAsTitlePins.push({
             id: node.id ?? null,
-            space: spaceName,
+            space: scopeName,
+            inArcline,
             path: nodePath,
             title: node.title,
             url: node.url,
@@ -177,7 +225,8 @@ export function lintWorkspace({ favorites = [], spaces = [] }) {
       if (list.length > 1) {
         const sigs = new Set(list.map(folderSignature));
         duplicateFolders.push({
-          space: spaceName,
+          space: scopeName,
+          inArcline,
           parentPath,
           title,
           count: list.length,
@@ -188,15 +237,29 @@ export function lintWorkspace({ favorites = [], spaces = [] }) {
     }
   };
 
-  checkSiblings(favorites, 'Favorites', []);
+  checkSiblings(favorites, 'Favorites', [], true);
   for (const s of spaces) {
-    checkSiblings(s.nodes ?? s.pinned ?? [], s.name, [s.name]);
+    checkSiblings(s.nodes ?? s.pinned ?? [], s.name, [s.name], true);
+  }
+  for (const ext of externalRoots) {
+    const label = ext.title || ext.key || 'External';
+    const filteredNodes = (ext.nodes ?? []).filter(
+      n => !(ext.key === 'other' && n.kind === 'folder' && n.title === 'Arcline'),
+    );
+    checkSiblings(filteredNodes, label, [label], false);
   }
 
   const duplicateUrls = [];
   for (const [url, occurrences] of urlOccurrences.entries()) {
     if (occurrences.length > 1) {
-      duplicateUrls.push({ url, count: occurrences.length, occurrences });
+      const hasArcline = occurrences.some(o => o.inArcline);
+      const hasExternal = occurrences.some(o => !o.inArcline);
+      duplicateUrls.push({
+        url,
+        count: occurrences.length,
+        crossRoot: hasArcline && hasExternal,
+        occurrences,
+      });
     }
   }
 
@@ -205,6 +268,7 @@ export function lintWorkspace({ favorites = [], spaces = [] }) {
       duplicateSpaces: duplicateSpaces.length,
       duplicateFolders: duplicateFolders.length,
       duplicateUrls: duplicateUrls.length,
+      crossRootDuplicateUrls: duplicateUrls.filter(d => d.crossRoot).length,
       extraUrlCopies: duplicateUrls.reduce((sum, item) => sum + item.count - 1, 0),
       emptyFolders: emptyFolders.length,
       urlAsTitlePins: urlAsTitlePins.length,
@@ -218,8 +282,10 @@ export function lintWorkspace({ favorites = [], spaces = [] }) {
   };
 }
 
-export function lintBookmarks(document) {
-  return lintWorkspace(treeBookmarks(document));
+export function lintBookmarks(document, { allRoots = false } = {}) {
+  const tree = treeBookmarks(document);
+  const externalRoots = allRoots ? extractExternalRoots(document, { includeIds: true }) : [];
+  return lintWorkspace({ ...tree, externalRoots });
 }
 
 // Chromium BookmarkCodec hashes ID (UTF-8), name (UTF-16LE), type, then URL/children.
