@@ -85,5 +85,21 @@ describe('SpaceSwipeMachine', () => {
     expect(machine.getSnapshot().offset).toBeLessThanOrEqual(300 * 0.16);
     vi.advanceTimersByTime(160);
     expect(onCommit).not.toHaveBeenCalled();
+
+    // Decaying macOS trackpad inertia at blocked edge must snap back immediately
+    // without waiting for momentum to finish
+    machine.handleWheel(-50, 0);
+    machine.handleWheel(-60, 0);
+    expect(machine.getSnapshot().offset).toBeGreaterThan(0);
+    // Finger lifted -> inertia decays (-25 is <= 55% of peak 60) -> snaps back to 0 immediately
+    machine.handleWheel(-25, 0);
+    expect(machine.getSnapshot().offset).toBe(0);
+    expect(machine.getSnapshot().dragging).toBe(false);
+    // Remaining trailing inertia packets are swallowed and do not re-pull the panel
+    machine.handleWheel(-15, 0);
+    machine.handleWheel(-8, 0);
+    machine.handleWheel(-3, 0);
+    expect(machine.getSnapshot().offset).toBe(0);
+    expect(onCommit).not.toHaveBeenCalled();
   });
 });

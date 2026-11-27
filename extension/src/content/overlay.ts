@@ -986,16 +986,14 @@ import type { Settings } from '../core/types';
 
   const onWindowBlur = () => {
     // Clicking inside an embedded cross-origin webpage iframe (YouTube, Google Docs, etc.)
-    // blurs the host window without firing pointerdown on it. Keep open only if focus moved
-    // into Arcline's own overlay host.
-    if (
-      machine.isOpen &&
-      !machine.isLocked &&
-      !stageExpanded &&
-      document.activeElement !== hostEl
-    ) {
+    // blurs the host window without firing pointerdown on it. Defer 1 tick so Chromium updates
+    // document.activeElement before we check whether focus moved into Arcline's own overlay host.
+    setTimeout(() => {
+      if (disposed || !machine.isOpen || machine.isLocked || stageExpanded) return;
+      if (document.activeElement === hostEl) return;
+      if (lastKnownPointerX !== null && lastKnownPointerX <= settings.overlayWidthPx + 12) return;
       machine.forceClose();
-    }
+    }, 0);
   };
 
   const onPointerUp = (e: PointerEvent) => {

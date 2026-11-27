@@ -146,6 +146,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTabId>('general');
   const [archiveFanOpen, setArchiveFanOpen] = useState(false);
+  const [sidePanelClosing, setSidePanelClosing] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [hostSidebarWidth, setHostSidebarWidth] = useState<number>(DEFAULT_SETTINGS.overlayWidthPx);
@@ -200,12 +201,27 @@ export function App() {
   useEffect(() => {
     if (!isStandaloneNativeSidePanel || !chrome.runtime?.connect) return;
     let port: chrome.runtime.Port | undefined;
+    let closeTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       port = chrome.runtime.connect({ name: 'arcline:native-sidepanel' });
+      port.onMessage.addListener((msg: unknown) => {
+        const data = msg as { type?: string; animate?: boolean } | undefined;
+        if (data?.type !== 'arcline:close-sidepanel') return;
+        if (data.animate !== false) {
+          setSidePanelClosing(true);
+          if (closeTimer) clearTimeout(closeTimer);
+          closeTimer = setTimeout(() => {
+            window.close();
+          }, 165);
+        } else {
+          window.close();
+        }
+      });
     } catch {
       return undefined;
     }
     return () => {
+      if (closeTimer) clearTimeout(closeTimer);
       port?.disconnect();
     };
   }, [isStandaloneNativeSidePanel]);
@@ -718,13 +734,12 @@ export function App() {
       window.parent.postMessage({ type: 'arcline:overlay-close' }, '*');
       return;
     }
-    // Close persistent native Side Panel and immediately open the floating overlay on the active tab
-    chrome.runtime
-      ?.sendMessage?.({
-        arclineCloseNativeSidePanel: { reopenFloatingOverlay: true, windowId },
-      })
-      .catch(() => undefined);
-    window.close();
+    // Slide out and close persistent native Side Panel, returning to floating-only mode without auto-opening overlay
+    setSidePanelClosing(true);
+    chrome.runtime?.sendMessage?.({ arclineCloseNativeSidePanel: true }).catch(() => undefined);
+    setTimeout(() => {
+      window.close();
+    }, 165);
   }, [isOverlay, windowId]);
 
   const activateTabWithFallback = useCallback(
@@ -1613,7 +1628,16 @@ export function App() {
       data-arcline-mode={isOverlay ? 'overlay' : 'sidepanel'}
       data-stage-expanded={hostStageExpanded ? 'true' : 'false'}
       data-active-space={activeSpace.name}
-      style={customBackground ? { backgroundImage: customBackground } : undefined}
+      style={{
+        ...(customBackground ? { backgroundImage: customBackground } : {}),
+        ...(!isOverlay && sidePanelClosing
+          ? {
+              transform: 'translate3d(-100%, 0, 0)',
+              opacity: 0,
+              transition: 'transform 160ms cubic-bezier(0.32, 0.72, 0, 1), opacity 130ms ease',
+            }
+          : {}),
+      }}
     >
       {grainOpacity > 0.01 && (
         <div aria-hidden="true" className="arcline-grain-layer" style={{ opacity: grainOpacity }} />

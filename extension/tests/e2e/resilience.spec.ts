@@ -241,4 +241,62 @@ test.describe('MV3 resilience, restart recovery, native sidePanel & memory bound
       page.frameLocator('#arcline-overlay-host iframe[title="Arcline Sidebar"]').locator('.arcline-shell'),
     ).toBeVisible({ timeout: 5000 });
   });
+
+  test('auto-fallback Side Panel on restricted page closes and returns to floating overlay on normal webpage', async ({
+    arcline,
+  }) => {
+    await arcline.setSettings({
+      edgeHoverEnabled: true,
+      edgeTriggerWidthPx: 6,
+      edgeOpenDelayMs: 30,
+      edgeCloseDelayMs: 120,
+    });
+
+    const tabA = await arcline.context.newPage();
+    await tabA.goto(`${arcline.serverUrl}/page/return-target`);
+    const tabB = await arcline.context.newPage();
+    await tabB.goto('chrome://version');
+    await tabA.bringToFront();
+    await tabA.waitForTimeout(200);
+
+    // Open floating overlay on tabA and click the restricted chrome://version tab inside it
+    await tabA.mouse.move(2, 300);
+    const frameA = tabA.frameLocator('#arcline-overlay-host iframe[title="Arcline Sidebar"]');
+    await expect(frameA.locator('[data-arcline-ready="true"]')).toBeVisible();
+    await tabA.waitForTimeout(260);
+    const versionRow = frameA.locator('button[title*="version" i]').first();
+    await expect(versionRow).toBeVisible({ timeout: 5000 });
+    await versionRow.click();
+
+    // Native Side Panel must open in auto-fallback mode on the restricted page
+    await expect
+      .poll(async () => {
+        const res = await arcline.worker.evaluate(() =>
+          chrome.storage.session.get('arcline:sidePanelMode'),
+        );
+        return res['arcline:sidePanelMode'];
+      })
+      .toBe('auto-fallback');
+
+    // Return to tabA (normal HTTP page) -> auto-fallback Side Panel must close and hand back to floating overlay!
+    await tabA.bringToFront();
+    await expect
+      .poll(async () => {
+        const res = await arcline.worker.evaluate(() =>
+          chrome.storage.session.get('arcline:sidePanelMode'),
+        );
+        return res['arcline:sidePanelMode'];
+      })
+      .toBe('closed');
+
+    await expect
+      .poll(async () =>
+        tabA.evaluate(() => {
+          const host = document.getElementById('arcline-overlay-host');
+          const panel = host?.shadowRoot?.querySelector('[data-arcline-panel]');
+          return Boolean(panel?.classList.contains('open'));
+        }),
+      )
+      .toBe(true);
+  });
 });

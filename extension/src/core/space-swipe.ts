@@ -48,6 +48,9 @@ export class SpaceSwipeMachine {
   private spent = false;
   private spentDirection: SwipeDirection | 0 = 0;
   private minSpentDeltaX = Number.POSITIVE_INFINITY;
+  private edgePeakAbsX = 0;
+  private edgePrevAbsX = 0;
+  private edgeDecayTicks = 0;
   private width = 290;
   private enabled = true;
   private endTimer: ReturnType<typeof setTimeout> | undefined;
@@ -129,6 +132,9 @@ export class SpaceSwipeMachine {
       this.spent = false;
       this.spentDirection = 0;
       this.minSpentDeltaX = Number.POSITIVE_INFINITY;
+      this.edgePeakAbsX = 0;
+      this.edgePrevAbsX = 0;
+      this.edgeDecayTicks = 0;
     }
 
     const step = -deltaX;
@@ -140,6 +146,39 @@ export class SpaceSwipeMachine {
     const next = this.offset + (allowed ? step : step * this.edgeResistance);
     const maxTravel = allowed ? this.width * 0.55 : this.width * 0.16;
     this.offset = Math.max(-maxTravel, Math.min(maxTravel, next));
+
+    if (!allowed) {
+      if (absX > this.edgePeakAbsX) {
+        this.edgePeakAbsX = absX;
+        this.edgeDecayTicks = 0;
+      } else if (absX < this.edgePrevAbsX) {
+        this.edgeDecayTicks += 1;
+      }
+      this.edgePrevAbsX = absX;
+      // On macOS trackpads, lifting fingers at the first/last Space emits decaying momentum
+      // wheel packets for ~700ms. Snap back immediately once deceleration is detected and swallow
+      // the remaining same-direction inertia instead of holding the rubber-band offset open.
+      const atEdge = Math.abs(this.offset) >= maxTravel * 0.45;
+      const decelerating =
+        this.edgePeakAbsX >= 6 && (absX <= this.edgePeakAbsX * 0.55 || this.edgeDecayTicks >= 2);
+      if (atEdge && decelerating) {
+        this.offset = 0;
+        this.dragging = false;
+        this.spent = true;
+        this.spentDirection = direction;
+        this.minSpentDeltaX = absX;
+        this.edgePeakAbsX = 0;
+        this.edgePrevAbsX = 0;
+        this.edgeDecayTicks = 0;
+        this.emit();
+        return true;
+      }
+    } else {
+      this.edgePeakAbsX = 0;
+      this.edgePrevAbsX = 0;
+      this.edgeDecayTicks = 0;
+    }
+
     this.emit();
 
     if (allowed && Math.abs(this.offset) >= this.width * this.commitRatio) {
@@ -162,6 +201,9 @@ export class SpaceSwipeMachine {
     this.spent = false;
     this.spentDirection = 0;
     this.minSpentDeltaX = Number.POSITIVE_INFINITY;
+    this.edgePeakAbsX = 0;
+    this.edgePrevAbsX = 0;
+    this.edgeDecayTicks = 0;
     if (changed) this.emit();
   }
 
@@ -191,6 +233,9 @@ export class SpaceSwipeMachine {
     this.spent = false;
     this.spentDirection = 0;
     this.minSpentDeltaX = Number.POSITIVE_INFINITY;
+    this.edgePeakAbsX = 0;
+    this.edgePrevAbsX = 0;
+    this.edgeDecayTicks = 0;
     if (changed) this.emit();
   }
 
