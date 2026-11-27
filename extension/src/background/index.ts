@@ -24,6 +24,23 @@ let nativeSidePanelConnections = 0;
 let nativeSidePanelMode: 'closed' | 'docked' | 'auto-fallback' = 'closed';
 let cachedCommandBarOpenMode: CommandBarOpenMode = 'popup';
 
+const SIDE_PANEL_MODE_KEY = 'arcline:sidePanelMode';
+
+function setNativeSidePanelMode(mode: 'closed' | 'docked' | 'auto-fallback'): void {
+  nativeSidePanelMode = mode;
+  chrome.storage.session?.set?.({ [SIDE_PANEL_MODE_KEY]: mode }).catch(() => undefined);
+}
+
+void chrome.storage.session
+  ?.get?.(SIDE_PANEL_MODE_KEY)
+  .then((res) => {
+    const saved = res?.[SIDE_PANEL_MODE_KEY];
+    if (saved === 'docked' || saved === 'auto-fallback' || saved === 'closed') {
+      if (nativeSidePanelMode === 'closed') nativeSidePanelMode = saved;
+    }
+  })
+  .catch(() => undefined);
+
 function broadcastNativeSidePanelState(open: boolean): void {
   chrome.tabs
     .query({})
@@ -57,7 +74,7 @@ async function closeNativeSidePanel(): Promise<void> {
     await chrome.sidePanel.setOptions({ enabled: false });
     await chrome.sidePanel.setOptions({ path: 'sidepanel.html', enabled: true });
     nativeSidePanelConnections = 0;
-    nativeSidePanelMode = 'closed';
+    setNativeSidePanelMode('closed');
     broadcastNativeSidePanelState(false);
   } catch (err) {
     console.warn('[Arcline] closeNativeSidePanel failed', err);
@@ -68,13 +85,13 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'arcline:native-sidepanel') return;
   nativeSidePanelConnections += 1;
   if (nativeSidePanelMode === 'closed') {
-    nativeSidePanelMode = 'docked';
+    setNativeSidePanelMode('docked');
   }
   broadcastNativeSidePanelState(true);
   port.onDisconnect.addListener(() => {
     nativeSidePanelConnections = Math.max(0, nativeSidePanelConnections - 1);
     if (nativeSidePanelConnections === 0) {
-      nativeSidePanelMode = 'closed';
+      setNativeSidePanelMode('closed');
       broadcastNativeSidePanelState(false);
     }
   });
@@ -256,7 +273,7 @@ chrome.commands.onCommand.addListener((command, tab) => {
     // 2. Otherwise (whether floating overlay is open OR nothing is open):
     //    Close any floating overlay and open the persistent docked Side Panel synchronously
     //    within the user gesture turn.
-    nativeSidePanelMode = 'docked';
+    setNativeSidePanelMode('docked');
     if (tab?.id !== undefined) {
       chrome.tabs.sendMessage(tab.id, { arclineOverlay: 'close' }).catch(() => undefined);
     }
@@ -268,7 +285,7 @@ chrome.commands.onCommand.addListener((command, tab) => {
           broadcastNativeSidePanelState(true);
         })
         .catch((err) => {
-          nativeSidePanelMode = 'closed';
+          setNativeSidePanelMode('closed');
           console.warn('[Arcline] sidePanel.open failed', err);
         });
       return;
@@ -287,7 +304,7 @@ chrome.commands.onCommand.addListener((command, tab) => {
         .open({ windowId: winId })
         .then(() => broadcastNativeSidePanelState(true))
         .catch(() => {
-          nativeSidePanelMode = 'closed';
+          setNativeSidePanelMode('closed');
         });
     })();
     return;
@@ -427,7 +444,12 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
       // Only auto-close the native Side Panel if it was opened as a temporary auto-fallback for a
       // restricted page — when the user docked it with Ctrl+Shift+B / Dock button, keep it open!
       if (shouldCloseNativeSidePanel && nativeSidePanelMode === 'auto-fallback') {
-        void closeNativeSidePanel();
+        void closeNativeSidePanel().then(() => {
+          if (shouldOpenOverlay) {
+            setTimeout(() => notifyOverlayOpen(tabId), 40);
+          }
+        });
+        return;
       }
       // Best-effort auto-dock when switching to a restricted non-HTTP page (e.g. brave://, chrome://)
       if (
@@ -436,10 +458,10 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
         !isNativeNewTabUrl(url) &&
         nativeSidePanelConnections === 0
       ) {
-        nativeSidePanelMode = 'auto-fallback';
+        setNativeSidePanelMode('auto-fallback');
         chrome.sidePanel.open({ tabId }).catch(() => {
           chrome.sidePanel.open({ windowId }).catch(() => {
-            if (nativeSidePanelConnections === 0) nativeSidePanelMode = 'closed';
+            if (nativeSidePanelConnections === 0) setNativeSidePanelMode('closed');
           });
         });
       }
@@ -463,10 +485,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       !isNativeNewTabUrl(changeInfo.url) &&
       nativeSidePanelConnections === 0
     ) {
-      nativeSidePanelMode = 'auto-fallback';
+      setNativeSidePanelMode('auto-fallback');
       chrome.sidePanel.open({ tabId }).catch(() => {
         chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {
-          if (nativeSidePanelConnections === 0) nativeSidePanelMode = 'closed';
+          if (nativeSidePanelConnections === 0) setNativeSidePanelMode('closed');
         });
       });
     } else if (
@@ -475,7 +497,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       nativeSidePanelConnections > 0 &&
       nativeSidePanelMode === 'auto-fallback'
     ) {
-      void closeNativeSidePanel();
+      void closeNativeSidePanel().then(() => {
+        overlayContinuity.setWindowOpen(tab.windowId, true);
+        setTimeout(() => notifyOverlayOpen(tabId), 40);
+      });
     }
     engine.onTabUpdated(tabId, changeInfo.url).catch(() => undefined);
   }
@@ -626,7 +651,9 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
         arclineIssueFrameToken?: 'overlay' | 'modal';
         arclineVerifyFrameToken?: { token: string; kind: 'overlay' | 'modal' };
         arclineSetSidePanelMode?: 'docked' | 'auto-fallback';
-        arclineCloseNativeSidePanel?: boolean;
+        arclineCloseNativeSidePanel?:
+          | boolean
+          | { reopenFloatingOverlay?: boolean; windowId?: number };
       }
     | undefined;
 
@@ -733,13 +760,38 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     payload?.arclineSetSidePanelMode === 'docked' ||
     payload?.arclineSetSidePanelMode === 'auto-fallback'
   ) {
-    nativeSidePanelMode = payload.arclineSetSidePanelMode;
+    setNativeSidePanelMode(payload.arclineSetSidePanelMode);
     sendResponse({ ok: true });
     return false;
   }
 
   if (payload?.arclineCloseNativeSidePanel) {
-    void closeNativeSidePanel().then(() => sendResponse({ ok: true }));
+    const opts =
+      typeof payload.arclineCloseNativeSidePanel === 'object'
+        ? payload.arclineCloseNativeSidePanel
+        : {};
+    void (async () => {
+      await closeNativeSidePanel();
+      if (opts.reopenFloatingOverlay) {
+        const winId =
+          opts.windowId ??
+          (await chrome.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => undefined))
+            ?.id;
+        if (winId !== undefined) {
+          const [activeTab] = await chrome.tabs
+            .query({ active: true, windowId: winId })
+            .catch(() => []);
+          const url = activeTab?.url ?? activeTab?.pendingUrl;
+          if (activeTab?.id !== undefined && isOverlayCapableUrl(url)) {
+            overlayContinuity.setWindowOpen(winId, true);
+            setTimeout(() => {
+              if (activeTab.id !== undefined) notifyOverlayOpen(activeTab.id);
+            }, 40);
+          }
+        }
+      }
+      sendResponse({ ok: true });
+    })();
     return true;
   }
 

@@ -718,8 +718,12 @@ export function App() {
       window.parent.postMessage({ type: 'arcline:overlay-close' }, '*');
       return;
     }
-    // Close persistent native Side Panel and return to floating overlay mode
-    chrome.runtime?.sendMessage?.({ arclineCloseNativeSidePanel: true }).catch(() => undefined);
+    // Close persistent native Side Panel and immediately open the floating overlay on the active tab
+    chrome.runtime
+      ?.sendMessage?.({
+        arclineCloseNativeSidePanel: { reopenFloatingOverlay: true, windowId },
+      })
+      .catch(() => undefined);
     window.close();
   }, [isOverlay, windowId]);
 

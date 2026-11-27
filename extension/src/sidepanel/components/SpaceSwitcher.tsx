@@ -63,6 +63,22 @@ export function SpaceSwitcher({
       <div className="flex shrink-0 items-center gap-0.5">
         <button
           type="button"
+          data-arcline-sidebar-mode-toggle="true"
+          title={t(isOverlay ? 'sidebar.switcher.dockTitle' : 'sidebar.switcher.floatTitle')}
+          aria-label={t(isOverlay ? 'sidebar.switcher.dockTitle' : 'sidebar.switcher.floatTitle')}
+          onClick={onToggleSidebarMode}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all hover:bg-[var(--hover)] hover:text-[var(--ink)] active:scale-95 cursor-pointer"
+          style={{ color: isOverlay ? 'var(--ink-muted)' : 'var(--accent)' }}
+        >
+          {isOverlay ? (
+            <PanelLeft size={15} strokeWidth={1.8} />
+          ) : (
+            <PanelLeftClose size={15} strokeWidth={1.8} />
+          )}
+        </button>
+
+        <button
+          type="button"
           data-arcline-archive-trigger="true"
           title={t('sidebar.switcher.archiveTitle')}
           aria-label={t('sidebar.switcher.archiveLabel')}
@@ -81,22 +97,6 @@ export function SpaceSwitcher({
               className="pointer-events-none absolute top-1 right-1 h-1.5 w-1.5 rounded-full"
               style={{ backgroundColor: 'var(--accent)' }}
             />
-          )}
-        </button>
-
-        <button
-          type="button"
-          data-arcline-sidebar-mode-toggle="true"
-          title={t(isOverlay ? 'sidebar.switcher.dockTitle' : 'sidebar.switcher.floatTitle')}
-          aria-label={t(isOverlay ? 'sidebar.switcher.dockTitle' : 'sidebar.switcher.floatTitle')}
-          onClick={onToggleSidebarMode}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all hover:bg-[var(--hover)] hover:text-[var(--ink)] active:scale-95 cursor-pointer"
-          style={{ color: isOverlay ? 'var(--ink-muted)' : 'var(--accent)' }}
-        >
-          {isOverlay ? (
-            <PanelLeft size={15} strokeWidth={1.8} />
-          ) : (
-            <PanelLeftClose size={15} strokeWidth={1.8} />
           )}
         </button>
       </div>
