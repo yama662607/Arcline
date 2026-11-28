@@ -1,6 +1,14 @@
 import { isOverlayCapableUrl, OverlayContinuityTracker } from '../core/overlay-continuity';
 import { completeSettings } from '../core/settings';
-import type { Command, CommandBarOpenMode, Settings } from '../core/types';
+import {
+  orderTabsByMru,
+  recordMruTab,
+  removeMruTab,
+  stepSwitcherIndex,
+  type TabSwitcherItem,
+  type TabSwitcherResponse,
+} from '../core/tab-switcher';
+import type { Command, CommandBarOpenMode, Settings, SpaceMeta } from '../core/types';
 import {
   swLoadWallpaper,
   swRemoveWallpaper,
@@ -19,6 +27,7 @@ const ONBOARDING_SEEN_KEY = 'arcline:onboardingSeen';
 const engine = new Engine();
 startNativeBridge(engine);
 const lastActiveTabByWindow = new Map<number, number>();
+const mruTabIdsByWindow = new Map<number, number[]>();
 const overlayContinuity = new OverlayContinuityTracker();
 const nativeSidePanelPorts = new Set<chrome.runtime.Port>();
 let nativeSidePanelConnections = 0;
@@ -66,12 +75,19 @@ void storage
   .catch(() => undefined);
 
 void chrome.tabs
-  .query({ active: true })
-  .then((activeTabs) => {
-    for (const t of activeTabs) {
-      const url = t.url ?? t.pendingUrl;
-      if (t.id !== undefined && isReturnableContentUrl(url)) {
-        lastContentTabByWindow.set(t.windowId, { tabId: t.id, url });
+  .query({})
+  .then((allTabs) => {
+    for (const t of allTabs) {
+      if (t.id === undefined) continue;
+      if (t.active) {
+        mruTabIdsByWindow.set(
+          t.windowId,
+          recordMruTab(mruTabIdsByWindow.get(t.windowId) ?? [], t.id),
+        );
+        const url = t.url ?? t.pendingUrl;
+        if (isReturnableContentUrl(url)) {
+          lastContentTabByWindow.set(t.windowId, { tabId: t.id, url });
+        }
       }
     }
   })
@@ -535,6 +551,7 @@ chrome.tabs.onCreated.addListener((tab) => {
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   if (transientNewTabIds.has(tabId)) return;
+  mruTabIdsByWindow.set(windowId, recordMruTab(mruTabIdsByWindow.get(windowId) ?? [], tabId));
   const prevTabId = lastActiveTabByWindow.get(windowId);
   lastActiveTabByWindow.set(windowId, tabId);
   if (prevTabId !== undefined && prevTabId !== tabId) {
@@ -648,6 +665,8 @@ chrome.tabs.onZoomChange.addListener(({ tabId, newZoomFactor }) => {
 
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
   transientNewTabIds.delete(tabId);
+  const mru = mruTabIdsByWindow.get(removeInfo.windowId);
+  if (mru) mruTabIdsByWindow.set(removeInfo.windowId, removeMruTab(mru, tabId));
   if (lastContentTabByWindow.get(removeInfo.windowId)?.tabId === tabId) {
     lastContentTabByWindow.delete(removeInfo.windowId);
   }
@@ -672,6 +691,7 @@ chrome.windows.onFocusChanged.addListener((focusedWindowId) => {
 chrome.windows.onRemoved.addListener((windowId) => {
   lastActiveTabByWindow.delete(windowId);
   lastContentTabByWindow.delete(windowId);
+  mruTabIdsByWindow.delete(windowId);
   overlayContinuity.onWindowRemoved(windowId);
 });
 
@@ -783,11 +803,61 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
         arclineIssueFrameToken?: 'overlay' | 'modal';
         arclineVerifyFrameToken?: { token: string; kind: 'overlay' | 'modal' };
         arclineSetSidePanelMode?: 'docked' | 'auto-fallback';
+        arclineGetTabSwitcherList?: { direction?: 1 | -1 };
+        arclineSwitchTabId?: number;
         arclineCloseNativeSidePanel?:
           | boolean
           | { reopenFloatingOverlay?: boolean; windowId?: number };
       }
     | undefined;
+
+  if (payload?.arclineGetTabSwitcherList) {
+    const winId = sender.tab?.windowId;
+    const activeTabId = sender.tab?.id;
+    const direction = payload.arclineGetTabSwitcherList.direction === -1 ? -1 : 1;
+    if (winId === undefined) {
+      sendResponse({ ok: false });
+      return false;
+    }
+    void (async () => {
+      const [tabs, activeSpaces, spaceMeta] = await Promise.all([
+        chrome.tabs.query({ windowId: winId }).catch((): chrome.tabs.Tab[] => []),
+        storage.getActiveSpaces().catch((): Record<number, string> => ({})),
+        storage.getSpaceMeta().catch((): Record<string, SpaceMeta> => ({})),
+      ]);
+      const ordered = orderTabsByMru<chrome.tabs.Tab>(tabs, mruTabIdsByWindow.get(winId) ?? [], 6);
+      const activeSpaceId = activeSpaces[winId];
+      let accentHex: string | undefined;
+      if (activeSpaceId) {
+        const [spaceNode] = await chrome.bookmarks.get(activeSpaceId).catch(() => []);
+        const byId = spaceMeta[`id:${activeSpaceId}`];
+        const byName = spaceNode?.title ? spaceMeta[spaceNode.title] : undefined;
+        accentHex = (byId?.theme ?? byName?.theme)?.nodes?.[0]?.hex;
+      }
+      const items: TabSwitcherItem[] = [];
+      for (const t of ordered) {
+        if (t.id === undefined) continue;
+        const url = t.url ?? t.pendingUrl ?? '';
+        items.push({
+          id: t.id,
+          title: t.title || url || 'Tab',
+          url,
+          favIconUrl: t.favIconUrl,
+          active: t.id === activeTabId,
+        });
+      }
+      const selectedIndex = items.length > 1 ? stepSwitcherIndex(0, direction, items.length) : 0;
+      const data: TabSwitcherResponse = { items, selectedIndex, accentHex };
+      sendResponse({ ok: true, data });
+    })();
+    return true;
+  }
+
+  if (typeof payload?.arclineSwitchTabId === 'number') {
+    void chrome.tabs.update(payload.arclineSwitchTabId, { active: true }).catch(() => undefined);
+    sendResponse({ ok: true });
+    return false;
+  }
 
   if (
     payload?.arclineIssueFrameToken === 'overlay' ||

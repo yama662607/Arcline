@@ -1,6 +1,11 @@
 import { EdgeHoverMachine } from '../core/edge-hover';
 import { completeSettings, DEFAULT_SETTINGS } from '../core/settings';
 import { matchCustomShortcut, matchFavoriteShortcut } from '../core/shortcut-keys';
+import {
+  stepSwitcherIndex,
+  type TabSwitcherItem,
+  type TabSwitcherResponse,
+} from '../core/tab-switcher';
 import type { Settings } from '../core/types';
 
 /**
@@ -50,6 +55,15 @@ import type { Settings } from '../core/types';
   let cmdIframeEl: HTMLIFrameElement | null = null;
   let resizeEl: HTMLDivElement | null = null;
   let resizeBadgeEl: HTMLDivElement | null = null;
+  let switcherEl: HTMLDivElement | null = null;
+  let switcherOpen = false;
+  let switcherLoading = false;
+  let switcherSeq = 0;
+  let switcherItems: TabSwitcherItem[] = [];
+  let switcherIndex = 0;
+  let switcherAccentHex: string | undefined;
+  let switcherPendingDelta = 0;
+  let ctrlHeldNow = false;
   let unloadTimer: ReturnType<typeof setTimeout> | undefined;
   let repairTimer: ReturnType<typeof setTimeout> | undefined;
   let cmdRevealTimer: ReturnType<typeof setTimeout> | undefined;
@@ -339,6 +353,116 @@ import type { Settings } from '../core/types';
       .arcline-cmd-frame.ready {
         opacity: 1;
       }
+      .arcline-switcher-dock {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        z-index: 25;
+        display: none;
+        max-width: min(94vw, 960px);
+        padding: 12px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(31, 32, 36, 0.95) 0%, rgba(21, 22, 25, 0.97) 100%);
+        -webkit-backdrop-filter: blur(28px) saturate(1.2);
+        backdrop-filter: blur(28px) saturate(1.2);
+        border: 0.5px solid rgba(255, 255, 255, 0.18);
+        box-shadow:
+          0 32px 84px rgba(0, 0, 0, 0.62),
+          0 12px 28px rgba(0, 0, 0, 0.36),
+          0 0 0 1px rgba(0, 0, 0, 0.55),
+          inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        transform: translate(-50%, -50%);
+        pointer-events: auto;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+        color: #f5f5f7;
+      }
+      .arcline-switcher-dock.open {
+        display: flex;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .arcline-switcher-card {
+        display: flex;
+        flex-direction: column;
+        width: 152px;
+        padding: 6px;
+        border-radius: 12px;
+        border: 1.5px solid transparent;
+        background: rgba(255, 255, 255, 0.04);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color 110ms ease, border-color 110ms ease;
+      }
+      .arcline-switcher-card:hover {
+        background: rgba(255, 255, 255, 0.09);
+      }
+      .arcline-switcher-card.active {
+        background: var(--arcline-sw-accent-bg, rgba(255, 255, 255, 0.14));
+        border-color: var(--arcline-sw-accent, rgba(255, 255, 255, 0.48));
+        box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.28);
+      }
+      .arcline-switcher-preview {
+        width: 100%;
+        height: 82px;
+        border-radius: 8px;
+        padding: 8px;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        overflow: hidden;
+      }
+      .arcline-switcher-badge {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.1);
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.88);
+      }
+      .arcline-switcher-badge img {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+      }
+      .arcline-switcher-host {
+        max-width: 100%;
+        font-size: 10.5px;
+        color: rgba(255, 255, 255, 0.52);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .arcline-switcher-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 7px;
+        padding: 0 2px;
+        min-width: 0;
+      }
+      .arcline-switcher-favicon {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        object-fit: contain;
+      }
+      .arcline-switcher-title {
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: rgba(255, 255, 255, 0.92);
+      }
       @media (prefers-reduced-motion: reduce) {
         .arcline-panel,
         .arcline-panel.open,
@@ -357,6 +481,7 @@ import type { Settings } from '../core/types';
     if (panelEl) panelEl.style.zoom = inv;
     if (resizeBadgeEl) resizeBadgeEl.style.zoom = inv;
     if (cmdBackdropEl) cmdBackdropEl.style.zoom = inv;
+    if (switcherEl) switcherEl.style.zoom = inv;
     // Force synchronous reflow so any child extension OOPIF immediately updates its layout viewport width
     if (panelEl && iframeEl) {
       void panelEl.offsetWidth;
@@ -468,8 +593,14 @@ import type { Settings } from '../core/types';
     cmdModal.className = 'arcline-cmd-modal';
     cmdModal.setAttribute('data-arcline-command-modal', 'true');
 
+    const switcher = document.createElement('div');
+    switcher.className = 'arcline-switcher-dock';
+    switcher.setAttribute('data-arcline-tab-switcher', 'true');
+    switcher.setAttribute('role', 'listbox');
+    switcher.setAttribute('aria-label', 'Tab Switcher');
+
     panel.append(resize);
-    root.append(style, edge, glassBackdrop, panel, badge, cmdModal);
+    root.append(style, edge, glassBackdrop, panel, badge, cmdModal, switcher);
     document.documentElement.append(host);
 
     hostEl = host;
@@ -481,6 +612,7 @@ import type { Settings } from '../core/types';
     resizeEl = resize;
     resizeBadgeEl = badge;
     cmdBackdropEl = cmdModal;
+    switcherEl = switcher;
 
     edge.addEventListener('pointerenter', (e) => {
       if (document.hidden || tabHidden || nativeSidePanelOpen || unloadTimer !== undefined) return;
@@ -809,6 +941,158 @@ import type { Settings } from '../core/types';
     });
   }
 
+  function shortSwitcherHost(url: string): string {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.hostname.replace(/^www\./, '');
+      }
+      return parsed.protocol.replace(/:$/, '');
+    } catch {
+      return '';
+    }
+  }
+
+  function closeTabSwitcher(): void {
+    switcherSeq += 1;
+    switcherOpen = false;
+    switcherLoading = false;
+    switcherItems = [];
+    switcherIndex = 0;
+    switcherPendingDelta = 0;
+    if (switcherEl) {
+      switcherEl.classList.remove('open');
+      switcherEl.replaceChildren();
+    }
+  }
+
+  function commitTabSwitcher(explicitTabId?: number): void {
+    const targetId = explicitTabId ?? switcherItems[switcherIndex]?.id;
+    closeTabSwitcher();
+    if (targetId !== undefined && chrome.runtime?.id) {
+      chrome.runtime.sendMessage({ arclineSwitchTabId: targetId }).catch(() => undefined);
+    }
+  }
+
+  function renderTabSwitcher(): void {
+    if (!switcherOpen || switcherItems.length === 0) {
+      if (switcherEl) {
+        switcherEl.classList.remove('open');
+        switcherEl.replaceChildren();
+      }
+      return;
+    }
+    ensureHostMounted();
+    if (!switcherEl) return;
+    applyZoomCompensation();
+    if (switcherAccentHex) {
+      switcherEl.style.setProperty('--arcline-sw-accent', switcherAccentHex);
+      switcherEl.style.setProperty(
+        '--arcline-sw-accent-bg',
+        `color-mix(in oklch, ${switcherAccentHex} 26%, rgba(255, 255, 255, 0.08))`,
+      );
+    } else {
+      switcherEl.style.removeProperty('--arcline-sw-accent');
+      switcherEl.style.removeProperty('--arcline-sw-accent-bg');
+    }
+
+    const fragment = document.createDocumentFragment();
+    switcherItems.forEach((item, idx) => {
+      const selected = idx === switcherIndex;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `arcline-switcher-card${selected ? ' active' : ''}`;
+      btn.setAttribute('role', 'option');
+      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+      btn.setAttribute('data-tab-id', String(item.id));
+      btn.addEventListener('click', () => commitTabSwitcher(item.id));
+
+      const preview = document.createElement('div');
+      preview.className = 'arcline-switcher-preview';
+      const safeFav =
+        item.favIconUrl && /^(?:https?:|data:image\/)/i.test(item.favIconUrl)
+          ? item.favIconUrl
+          : undefined;
+      const badge = document.createElement('div');
+      badge.className = 'arcline-switcher-badge';
+      if (safeFav) {
+        const favImg = document.createElement('img');
+        favImg.src = safeFav;
+        favImg.alt = '';
+        badge.append(favImg);
+      } else {
+        badge.textContent = (item.title.trim()[0] ?? 'T').toUpperCase();
+      }
+      const host = document.createElement('span');
+      host.className = 'arcline-switcher-host';
+      host.textContent = shortSwitcherHost(item.url);
+      preview.append(badge, host);
+
+      const meta = document.createElement('div');
+      meta.className = 'arcline-switcher-meta';
+      if (safeFav) {
+        const icon = document.createElement('img');
+        icon.className = 'arcline-switcher-favicon';
+        icon.src = safeFav;
+        icon.alt = '';
+        meta.append(icon);
+      }
+      const title = document.createElement('span');
+      title.className = 'arcline-switcher-title';
+      title.textContent = item.title;
+      meta.append(title);
+
+      btn.append(preview, meta);
+      fragment.append(btn);
+    });
+    switcherEl.replaceChildren(fragment);
+    switcherEl.classList.add('open');
+  }
+
+  function handleCtrlTabStep(direction: 1 | -1): void {
+    ctrlHeldNow = true;
+    if (switcherOpen) {
+      switcherIndex = stepSwitcherIndex(switcherIndex, direction, switcherItems.length);
+      renderTabSwitcher();
+      return;
+    }
+    if (switcherLoading) {
+      switcherPendingDelta += direction;
+      return;
+    }
+    if (!chrome.runtime?.id) return;
+    switcherLoading = true;
+    switcherPendingDelta = 0;
+    const seq = ++switcherSeq;
+    chrome.runtime
+      .sendMessage({ arclineGetTabSwitcherList: { direction } })
+      .then((res) => {
+        if (disposed || seq !== switcherSeq) return;
+        switcherLoading = false;
+        const data = (res as { ok?: boolean; data?: TabSwitcherResponse } | undefined)?.data;
+        if (!data || data.items.length === 0) return;
+        const idx = stepSwitcherIndex(data.selectedIndex, switcherPendingDelta, data.items.length);
+        switcherPendingDelta = 0;
+        if (!ctrlHeldNow) {
+          // Ctrl was released quickly before the IPC returned: switch immediately!
+          const targetId = data.items[idx]?.id;
+          closeTabSwitcher();
+          if (targetId !== undefined) {
+            chrome.runtime.sendMessage({ arclineSwitchTabId: targetId }).catch(() => undefined);
+          }
+          return;
+        }
+        switcherItems = data.items;
+        switcherIndex = idx;
+        switcherAccentHex = data.accentHex;
+        switcherOpen = true;
+        renderTabSwitcher();
+      })
+      .catch(() => {
+        if (seq === switcherSeq) switcherLoading = false;
+      });
+  }
+
   function closeCommandBarModal(): void {
     commandBarOpenSeq += 1;
     if (cmdRevealTimer) {
@@ -933,6 +1217,7 @@ import type { Settings } from '../core/types';
     window.removeEventListener('pointerup', onPointerUp, true);
     window.removeEventListener('blur', onWindowBlur);
     window.removeEventListener('keydown', onKeyDown, true);
+    window.removeEventListener('keyup', onKeyUp, true);
     window.removeEventListener('message', onWindowMessage);
     document.documentElement.removeEventListener('pointerleave', onDocumentPointerLeave);
     document.removeEventListener('visibilitychange', onVisibilityChange);
@@ -949,10 +1234,17 @@ import type { Settings } from '../core/types';
     commandBarOpen = false;
     resizeEl = null;
     resizeBadgeEl = null;
+    switcherEl = null;
+    switcherOpen = false;
+    switcherLoading = false;
   }
 
   const onPointerMove = (e: PointerEvent) => {
     tabHidden = false;
+    if (ctrlHeldNow && !e.ctrlKey) {
+      ctrlHeldNow = false;
+      if (switcherOpen) commitTabSwitcher();
+    }
     const unzoomedX = toUnzoomedPx(e.clientX);
     lastKnownPointerX = unzoomedX;
     if (nativeSidePanelOpen) return;
@@ -990,6 +1282,10 @@ import type { Settings } from '../core/types';
   };
 
   const onWindowBlur = () => {
+    ctrlHeldNow = false;
+    if (switcherOpen || switcherLoading) {
+      closeTabSwitcher();
+    }
     // Clicking inside an embedded cross-origin webpage iframe (YouTube, Google Docs, etc.)
     // blurs the host window without firing pointerdown on it. Defer 1 tick so Chromium updates
     // document.activeElement before we check whether focus moved into Arcline's own overlay host.
@@ -1006,6 +1302,27 @@ import type { Settings } from '../core/types';
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
+    if (settings.ctrlTabSwitcher) {
+      if (e.key === 'Control') ctrlHeldNow = true;
+      if (e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCtrlTabStep(e.shiftKey ? -1 : 1);
+        return;
+      }
+      if (switcherOpen && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCtrlTabStep(e.key === 'ArrowRight' ? 1 : -1);
+        return;
+      }
+      if ((switcherOpen || switcherLoading) && e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeTabSwitcher();
+        return;
+      }
+    }
     if (commandBarOpen && e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -1047,6 +1364,13 @@ import type { Settings } from '../core/types';
     e.preventDefault();
     e.stopPropagation();
     chrome.runtime.sendMessage({ arclineOpenFavoriteUrl: matchedUrl }).catch(() => undefined);
+  };
+
+  const onKeyUp = (e: KeyboardEvent) => {
+    if (e.key === 'Control' || (ctrlHeldNow && !e.ctrlKey)) {
+      ctrlHeldNow = false;
+      if (switcherOpen) commitTabSwitcher();
+    }
   };
 
   const onDocumentPointerLeave = () => {
@@ -1125,6 +1449,8 @@ import type { Settings } from '../core/types';
 
   function performTabHiddenUnload(): void {
     tabHidden = true;
+    ctrlHeldNow = false;
+    closeTabSwitcher();
     if (Date.now() >= commandBarOpenGraceUntil) {
       closeCommandBarModal();
     }
@@ -1162,6 +1488,7 @@ import type { Settings } from '../core/types';
   window.addEventListener('blur', onWindowBlur);
   window.addEventListener('pagehide', cleanup);
   window.addEventListener('keydown', onKeyDown, true);
+  window.addEventListener('keyup', onKeyUp, true);
   window.addEventListener('message', onWindowMessage);
   window.addEventListener('resize', () => {
     void loadInitialZoom();

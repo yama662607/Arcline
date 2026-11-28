@@ -414,5 +414,25 @@ test.describe('Left-edge auto-hide hover overlay', () => {
     await expect.poll(async () => (await readOverlayState(tabB)).hostPresent).toBe(true);
     await tabB.waitForTimeout(200);
     expect((await readOverlayState(tabB)).open).toBe(false);
+
+    // 4. Opt-in Arc-style Ctrl+Tab MRU switcher: hold Ctrl+Tab to preview, release Ctrl to switch
+    await arcline.setSettings({ ctrlTabSwitcher: true });
+    await tabB.waitForTimeout(80);
+    await tabB.keyboard.down('Control');
+    await tabB.keyboard.press('Tab');
+    const switcher = tabB.locator('#arcline-overlay-host [data-arcline-tab-switcher]');
+    await expect(switcher).toHaveClass(/open/, { timeout: 5_000 });
+    await expect(switcher.locator('[role="option"]')).toHaveCount(3);
+    await expect(switcher.locator('[role="option"][aria-selected="true"]')).toHaveCount(1);
+    await tabB.keyboard.up('Control');
+    await expect(switcher).not.toHaveClass(/open/);
+    await expect
+      .poll(async () =>
+        arcline.worker.evaluate(async () => {
+          const [t] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          return t?.url ?? '';
+        }),
+      )
+      .toContain('/page/beta');
   });
 });

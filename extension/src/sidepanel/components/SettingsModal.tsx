@@ -729,6 +729,20 @@ export function SettingsModal({
                   />
                 </div>
 
+                <div className="arcline-settings-card flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-medium">{t('settings.ctrlTabSwitcher.title')}</div>
+                    <div className="mt-0.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      {t('settings.ctrlTabSwitcher.description')}
+                    </div>
+                  </div>
+                  <ToggleSwitch
+                    checked={settings.ctrlTabSwitcher}
+                    ariaLabel={t('settings.ctrlTabSwitcher.title')}
+                    onChange={(next) => onUpdateSettings({ ...settings, ctrlTabSwitcher: next })}
+                  />
+                </div>
+
                 <div className="arcline-settings-card flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
                     <label htmlFor="arcline-archive-hours" className="font-medium">

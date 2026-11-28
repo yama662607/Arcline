@@ -59,6 +59,9 @@ export const settingsEn = {
     'When off, the current page stays open and only the sidebar switches.',
   'settings.emptySpacePage.interactionAria':
     'Open the theme color page when switching to an empty Space (Controls tab)',
+  'settings.ctrlTabSwitcher.title': 'Arc-style Ctrl+Tab switcher (Experimental)',
+  'settings.ctrlTabSwitcher.description':
+    'Hold Ctrl+Tab on webpages to preview recent tabs and switch on release. Remove Ctrl+Tab / Ctrl+Shift+Tab from Brave shortcuts first (does not run on brave:// or PDF tabs).',
   'settings.autoArchive.title': 'Auto-archive temporary tabs (saves memory)',
   'settings.autoArchive.off': 'Off',
   'settings.autoArchive.hours12': 'After 12 hours',
@@ -252,6 +255,9 @@ export const settingsJa: Record<keyof typeof settingsEn, string> = {
     'オフにすると現在のページを開いたままサイドバーだけ切り替わります',
   'settings.emptySpacePage.interactionAria':
     '空の Space へ移動時にテーマカラーページを開く（操作タブ）',
+  'settings.ctrlTabSwitcher.title': 'Arc 風 Ctrl+Tab スイッチャー（実験的）',
+  'settings.ctrlTabSwitcher.description':
+    'Ctrl+Tab 長押しで最近使ったタブ一覧を表示し、Ctrl を離して切り替えます。事前に Brave 設定で Ctrl+Tab / Ctrl+Shift+Tab を削除してください（brave:// や PDF タブでは無効）。',
   'settings.autoArchive.title': '一時タブの自動アーカイブ（メモリ節約）',
   'settings.autoArchive.off': 'オフ',
   'settings.autoArchive.hours12': '12 時間後',

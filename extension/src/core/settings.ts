@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   customSiteSearches: [],
   disabledSiteSearchIds: [],
   favoriteShortcuts: {},
+  ctrlTabSwitcher: false,
   customShortcuts: {},
 });
 
@@ -135,6 +136,10 @@ export function completeSettings(partial?: Partial<Settings> | null): Settings {
     typeof partial?.openEmptySpacePage === 'boolean'
       ? partial.openEmptySpacePage
       : DEFAULT_SETTINGS.openEmptySpacePage;
+  const ctrlTabSwitcher =
+    typeof partial?.ctrlTabSwitcher === 'boolean'
+      ? partial.ctrlTabSwitcher
+      : DEFAULT_SETTINGS.ctrlTabSwitcher;
   const language =
     partial?.language && VALID_LANGUAGES.has(partial.language)
       ? partial.language
@@ -188,6 +193,7 @@ export function completeSettings(partial?: Partial<Settings> | null): Settings {
         )
       : [],
     favoriteShortcuts: sanitizeFavoriteShortcuts(partial?.favoriteShortcuts),
+    ctrlTabSwitcher,
     customShortcuts: sanitizeCustomShortcuts(partial?.customShortcuts),
   };
 }
