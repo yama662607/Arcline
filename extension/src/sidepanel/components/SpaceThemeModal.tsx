@@ -230,7 +230,7 @@ export function SpaceThemeModal({
       {...({ closedby: 'any' } as Record<string, string>)}
       className="arcline-theme-dialog"
     >
-      <div className="flex flex-col gap-3 p-3.5" style={{ color: 'var(--ink)' }}>
+      <div className="flex flex-col gap-3.5 p-4" style={{ color: 'var(--ink)' }}>
         {/* Header + Arc Appearance Pills (Auto / Light / Dark) */}
         <div className="flex items-center justify-between gap-2">
           <h1 id={titleId} className="m-0 truncate text-[13px] font-semibold">
@@ -294,7 +294,7 @@ export function SpaceThemeModal({
           }}
           onPointerUp={() => setDraggingNode(null)}
           onPointerCancel={() => setDraggingNode(null)}
-          className="relative h-[168px] w-full overflow-hidden rounded-xl border select-none touch-none cursor-crosshair"
+          className="relative h-[212px] w-full overflow-hidden rounded-xl border select-none touch-none cursor-crosshair"
           style={{
             borderColor: 'var(--rule)',
             backgroundColor: '#2c2e36',
