@@ -144,7 +144,7 @@ function EmptySpaceCanvas() {
   const initialBarVisible = isModal || isPopup || isCommandBarExplicit || !requestedSpaceId;
 
   const [barVisible, setBarVisible] = useState(initialBarVisible);
-  const [initialLoaded, setInitialLoaded] = useState(!isModal);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [windowId, setWindowId] = useState<number | null>(null);
   const [state, setState] = useState<SidebarState | null>(null);
   const [openTabs, setOpenTabs] = useState<CommandBarTab[]>([]);
@@ -210,15 +210,58 @@ function EmptySpaceCanvas() {
     let cleanup: (() => void) | undefined;
 
     (async () => {
-      const [winId, loadedSettings] = await Promise.all([getCurrentWindowId(), loadSettings()]);
+      const [winId, loadedSettings, rawTabs, archivedList, initialHistory] = await Promise.all([
+        getCurrentWindowId(),
+        loadSettings(),
+        chrome.tabs?.query ? chrome.tabs.query({}).catch(() => []) : Promise.resolve([]),
+        loadArchivedTabs().catch(() => [] as ArchivedTab[]),
+        typeof chrome !== 'undefined' && chrome.history?.search
+          ? chrome.history
+              .search({
+                text: '',
+                maxResults: 16,
+                startTime: Date.now() - 90 * 24 * 60 * 60 * 1000,
+              })
+              .catch(() => [] as chrome.history.HistoryItem[])
+          : Promise.resolve([] as chrome.history.HistoryItem[]),
+      ]);
       if (!active) return;
-      setWindowId(winId);
-      setSettings(loadedSettings);
       const loaded = await loadSidebarState(winId);
       if (!active) return;
+
+      const mappedTabs: CommandBarTab[] = [];
+      for (const tab of rawTabs) {
+        if (tab.id === undefined || tab.windowId === undefined) continue;
+        const url = tab.url ?? tab.pendingUrl ?? '';
+        if (!url) continue;
+        mappedTabs.push({
+          id: tab.id,
+          windowId: tab.windowId,
+          title: tab.title ?? url,
+          url,
+          favIconUrl: tab.favIconUrl,
+          active: tab.active,
+        });
+      }
+      const mappedHistory: CommandBarHistoryEntry[] = [];
+      for (const e of initialHistory) {
+        if (!e.url) continue;
+        mappedHistory.push({
+          url: e.url,
+          title: e.title,
+          lastVisitTime: e.lastVisitTime,
+          visitCount: e.visitCount,
+        });
+      }
+
+      // Commit all initial data in a single React batch so the first painted frame already
+      // contains open tabs, favorites, pins, and history (never flashing quick actions at #0).
+      setWindowId(winId);
+      setSettings(loadedSettings);
       setState(loaded);
-      await refreshTabsAndArchive();
-      if (!active) return;
+      setOpenTabs(mappedTabs);
+      setArchived(archivedList);
+      setHistory(mappedHistory);
       setInitialLoaded(true);
 
       cleanup = subscribeToWindowUpdates(winId, {
@@ -383,7 +426,7 @@ function EmptySpaceCanvas() {
 
   // Ensure the Command Bar search box receives keyboard focus on open, tab switch, and Cmd+T
   useEffect(() => {
-    if (!barVisible) return;
+    if (!barVisible || !initialLoaded) return;
     const focusInput = () => {
       inputRef.current?.focus({ preventScroll: true });
     };
@@ -423,7 +466,7 @@ function EmptySpaceCanvas() {
       window.removeEventListener('focus', focusInput);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [barVisible, isModal]);
+  }, [barVisible, isModal, initialLoaded]);
 
   // Auto-detect prefix + space (e.g. "gh " or "yt ") and promote to a colored chip immediately
   useEffect(() => {
@@ -881,7 +924,7 @@ function EmptySpaceCanvas() {
         <div aria-hidden="true" className="arcline-grain-layer" style={{ opacity: grainOpacity }} />
       )}
 
-      {barVisible && (
+      {barVisible && initialLoaded && (
         <div className="relative z-10 flex w-full max-w-[600px] flex-col">
           {/* Centered Arc-style Floating Command Bar (fixed dark surface + Space accent highlight) */}
           <section

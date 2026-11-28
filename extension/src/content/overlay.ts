@@ -805,7 +805,7 @@ import type { Settings } from '../core/types';
       cmdIframeEl = cmdFrame;
       cmdRevealTimer = setTimeout(() => {
         if (seq === commandBarOpenSeq) revealCommandBarFrame();
-      }, 220);
+      }, 400);
     });
   }
 
