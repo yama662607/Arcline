@@ -865,9 +865,9 @@ function EmptySpaceCanvas() {
   const spaceHue = activeTheme ? primaryHueFromTheme(activeTheme) : (space?.hue ?? -1);
   const hasAccentHue = !isNeutralHue(spaceHue);
   const primaryHex = activeTheme?.nodes?.[0]?.hex;
-  // Authentic Arc Command Bar surface: always the same neutral frosted dark charcoal everywhere,
+  // Authentic Arc Command Bar surface: always the same soft matte dark charcoal everywhere,
   // with ONLY the active row highlight (and selected arrow icon) adopting the Space theme color.
-  const cardBg = 'rgba(26, 26, 29, 0.92)';
+  const cardBg = 'rgba(36, 36, 39, 0.96)';
   const selectedRowBg = hasAccentHue
     ? primaryHex
       ? `color-mix(in oklch, ${primaryHex} 62%, #141418)`
@@ -878,9 +878,20 @@ function EmptySpaceCanvas() {
       ? `color-mix(in oklch, ${primaryHex} 58%, #101014)`
       : `hsl(${spaceHue} 58% 32%)`
     : '#1c1c1f';
-  const cardInk = 'rgba(255, 255, 255, 0.82)';
+  const cardInk = 'rgba(255, 255, 255, 0.86)';
   const cardMuted = 'rgba(255, 255, 255, 0.44)';
-  const cardRule = 'rgba(255, 255, 255, 0.1)';
+  const cardRule = 'rgba(255, 255, 255, 0.08)';
+
+  const shortHost = (url?: string): string | null => {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+      return parsed.hostname.replace(/^www\./, '');
+    } catch {
+      return null;
+    }
+  };
 
   return (
     <div
@@ -888,7 +899,7 @@ function EmptySpaceCanvas() {
       data-arcline-command-bar={barVisible ? 'true' : 'false'}
       data-arcline-command-mode={isModal ? 'modal' : 'page'}
       data-space-name={space?.name ?? ''}
-      className={`${isModal ? '' : 'arcline-shell '}relative flex min-h-screen w-full flex-col items-center justify-start overflow-x-hidden overflow-y-auto px-5 ${isPopup ? 'pt-6 pb-6' : 'pt-[20vh] pb-10'}`}
+      className={`${isModal ? '' : 'arcline-shell '}relative flex min-h-screen w-full flex-col items-center justify-start overflow-x-hidden overflow-y-auto px-5 ${isPopup ? 'pt-6 pb-6' : 'pt-[24vh] pb-10'}`}
       style={
         isModal
           ? { background: 'transparent' }
@@ -922,25 +933,25 @@ function EmptySpaceCanvas() {
       )}
 
       {barVisible && initialLoaded && (
-        <div className="relative z-10 flex w-full max-w-[600px] flex-col">
-          {/* Centered Arc-style Floating Command Bar (uniform neutral dark charcoal + Space highlight) */}
+        <div className="relative z-10 flex w-full max-w-[700px] flex-col">
+          {/* Centered Arc-style Floating Command Bar (uniform matte dark charcoal + Space highlight) */}
           <section
             ref={cardRef}
             aria-label={t('commandBar.inputLabel')}
-            className="flex flex-col overflow-hidden rounded-[16px]"
+            className="flex flex-col overflow-hidden rounded-[14px]"
             style={{
               colorScheme: 'dark',
               backgroundColor: cardBg,
-              WebkitBackdropFilter: 'blur(28px) saturate(1.2)',
-              backdropFilter: 'blur(28px) saturate(1.2)',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
-              boxShadow: '0 24px 72px rgb(0 0 0 / 0.54), 0 4px 16px rgb(0 0 0 / 0.24)',
+              WebkitBackdropFilter: 'blur(28px) saturate(1.15)',
+              backdropFilter: 'blur(28px) saturate(1.15)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: '0 24px 72px rgb(0 0 0 / 0.5), 0 4px 16px rgb(0 0 0 / 0.22)',
               color: cardInk,
             }}
           >
             {/* Search Input Row */}
             <div
-              className="flex h-[54px] items-center gap-2.5 px-4"
+              className="flex h-[58px] items-center gap-3 px-5"
               style={{ borderBottom: `1px solid ${cardRule}` }}
             >
               <Search size={18} className="shrink-0" style={{ color: cardMuted }} />
@@ -981,8 +992,8 @@ function EmptySpaceCanvas() {
                     : t('commandBar.placeholder')
                 }
                 aria-label={t('commandBar.inputLabel')}
-                className="h-full min-w-0 flex-1 border-0 bg-transparent text-[15.5px] outline-none placeholder:text-white/45"
-                style={{ color: cardInk }}
+                className="h-full min-w-0 flex-1 border-0 bg-transparent text-[16.5px] outline-none placeholder:text-white/40"
+                style={{ color: '#f5f5f7' }}
               />
 
               {suggestion && (
@@ -1011,7 +1022,7 @@ function EmptySpaceCanvas() {
                 </button>
               )}
 
-              {(query || activeChip) && (
+              {(query || activeChip) && !suggestion && (
                 <button
                   type="button"
                   aria-label={t('commandBar.clear')}
@@ -1093,7 +1104,7 @@ function EmptySpaceCanvas() {
 
             {/* Fused Live Results */}
             <div
-              className="arcline-scroll flex max-h-[380px] flex-col gap-0.5 p-2"
+              className="arcline-scroll flex max-h-[280px] flex-col gap-1 px-2.5 py-2"
               onPointerMove={(e) => {
                 const prev = lastPointerPosRef.current;
                 if (!prev) {
@@ -1114,9 +1125,24 @@ function EmptySpaceCanvas() {
                 commandResult.items.map((item, idx) => {
                   const selected = idx === selectedIdx;
                   const badgeText = t(BADGE_KEY[item.badge]);
-                  const rightLabel = selected ? badgeText : item.spaceName || badgeText;
-                  const showUnselectedArrow =
-                    item.kind === 'tab' || item.kind === 'pin' || item.kind === 'favorite';
+                  const host = shortHost(item.url);
+                  const showInlineHost =
+                    host !== null &&
+                    item.kind !== 'tab' &&
+                    item.kind !== 'webSearch' &&
+                    item.kind !== 'siteSearch' &&
+                    item.kind !== 'navigate' &&
+                    !item.title.toLowerCase().includes(host.toLowerCase());
+                  const showRightAction =
+                    item.kind === 'tab' || item.kind === 'pin' || item.kind === 'archived';
+                  const rightLabel =
+                    item.kind === 'tab'
+                      ? selected
+                        ? badgeText
+                        : item.spaceName || badgeText
+                      : showRightAction
+                        ? item.spaceName || badgeText
+                        : null;
                   return (
                     <button
                       key={item.id}
@@ -1132,19 +1158,31 @@ function EmptySpaceCanvas() {
                         }
                       }}
                       onClick={() => void executeItem(item)}
-                      className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-left transition-colors"
+                      className="flex min-h-[48px] w-full cursor-pointer items-center gap-3.5 rounded-[10px] px-3.5 py-2.5 text-left transition-colors"
                       style={{
                         backgroundColor: selected ? selectedRowBg : 'transparent',
                         color: selected ? '#ffffff' : cardInk,
                       }}
                     >
                       {renderItemGlyph(item, settings.customSiteSearches)}
-                      <div className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
-                        {displayItemTitle(item)}
+                      <div className="flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden">
+                        <span className="truncate text-[14px] font-medium">
+                          {displayItemTitle(item)}
+                        </span>
+                        {showInlineHost && (
+                          <span
+                            className="shrink-0 truncate text-[13px]"
+                            style={{
+                              color: selected ? 'rgba(255, 255, 255, 0.72)' : cardMuted,
+                            }}
+                          >
+                            — {host}
+                          </span>
+                        )}
                       </div>
                       {item.kind === 'favorite' && item.alias && (
                         <span
-                          className="shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10.5px]"
+                          className="shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[11px]"
                           style={{
                             backgroundColor: selected
                               ? 'rgba(255, 255, 255, 0.2)'
@@ -1157,7 +1195,7 @@ function EmptySpaceCanvas() {
                       )}
                       {item.kind === 'favorite' && item.shortcut && (
                         <kbd
-                          className="shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[10.5px]"
+                          className="shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[11px]"
                           style={{
                             borderColor: selected ? 'rgba(255, 255, 255, 0.35)' : cardRule,
                             color: selected ? '#ffffff' : cardMuted,
@@ -1169,31 +1207,34 @@ function EmptySpaceCanvas() {
                           )}
                         </kbd>
                       )}
-                      <span
-                        className="shrink-0 text-[11.5px] font-medium"
-                        style={{
-                          color: selected ? 'rgba(255, 255, 255, 0.94)' : cardMuted,
-                        }}
-                      >
-                        {rightLabel}
-                      </span>
-                      {selected ? (
+                      {rightLabel && (
                         <span
-                          aria-hidden="true"
-                          className="grid size-5 shrink-0 place-items-center rounded-[6px] bg-white"
-                          style={{ color: selectedArrowColor }}
+                          className="shrink-0 text-[12.5px] font-medium"
+                          style={{
+                            color: selected ? 'rgba(255, 255, 255, 0.94)' : cardMuted,
+                          }}
                         >
-                          <ArrowRight size={12} strokeWidth={2.5} />
+                          {rightLabel}
                         </span>
-                      ) : showUnselectedArrow ? (
-                        <span
-                          aria-hidden="true"
-                          className="grid size-5 shrink-0 place-items-center"
-                          style={{ color: cardMuted }}
-                        >
-                          <ArrowRight size={12} strokeWidth={2} />
-                        </span>
-                      ) : null}
+                      )}
+                      {showRightAction &&
+                        (selected ? (
+                          <span
+                            aria-hidden="true"
+                            className="grid size-5 shrink-0 place-items-center rounded-[6px] bg-white"
+                            style={{ color: selectedArrowColor }}
+                          >
+                            <ArrowRight size={12} strokeWidth={2.5} />
+                          </span>
+                        ) : (
+                          <span
+                            aria-hidden="true"
+                            className="grid size-5 shrink-0 place-items-center"
+                            style={{ color: cardMuted }}
+                          >
+                            <ArrowRight size={12} strokeWidth={2} />
+                          </span>
+                        ))}
                     </button>
                   );
                 })
