@@ -69,65 +69,6 @@ function formatRelativeTime(ts: number, t: Translator): string {
   return t('settings.time.daysAgo', { count: Math.floor(diffHr / 24) });
 }
 
-function TabSwitcherSettingsCard({
-  enabled,
-  onToggle,
-}: {
-  enabled: boolean;
-  onToggle: (next: boolean) => void;
-}) {
-  const t = useT();
-  const [hasThumbPerm, setHasThumbPerm] = useState(false);
-
-  useEffect(() => {
-    chrome.permissions
-      ?.contains?.({ origins: ['<all_urls>'] })
-      .then((granted) => setHasThumbPerm(Boolean(granted)))
-      .catch(() => undefined);
-  }, []);
-
-  const requestThumbPerm = () => {
-    chrome.permissions
-      ?.request?.({ origins: ['<all_urls>'] })
-      .then((granted) => setHasThumbPerm(Boolean(granted)))
-      .catch(() => undefined);
-  };
-
-  return (
-    <div className="arcline-settings-card flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="font-medium">{t('settings.tabSwitcher.title')}</div>
-          <div className="mt-0.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            {t('settings.tabSwitcher.description')}
-          </div>
-        </div>
-        <ToggleSwitch
-          checked={enabled}
-          ariaLabel={t('settings.tabSwitcher.title')}
-          onChange={onToggle}
-        />
-      </div>
-      {enabled && (
-        <div className="flex items-center justify-between gap-2 pt-0.5">
-          <button
-            type="button"
-            disabled={hasThumbPerm}
-            onClick={requestThumbPerm}
-            className="rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-65 cursor-pointer disabled:cursor-default"
-            style={{
-              borderColor: hasThumbPerm ? 'var(--accent)' : 'var(--border-subtle)',
-              color: hasThumbPerm ? 'var(--accent)' : 'var(--text-primary)',
-            }}
-          >
-            {hasThumbPerm ? t('settings.tabSwitcher.thumbOn') : t('settings.tabSwitcher.thumbOff')}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ToggleSwitch({
   checked,
   onChange,
@@ -788,10 +729,19 @@ export function SettingsModal({
                   />
                 </div>
 
-                <TabSwitcherSettingsCard
-                  enabled={settings.tabSwitcherPreview}
-                  onToggle={(next) => onUpdateSettings({ ...settings, tabSwitcherPreview: next })}
-                />
+                <div className="arcline-settings-card flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-medium">{t('settings.tabSwitcher.title')}</div>
+                    <div className="mt-0.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      {t('settings.tabSwitcher.description')}
+                    </div>
+                  </div>
+                  <ToggleSwitch
+                    checked={settings.tabSwitcherPreview}
+                    ariaLabel={t('settings.tabSwitcher.title')}
+                    onChange={(next) => onUpdateSettings({ ...settings, tabSwitcherPreview: next })}
+                  />
+                </div>
 
                 <div className="arcline-settings-card flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">

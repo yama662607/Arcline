@@ -33,7 +33,7 @@ let nativeSidePanelMode: 'closed' | 'docked' | 'auto-fallback' = 'closed';
 let autoFallbackRequestedUntil = 0;
 let cachedCommandBarOpenMode: CommandBarOpenMode = 'popup';
 let cachedTabSwitcherPreview = true;
-let hasAllUrlsPermission = false;
+let hasAllUrlsPermission = true;
 
 interface CtrlHoldState {
   held: boolean;
