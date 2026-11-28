@@ -44,7 +44,6 @@ import {
   subscribeToWindowUpdates,
 } from '../sidepanel/api';
 import { Favicon } from '../sidepanel/components/Favicon';
-import { SpaceGlyph } from '../sidepanel/components/SpaceGlyph';
 import { WallpaperSettingsCard } from '../sidepanel/components/WallpaperSettingsCard';
 import { I18nProvider, useT } from '../sidepanel/i18n';
 import '../sidepanel/styles.css';
@@ -792,21 +791,6 @@ function EmptySpaceCanvas() {
     return item.title;
   };
 
-  const displayItemSubtitle = (item: CommandBarItem): string => {
-    const parts: string[] = [];
-    if (item.spaceName) parts.push(item.spaceName);
-    if (item.folderPath?.length) parts.push(item.folderPath.join(' / '));
-    if (
-      item.subtitle &&
-      item.kind !== 'navigate' &&
-      item.kind !== 'webSearch' &&
-      item.kind !== 'siteSearch'
-    ) {
-      parts.push(item.subtitle);
-    }
-    return parts.join(' · ');
-  };
-
   const activeChip = commandResult.activeSiteSearch;
   const suggestion = !activeChip ? commandResult.siteSearchSuggestion : undefined;
 
@@ -814,8 +798,6 @@ function EmptySpaceCanvas() {
     ? buildSpaceBackgroundCss(activeTheme, resolvedScheme, false)
     : undefined;
   const grainOpacity = activeTheme ? Math.min(0.32, (activeTheme.grain / 100) * 0.28) : 0.08;
-
-  const isMac = useMemo(() => /Macintosh|Mac OS X|MacIntel/i.test(navigator.userAgent), []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const isCtrlOnly = e.ctrlKey && !e.metaKey && !e.altKey;
@@ -878,14 +860,9 @@ function EmptySpaceCanvas() {
   const spaceHue = activeTheme ? primaryHueFromTheme(activeTheme) : (space?.hue ?? -1);
   const hasAccentHue = !isNeutralHue(spaceHue);
   const primaryHex = activeTheme?.nodes?.[0]?.hex;
-  // Fixed dark matte charcoal surface (with a whisper of Space tint) + exact Space theme accent
-  // for the selected row. Using the actual theme hex (or true HSL hue) avoids OKLCH hue shift
-  // where an HSL purple (~270°) would otherwise render blue in OKLCH.
-  const cardBg = hasAccentHue
-    ? primaryHex
-      ? `color-mix(in oklch, ${primaryHex} 10%, rgba(24, 24, 27, 0.96))`
-      : `hsl(${spaceHue} 16% 12% / 0.95)`
-    : 'rgba(28, 28, 31, 0.95)';
+  // Authentic Arc Command Bar surface: always the same neutral frosted dark charcoal everywhere,
+  // with ONLY the active row highlight (and selected arrow icon) adopting the Space theme color.
+  const cardBg = 'rgba(26, 26, 29, 0.92)';
   const selectedRowBg = hasAccentHue
     ? primaryHex
       ? `color-mix(in oklch, ${primaryHex} 62%, #141418)`
@@ -896,9 +873,9 @@ function EmptySpaceCanvas() {
       ? `color-mix(in oklch, ${primaryHex} 58%, #101014)`
       : `hsl(${spaceHue} 58% 32%)`
     : '#1c1c1f';
-  const cardInk = '#f5f5f7';
-  const cardMuted = 'rgba(255, 255, 255, 0.54)';
-  const cardRule = 'rgba(255, 255, 255, 0.09)';
+  const cardInk = 'rgba(255, 255, 255, 0.82)';
+  const cardMuted = 'rgba(255, 255, 255, 0.44)';
+  const cardRule = 'rgba(255, 255, 255, 0.1)';
 
   return (
     <div
@@ -940,19 +917,19 @@ function EmptySpaceCanvas() {
       )}
 
       {barVisible && initialLoaded && (
-        <div className="relative z-10 flex w-full max-w-[600px] flex-col">
-          {/* Centered Arc-style Floating Command Bar (fixed dark surface + Space accent highlight) */}
+        <div className="relative z-10 flex w-full max-w-[560px] flex-col">
+          {/* Centered Arc-style Floating Command Bar (uniform neutral dark charcoal + Space highlight) */}
           <section
             ref={cardRef}
             aria-label={t('commandBar.inputLabel')}
-            className="flex flex-col overflow-hidden rounded-[16px]"
+            className="flex flex-col overflow-hidden rounded-[14px]"
             style={{
               colorScheme: 'dark',
               backgroundColor: cardBg,
-              WebkitBackdropFilter: 'blur(28px) saturate(1.25)',
-              backdropFilter: 'blur(28px) saturate(1.25)',
-              border: '0.5px solid rgba(255, 255, 255, 0.12)',
-              boxShadow: '0 28px 80px rgb(0 0 0 / 0.48), 0 4px 16px rgb(0 0 0 / 0.22)',
+              WebkitBackdropFilter: 'blur(28px) saturate(1.2)',
+              backdropFilter: 'blur(28px) saturate(1.2)',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              boxShadow: '0 24px 72px rgb(0 0 0 / 0.54), 0 4px 16px rgb(0 0 0 / 0.24)',
               color: cardInk,
             }}
           >
@@ -1061,8 +1038,10 @@ function EmptySpaceCanvas() {
               ) : (
                 commandResult.items.map((item, idx) => {
                   const selected = idx === selectedIdx;
-                  const subtitle = displayItemSubtitle(item);
                   const badgeText = t(BADGE_KEY[item.badge]);
+                  const rightLabel = selected ? badgeText : item.spaceName || badgeText;
+                  const showUnselectedArrow =
+                    item.kind === 'tab' || item.kind === 'pin' || item.kind === 'favorite';
                   return (
                     <button
                       key={item.id}
@@ -1078,27 +1057,15 @@ function EmptySpaceCanvas() {
                         }
                       }}
                       onClick={() => void executeItem(item)}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-left transition-colors"
+                      className="flex w-full cursor-pointer items-center gap-2.5 rounded-[9px] px-3 py-2 text-left transition-colors"
                       style={{
                         backgroundColor: selected ? selectedRowBg : 'transparent',
                         color: selected ? '#ffffff' : cardInk,
                       }}
                     >
                       {renderItemGlyph(item, settings.customSiteSearches)}
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13.5px] font-medium">
-                          {displayItemTitle(item)}
-                        </div>
-                        {subtitle && (
-                          <div
-                            className="truncate text-[11.5px]"
-                            style={{
-                              color: selected ? 'rgba(255, 255, 255, 0.8)' : cardMuted,
-                            }}
-                          >
-                            {subtitle}
-                          </div>
-                        )}
+                      <div className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                        {displayItemTitle(item)}
                       </div>
                       {item.kind === 'favorite' && item.alias && (
                         <span
@@ -1107,7 +1074,7 @@ function EmptySpaceCanvas() {
                             backgroundColor: selected
                               ? 'rgba(255, 255, 255, 0.2)'
                               : 'rgba(255, 255, 255, 0.08)',
-                            color: selected ? '#ffffff' : 'rgba(255, 255, 255, 0.85)',
+                            color: selected ? '#ffffff' : 'rgba(255, 255, 255, 0.78)',
                           }}
                         >
                           @{item.alias}
@@ -1128,15 +1095,14 @@ function EmptySpaceCanvas() {
                         </kbd>
                       )}
                       <span
-                        className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium"
+                        className="shrink-0 text-[11.5px] font-medium"
                         style={{
-                          backgroundColor: selected ? 'transparent' : 'rgba(255, 255, 255, 0.07)',
                           color: selected ? 'rgba(255, 255, 255, 0.94)' : cardMuted,
                         }}
                       >
-                        {badgeText}
+                        {rightLabel}
                       </span>
-                      {selected && (
+                      {selected ? (
                         <span
                           aria-hidden="true"
                           className="grid size-5 shrink-0 place-items-center rounded-[6px] bg-white"
@@ -1144,37 +1110,18 @@ function EmptySpaceCanvas() {
                         >
                           <ArrowRight size={12} strokeWidth={2.5} />
                         </span>
-                      )}
+                      ) : showUnselectedArrow ? (
+                        <span
+                          aria-hidden="true"
+                          className="grid size-5 shrink-0 place-items-center"
+                          style={{ color: cardMuted }}
+                        >
+                          <ArrowRight size={12} strokeWidth={2} />
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })
-              )}
-            </div>
-
-            {/* Minimal Keyboard & Active Space Footer */}
-            <div
-              className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 text-[11px]"
-              style={{
-                borderTop: `1px solid ${cardRule}`,
-                color: cardMuted,
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <span>↑↓ / ^P^N {t('commandBar.footer.navigate')}</span>
-                <span>Tab {t('commandBar.footer.siteSearch')}</span>
-                <span>
-                  {isMac ? '⌘↵' : 'Ctrl+↵'} {SEARCH_ENGINE_URLS[settings.searchEngine].label}
-                </span>
-                <span>↵ {t('commandBar.footer.open')}</span>
-              </div>
-              {space && (
-                <div
-                  className="flex items-center gap-1.5 font-medium"
-                  style={{ color: 'rgba(255, 255, 255, 0.85)' }}
-                >
-                  <SpaceGlyph icon={space.icon} size={12} />
-                  <span>{space.name}</span>
-                </div>
               )}
             </div>
           </section>
