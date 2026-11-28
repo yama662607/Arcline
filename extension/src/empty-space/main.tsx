@@ -4,6 +4,7 @@ import {
   Bookmark,
   Clock,
   Globe,
+  ImagePlus,
   Search,
   Sparkles,
   Star,
@@ -44,6 +45,7 @@ import {
 } from '../sidepanel/api';
 import { Favicon } from '../sidepanel/components/Favicon';
 import { SpaceGlyph } from '../sidepanel/components/SpaceGlyph';
+import { WallpaperSettingsCard } from '../sidepanel/components/WallpaperSettingsCard';
 import { I18nProvider, useT } from '../sidepanel/i18n';
 import '../sidepanel/styles.css';
 
@@ -156,12 +158,14 @@ function EmptySpaceCanvas() {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
   const [wallpaperVersion, setWallpaperVersion] = useState(0);
+  const [wallpaperMenuOpen, setWallpaperMenuOpen] = useState(false);
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches,
   );
 
   const inputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLElement>(null);
+  const customizeRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const pointerHoverEnabledRef = useRef(false);
   const lastPointerPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -371,11 +375,17 @@ function EmptySpaceCanvas() {
     return () => cancelAnimationFrame(rafId);
   }, [isModal, initialLoaded]);
 
-  // Dismiss Command Bar when clicking outside the floating card
+  // Dismiss Command Bar or wallpaper customize popover when clicking outside
   useEffect(() => {
-    if (!barVisible) return;
+    if (!barVisible && !wallpaperMenuOpen) return;
     const onOutsidePointerDown = (e: PointerEvent) => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (customizeRef.current?.contains(target)) return;
+      if (wallpaperMenuOpen) {
+        setWallpaperMenuOpen(false);
+        return;
+      }
+      if (barVisible && cardRef.current && !cardRef.current.contains(target)) {
         if (isModal || isPopup) {
           closeModal();
         } else {
@@ -385,21 +395,26 @@ function EmptySpaceCanvas() {
     };
     window.addEventListener('pointerdown', onOutsidePointerDown);
     return () => window.removeEventListener('pointerdown', onOutsidePointerDown);
-  }, [barVisible, isModal, isPopup, closeModal]);
+  }, [barVisible, wallpaperMenuOpen, isModal, isPopup, closeModal]);
 
-  // Dismiss Command Bar on Escape even when focus moved to a result button, clear button,
-  // or after clicking outside on an explicit Command Bar New Tab.
+  // Dismiss popover or Command Bar on Escape even when focus moved to a result button,
+  // clear button, or after clicking outside on an explicit Command Bar New Tab.
   useEffect(() => {
-    if (!barVisible && !isCommandBarExplicit) return;
+    if (!barVisible && !isCommandBarExplicit && !wallpaperMenuOpen) return;
     const onWindowKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (wallpaperMenuOpen) {
+        e.preventDefault();
+        setWallpaperMenuOpen(false);
+        return;
+      }
       if (e.target instanceof HTMLInputElement) return;
       e.preventDefault();
       closeModal();
     };
     window.addEventListener('keydown', onWindowKeyDown);
     return () => window.removeEventListener('keydown', onWindowKeyDown);
-  }, [barVisible, isCommandBarExplicit, closeModal]);
+  }, [barVisible, isCommandBarExplicit, wallpaperMenuOpen, closeModal]);
 
   // Allow background/overlay to reveal or toggle the Command Bar on an empty Space canvas
   useEffect(() => {
@@ -1163,6 +1178,66 @@ function EmptySpaceCanvas() {
               )}
             </div>
           </section>
+        </div>
+      )}
+
+      {!isModal && !isPopup && (
+        <div ref={customizeRef} className="fixed right-5 bottom-5 z-20 flex flex-col items-end">
+          {wallpaperMenuOpen && (
+            <div
+              role="dialog"
+              aria-label={t('commandBar.customizeWallpaper')}
+              data-testid="wallpaper-customize-popover"
+              className="mb-2.5 w-[348px] max-w-[calc(100vw-2.5rem)] rounded-2xl border p-3 shadow-2xl"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--border-subtle)',
+                color: 'var(--text-primary)',
+                WebkitBackdropFilter: 'blur(24px) saturate(1.2)',
+                backdropFilter: 'blur(24px) saturate(1.2)',
+              }}
+            >
+              <div className="mb-2 flex items-center justify-between px-1">
+                <span className="text-[12px] font-semibold">
+                  {t('commandBar.customizeWallpaper')}
+                </span>
+                <button
+                  type="button"
+                  aria-label={t('commandBar.clear')}
+                  onClick={() => setWallpaperMenuOpen(false)}
+                  className="grid size-6 cursor-pointer place-items-center rounded-md transition-colors hover:bg-[var(--bg-hover)]"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+              <WallpaperSettingsCard spaces={state?.spaces ?? []} />
+            </div>
+          )}
+
+          <button
+            type="button"
+            data-testid="wallpaper-customize-btn"
+            aria-label={t('commandBar.customizeWallpaper')}
+            aria-expanded={wallpaperMenuOpen}
+            title={t('commandBar.customizeWallpaperTitle')}
+            onClick={() => setWallpaperMenuOpen((open) => !open)}
+            className="group flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium shadow-lg transition-all hover:scale-[1.03] active:scale-[0.97]"
+            style={{
+              backgroundColor: wallpaperMenuOpen
+                ? 'rgba(28, 28, 32, 0.92)'
+                : 'rgba(24, 24, 28, 0.62)',
+              borderColor: 'rgba(255, 255, 255, 0.16)',
+              color: 'rgba(255, 255, 255, 0.88)',
+              WebkitBackdropFilter: 'blur(16px) saturate(1.2)',
+              backdropFilter: 'blur(16px) saturate(1.2)',
+            }}
+          >
+            <ImagePlus size={15} strokeWidth={2} aria-hidden="true" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[140px] group-hover:opacity-100">
+              {t('commandBar.customizeWallpaper')}
+            </span>
+          </button>
         </div>
       )}
     </div>

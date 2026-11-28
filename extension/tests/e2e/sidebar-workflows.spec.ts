@@ -377,7 +377,17 @@ test.describe('Sidebar workflows, Arc import, Command Bar & Cmd+T', () => {
     expect(newTabPage).toBeTruthy();
     await expect(newTabPage!.locator('[data-arcline-command-mode="page"]')).toBeVisible();
 
+    // Bottom-right wallpaper customize button opens inline WallpaperSettingsCard & closes on Escape
+    const customizeBtn = newTabPage!.getByTestId('wallpaper-customize-btn');
+    await expect(customizeBtn).toBeVisible();
+    await customizeBtn.click();
+    await expect(newTabPage!.getByTestId('wallpaper-customize-popover')).toBeVisible();
+    await expect(newTabPage!.getByTestId('wallpaper-settings-card')).toBeVisible();
+    await newTabPage!.keyboard.press('Escape');
+    await expect(newTabPage!.getByTestId('wallpaper-customize-popover')).toBeHidden();
+
     const pageInput = newTabPage!.getByRole('textbox', { name: 'Arcline コマンドバー' });
+    await pageInput.focus();
     await expect(pageInput).toBeFocused();
     await expect(newTabPage!.locator('[data-command-item-kind="favorite"]').first()).toBeVisible();
 

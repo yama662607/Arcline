@@ -31,6 +31,8 @@ export const commandBarEn = {
   'commandBar.searchWith': 'Search {engine} for “{term}”',
   'commandBar.searchSite': 'Search {site} for “{term}”',
   'commandBar.openUrl': 'Open {url}',
+  'commandBar.customizeWallpaper': 'Customize background',
+  'commandBar.customizeWallpaperTitle': 'Set a custom background image or GIF',
 } as const;
 
 export const commandBarJa: Record<keyof typeof commandBarEn, string> = {
@@ -66,4 +68,6 @@ export const commandBarJa: Record<keyof typeof commandBarEn, string> = {
   'commandBar.searchWith': '{engine} で「{term}」を検索',
   'commandBar.searchSite': '{site} で「{term}」を検索',
   'commandBar.openUrl': '{url} を開く',
+  'commandBar.customizeWallpaper': '壁紙をカスタマイズ',
+  'commandBar.customizeWallpaperTitle': '好きな画像・GIF を背景に設定',
 };
