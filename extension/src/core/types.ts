@@ -63,6 +63,8 @@ export interface Settings {
   disabledSiteSearchIds: string[];
   /** Per-Favorite alias & shortcut map keyed by Favorite URL. */
   favoriteShortcuts: Record<string, FavoriteShortcut>;
+  /** Show Arc-style MRU tab preview HUD when holding Ctrl during Ctrl+Tab switching. */
+  tabSwitcherPreview: boolean;
   /** Custom in-page keyboard shortcuts editable directly in Arcline Settings. */
   customShortcuts: Partial<Record<CustomCommandAction, string>>;
 }

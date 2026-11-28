@@ -65,6 +65,9 @@
     "history",
     "nativeMessaging"
   ],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
   "commands": {
     "toggle-sidebar": {
       "suggested_key": {

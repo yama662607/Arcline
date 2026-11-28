@@ -59,6 +59,11 @@ export const settingsEn = {
     'When off, the current page stays open and only the sidebar switches.',
   'settings.emptySpacePage.interactionAria':
     'Open the theme color page when switching to an empty Space (Controls tab)',
+  'settings.tabSwitcher.title': 'Show tab preview strip on Ctrl+Tab',
+  'settings.tabSwitcher.description':
+    'Hold Ctrl during Ctrl+Tab to preview recent tabs without overriding browser shortcuts.',
+  'settings.tabSwitcher.thumbOn': 'Live thumbnails enabled',
+  'settings.tabSwitcher.thumbOff': 'Enable live thumbnails (optional site access)',
   'settings.autoArchive.title': 'Auto-archive temporary tabs (saves memory)',
   'settings.autoArchive.off': 'Off',
   'settings.autoArchive.hours12': 'After 12 hours',
@@ -252,6 +257,11 @@ export const settingsJa: Record<keyof typeof settingsEn, string> = {
     'オフにすると現在のページを開いたままサイドバーだけ切り替わります',
   'settings.emptySpacePage.interactionAria':
     '空の Space へ移動時にテーマカラーページを開く（操作タブ）',
+  'settings.tabSwitcher.title': 'Ctrl+Tab 長押しでタブプレビューを表示',
+  'settings.tabSwitcher.description':
+    'ショートカットを奪わずに、Ctrl を押し続けている間だけ最近使ったタブのプレビュー帯を表示します。',
+  'settings.tabSwitcher.thumbOn': 'サムネイル表示中',
+  'settings.tabSwitcher.thumbOff': 'ページサムネイルを有効化（権限を許可）',
   'settings.autoArchive.title': '一時タブの自動アーカイブ（メモリ節約）',
   'settings.autoArchive.off': 'オフ',
   'settings.autoArchive.hours12': '12 時間後',
