@@ -37,7 +37,6 @@ describe('completeSettings', () => {
       customSiteSearches: [],
       disabledSiteSearchIds: [],
       favoriteShortcuts: {},
-      tabSwitcherPreview: true,
       customShortcuts: {},
     });
   });

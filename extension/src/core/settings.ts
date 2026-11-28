@@ -30,7 +30,6 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   customSiteSearches: [],
   disabledSiteSearchIds: [],
   favoriteShortcuts: {},
-  tabSwitcherPreview: true,
   customShortcuts: {},
 });
 
@@ -136,10 +135,6 @@ export function completeSettings(partial?: Partial<Settings> | null): Settings {
     typeof partial?.openEmptySpacePage === 'boolean'
       ? partial.openEmptySpacePage
       : DEFAULT_SETTINGS.openEmptySpacePage;
-  const tabSwitcherPreview =
-    typeof partial?.tabSwitcherPreview === 'boolean'
-      ? partial.tabSwitcherPreview
-      : DEFAULT_SETTINGS.tabSwitcherPreview;
   const language =
     partial?.language && VALID_LANGUAGES.has(partial.language)
       ? partial.language
@@ -193,7 +188,6 @@ export function completeSettings(partial?: Partial<Settings> | null): Settings {
         )
       : [],
     favoriteShortcuts: sanitizeFavoriteShortcuts(partial?.favoriteShortcuts),
-    tabSwitcherPreview,
     customShortcuts: sanitizeCustomShortcuts(partial?.customShortcuts),
   };
 }

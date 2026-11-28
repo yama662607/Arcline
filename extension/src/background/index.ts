@@ -1,13 +1,6 @@
 import { isOverlayCapableUrl, OverlayContinuityTracker } from '../core/overlay-continuity';
 import { completeSettings } from '../core/settings';
-import {
-  orderTabsByMru,
-  recordMruTab,
-  removeMruTab,
-  type TabSwitcherItem,
-  type TabSwitcherPayload,
-} from '../core/tab-switcher';
-import type { Command, CommandBarOpenMode, Settings, SpaceMeta } from '../core/types';
+import type { Command, CommandBarOpenMode, Settings } from '../core/types';
 import {
   swLoadWallpaper,
   swRemoveWallpaper,
@@ -32,22 +25,6 @@ let nativeSidePanelConnections = 0;
 let nativeSidePanelMode: 'closed' | 'docked' | 'auto-fallback' = 'closed';
 let autoFallbackRequestedUntil = 0;
 let cachedCommandBarOpenMode: CommandBarOpenMode = 'popup';
-let cachedTabSwitcherPreview = true;
-let hasAllUrlsPermission = true;
-
-interface CtrlHoldState {
-  held: boolean;
-  downAt: number;
-  hudShown: boolean;
-  hudTabId?: number;
-  showTimer?: ReturnType<typeof setTimeout>;
-}
-
-const mruTabIdsByWindow = new Map<number, number[]>();
-const ctrlHoldByWindow = new Map<number, CtrlHoldState>();
-const tabThumbnails = new Map<number, string>();
-const MAX_THUMBNAIL_CACHE = 8;
-let captureTimer: ReturnType<typeof setTimeout> | undefined;
 
 const SIDE_PANEL_MODE_KEY = 'arcline:sidePanelMode';
 
@@ -79,41 +56,22 @@ function broadcastNativeSidePanelState(open: boolean): void {
     .catch(() => undefined);
 }
 
-// Hydrate cached settings, optional host permission, and active content tabs on SW start
+// Hydrate cached commandBarOpenMode and active content tabs eagerly on Service Worker start
+// for 0-await Cmd+T popup interception
 void storage
   .getSettings()
   .then((s) => {
     cachedCommandBarOpenMode = s.commandBarOpenMode;
-    cachedTabSwitcherPreview = s.tabSwitcherPreview;
   })
   .catch(() => undefined);
 
-function refreshAllUrlsPermission(): void {
-  chrome.permissions
-    ?.contains?.({ origins: ['<all_urls>'] })
-    .then((granted) => {
-      hasAllUrlsPermission = Boolean(granted);
-    })
-    .catch(() => undefined);
-}
-refreshAllUrlsPermission();
-chrome.permissions?.onAdded?.addListener(refreshAllUrlsPermission);
-chrome.permissions?.onRemoved?.addListener(refreshAllUrlsPermission);
-
 void chrome.tabs
-  .query({})
-  .then((allTabs) => {
-    for (const t of allTabs) {
-      if (t.id === undefined) continue;
-      if (t.active) {
-        mruTabIdsByWindow.set(
-          t.windowId,
-          recordMruTab(mruTabIdsByWindow.get(t.windowId) ?? [], t.id),
-        );
-        const url = t.url ?? t.pendingUrl;
-        if (isReturnableContentUrl(url)) {
-          lastContentTabByWindow.set(t.windowId, { tabId: t.id, url });
-        }
+  .query({ active: true })
+  .then((activeTabs) => {
+    for (const t of activeTabs) {
+      const url = t.url ?? t.pendingUrl;
+      if (t.id !== undefined && isReturnableContentUrl(url)) {
+        lastContentTabByWindow.set(t.windowId, { tabId: t.id, url });
       }
     }
   })
@@ -204,7 +162,6 @@ async function bootstrap(recover: boolean): Promise<void> {
   await chrome.alarms.create(AUTO_ARCHIVE_ALARM, { periodInMinutes: 30 });
   const settings = await storage.getSettings();
   cachedCommandBarOpenMode = settings.commandBarOpenMode;
-  cachedTabSwitcherPreview = settings.tabSwitcherPreview;
   await Promise.all([syncShortcutsToBookmarks(settings), storage.migrateSpaceMetaToSync()]);
 }
 
@@ -233,7 +190,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !(STORAGE_KEYS.settings in changes)) return;
   const next = completeSettings(changes[STORAGE_KEYS.settings]?.newValue as Partial<Settings>);
   cachedCommandBarOpenMode = next.commandBarOpenMode;
-  cachedTabSwitcherPreview = next.tabSwitcherPreview;
   void syncShortcutsToBookmarks(next);
 });
 
@@ -577,128 +533,8 @@ chrome.tabs.onCreated.addListener((tab) => {
   engine.scheduleReconcile(tab.windowId);
 });
 
-function storeThumbnailLru(tabId: number, dataUrl: string): void {
-  tabThumbnails.delete(tabId);
-  tabThumbnails.set(tabId, dataUrl);
-  while (tabThumbnails.size > MAX_THUMBNAIL_CACHE) {
-    const oldest = tabThumbnails.keys().next().value;
-    if (oldest === undefined) break;
-    tabThumbnails.delete(oldest);
-  }
-}
-
-async function downscaleThumbnailDataUrl(rawDataUrl: string): Promise<string> {
-  if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') {
-    return rawDataUrl;
-  }
-  const res = await fetch(rawDataUrl);
-  const blob = await res.blob();
-  const bmp = await createImageBitmap(blob);
-  try {
-    const targetW = 320;
-    const targetH = Math.max(120, Math.min(220, Math.round((bmp.height / bmp.width) * targetW)));
-    const canvas = new OffscreenCanvas(targetW, targetH);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return rawDataUrl;
-    ctx.drawImage(bmp, 0, 0, targetW, targetH);
-    const outBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.65 });
-    const bytes = new Uint8Array(await outBlob.arrayBuffer());
-    let binary = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    }
-    return `data:image/jpeg;base64,${btoa(binary)}`;
-  } finally {
-    bmp.close();
-  }
-}
-
-function scheduleThumbnailCapture(tabId: number, windowId: number): void {
-  if (!hasAllUrlsPermission || !cachedTabSwitcherPreview) return;
-  if (captureTimer) clearTimeout(captureTimer);
-  captureTimer = setTimeout(() => {
-    captureTimer = undefined;
-    if (lastActiveTabByWindow.get(windowId) !== tabId) return;
-    // Skip capture while Ctrl switcher HUD is visible so we don't screenshot the HUD itself
-    if (ctrlHoldByWindow.get(windowId)?.hudShown) return;
-    void chrome.tabs
-      .captureVisibleTab(windowId, { format: 'jpeg', quality: 55 })
-      .then((raw) => downscaleThumbnailDataUrl(raw))
-      .then((small) => {
-        if (lastActiveTabByWindow.get(windowId) === tabId) {
-          storeThumbnailLru(tabId, small);
-        }
-      })
-      .catch(() => undefined);
-  }, 380);
-}
-
-async function showTabSwitcherHud(windowId: number, targetTabId: number): Promise<void> {
-  const state = ctrlHoldByWindow.get(windowId);
-  if (!state?.held || !cachedTabSwitcherPreview) return;
-  const [tabs, activeSpaces, spaceMeta] = await Promise.all([
-    chrome.tabs.query({ windowId }).catch((): chrome.tabs.Tab[] => []),
-    storage.getActiveSpaces().catch((): Record<number, string> => ({})),
-    storage.getSpaceMeta().catch((): Record<string, SpaceMeta> => ({})),
-  ]);
-  if (!ctrlHoldByWindow.get(windowId)?.held) return;
-  if (lastActiveTabByWindow.get(windowId) !== targetTabId) return;
-
-  const ordered = orderTabsByMru<chrome.tabs.Tab>(tabs, mruTabIdsByWindow.get(windowId) ?? [], 6);
-  const activeSpaceId = activeSpaces[windowId];
-  let accentHex: string | undefined;
-  if (activeSpaceId) {
-    const [spaceNode] = await chrome.bookmarks.get(activeSpaceId).catch(() => []);
-    const byId = spaceMeta[`id:${activeSpaceId}`];
-    const byName = spaceNode?.title ? spaceMeta[spaceNode.title] : undefined;
-    accentHex = (byId?.theme ?? byName?.theme)?.nodes?.[0]?.hex;
-  }
-
-  const items: TabSwitcherItem[] = [];
-  for (const t of ordered) {
-    if (t.id === undefined) continue;
-    const url = t.url ?? t.pendingUrl ?? '';
-    items.push({
-      id: t.id,
-      title: t.title || url || 'Tab',
-      url,
-      favIconUrl: t.favIconUrl,
-      thumbnailUrl: tabThumbnails.get(t.id),
-      active: t.id === targetTabId,
-    });
-  }
-  const payload: TabSwitcherPayload = { items, accentHex };
-  if (state.hudTabId !== undefined && state.hudTabId !== targetTabId) {
-    chrome.tabs.sendMessage(state.hudTabId, { arclineTabSwitcher: null }).catch(() => undefined);
-  }
-  state.hudShown = true;
-  state.hudTabId = targetTabId;
-  chrome.tabs.sendMessage(targetTabId, { arclineTabSwitcher: payload }).catch(() => undefined);
-}
-
-function dismissTabSwitcherHud(windowId: number): void {
-  const state = ctrlHoldByWindow.get(windowId);
-  if (!state) return;
-  if (state.showTimer) {
-    clearTimeout(state.showTimer);
-    state.showTimer = undefined;
-  }
-  const prevHudTab = state.hudTabId;
-  state.held = false;
-  state.hudShown = false;
-  state.hudTabId = undefined;
-  if (prevHudTab !== undefined) {
-    chrome.tabs.sendMessage(prevHudTab, { arclineTabSwitcher: null }).catch(() => undefined);
-  }
-  const activeId = lastActiveTabByWindow.get(windowId);
-  if (activeId !== undefined && activeId !== prevHudTab) {
-    chrome.tabs.sendMessage(activeId, { arclineTabSwitcher: null }).catch(() => undefined);
-  }
-}
-
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   if (transientNewTabIds.has(tabId)) return;
-  mruTabIdsByWindow.set(windowId, recordMruTab(mruTabIdsByWindow.get(windowId) ?? [], tabId));
   const prevTabId = lastActiveTabByWindow.get(windowId);
   lastActiveTabByWindow.set(windowId, tabId);
   if (prevTabId !== undefined && prevTabId !== tabId) {
@@ -715,32 +551,6 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
         }
       })
       .catch(() => undefined);
-  }
-
-  // Non-hijacking Ctrl+Tab HUD: if Ctrl is being held across tab activation, show/update HUD
-  const ctrlState = ctrlHoldByWindow.get(windowId);
-  if (cachedTabSwitcherPreview && ctrlState?.held && Date.now() - ctrlState.downAt < 8000) {
-    if (ctrlState.showTimer) {
-      clearTimeout(ctrlState.showTimer);
-      ctrlState.showTimer = undefined;
-    }
-    if (ctrlState.hudTabId !== undefined && ctrlState.hudTabId !== tabId) {
-      chrome.tabs
-        .sendMessage(ctrlState.hudTabId, { arclineTabSwitcher: null })
-        .catch(() => undefined);
-    }
-    if (ctrlState.hudShown || Date.now() - ctrlState.downAt >= 120) {
-      void showTabSwitcherHud(windowId, tabId);
-    } else {
-      ctrlState.showTimer = setTimeout(() => {
-        ctrlState.showTimer = undefined;
-        if (ctrlState.held && lastActiveTabByWindow.get(windowId) === tabId) {
-          void showTabSwitcherHud(windowId, tabId);
-        }
-      }, 120);
-    }
-  } else {
-    scheduleThumbnailCapture(tabId, windowId);
   }
   chrome.tabs
     .get(tabId)
@@ -838,9 +648,6 @@ chrome.tabs.onZoomChange.addListener(({ tabId, newZoomFactor }) => {
 
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
   transientNewTabIds.delete(tabId);
-  tabThumbnails.delete(tabId);
-  const mru = mruTabIdsByWindow.get(removeInfo.windowId);
-  if (mru) mruTabIdsByWindow.set(removeInfo.windowId, removeMruTab(mru, tabId));
   if (lastContentTabByWindow.get(removeInfo.windowId)?.tabId === tabId) {
     lastContentTabByWindow.delete(removeInfo.windowId);
   }
@@ -865,9 +672,6 @@ chrome.windows.onFocusChanged.addListener((focusedWindowId) => {
 chrome.windows.onRemoved.addListener((windowId) => {
   lastActiveTabByWindow.delete(windowId);
   lastContentTabByWindow.delete(windowId);
-  mruTabIdsByWindow.delete(windowId);
-  dismissTabSwitcherHud(windowId);
-  ctrlHoldByWindow.delete(windowId);
   overlayContinuity.onWindowRemoved(windowId);
 });
 
@@ -979,43 +783,11 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
         arclineIssueFrameToken?: 'overlay' | 'modal';
         arclineVerifyFrameToken?: { token: string; kind: 'overlay' | 'modal' };
         arclineSetSidePanelMode?: 'docked' | 'auto-fallback';
-        arclineCtrlState?: { held: boolean };
-        arclineSwitchTabId?: number;
         arclineCloseNativeSidePanel?:
           | boolean
           | { reopenFloatingOverlay?: boolean; windowId?: number };
       }
     | undefined;
-
-  if (typeof payload?.arclineCtrlState?.held === 'boolean') {
-    const winId = sender.tab?.windowId;
-    if (winId !== undefined) {
-      if (payload.arclineCtrlState.held) {
-        const cur = ctrlHoldByWindow.get(winId);
-        if (cur?.showTimer) clearTimeout(cur.showTimer);
-        ctrlHoldByWindow.set(winId, {
-          held: true,
-          downAt: cur?.held ? cur.downAt : Date.now(),
-          hudShown: cur?.hudShown ?? false,
-          hudTabId: cur?.hudTabId,
-        });
-      } else {
-        dismissTabSwitcherHud(winId);
-        const activeId = lastActiveTabByWindow.get(winId);
-        if (activeId !== undefined) scheduleThumbnailCapture(activeId, winId);
-      }
-    }
-    sendResponse({ ok: true });
-    return false;
-  }
-
-  if (typeof payload?.arclineSwitchTabId === 'number') {
-    const winId = sender.tab?.windowId;
-    if (winId !== undefined) dismissTabSwitcherHud(winId);
-    void chrome.tabs.update(payload.arclineSwitchTabId, { active: true }).catch(() => undefined);
-    sendResponse({ ok: true });
-    return false;
-  }
 
   if (
     payload?.arclineIssueFrameToken === 'overlay' ||

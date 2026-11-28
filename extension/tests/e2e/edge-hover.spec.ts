@@ -414,20 +414,5 @@ test.describe('Left-edge auto-hide hover overlay', () => {
     await expect.poll(async () => (await readOverlayState(tabB)).hostPresent).toBe(true);
     await tabB.waitForTimeout(200);
     expect((await readOverlayState(tabB)).open).toBe(false);
-
-    // 4. Non-hijacking Ctrl+Tab HUD: holding Control across tab switch renders MRU preview strip and hides on release
-    await tabB.keyboard.down('Control');
-    await tabB.waitForTimeout(160);
-    await arcline.worker.evaluate(async () => {
-      const tabs = await chrome.tabs.query({});
-      const beta = tabs.find((t) => t.url?.includes('/page/beta'));
-      if (beta?.id !== undefined) await chrome.tabs.update(beta.id, { active: true });
-    });
-    await page.bringToFront();
-    const switcher = page.locator('#arcline-overlay-host [data-arcline-tab-switcher]');
-    await expect(switcher).toHaveClass(/open/, { timeout: 5_000 });
-    await expect(switcher.locator('[role="option"]')).toHaveCount(3);
-    await page.keyboard.up('Control');
-    await expect(switcher).not.toHaveClass(/open/);
   });
 });
