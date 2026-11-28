@@ -865,9 +865,11 @@ function EmptySpaceCanvas() {
   const spaceHue = activeTheme ? primaryHueFromTheme(activeTheme) : (space?.hue ?? -1);
   const hasAccentHue = !isNeutralHue(spaceHue);
   const primaryHex = activeTheme?.nodes?.[0]?.hex;
-  // Authentic Arc Command Bar surface: always the same soft matte dark charcoal everywhere,
-  // with ONLY the active row highlight (and selected arrow icon) adopting the Space theme color.
-  const cardBg = 'rgba(36, 36, 39, 0.96)';
+  // Authentic Arc Command Bar surface: deep matte obsidian charcoal with macOS floating-panel
+  // 3D rim lighting; ONLY the active row highlight (and selected arrow) adopts the Space theme color.
+  const cardBg = 'rgba(24, 25, 28, 0.96)';
+  const cardBgGradient =
+    'linear-gradient(180deg, rgba(31, 32, 36, 0.96) 0%, rgba(21, 22, 25, 0.97) 100%)';
   const selectedRowBg = hasAccentHue
     ? primaryHex
       ? `color-mix(in oklch, ${primaryHex} 62%, #141418)`
@@ -942,10 +944,12 @@ function EmptySpaceCanvas() {
             style={{
               colorScheme: 'dark',
               backgroundColor: cardBg,
-              WebkitBackdropFilter: 'blur(28px) saturate(1.15)',
-              backdropFilter: 'blur(28px) saturate(1.15)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              boxShadow: '0 24px 72px rgb(0 0 0 / 0.5), 0 4px 16px rgb(0 0 0 / 0.22)',
+              backgroundImage: cardBgGradient,
+              WebkitBackdropFilter: 'blur(32px) saturate(1.2)',
+              backdropFilter: 'blur(32px) saturate(1.2)',
+              border: '0.5px solid rgba(255, 255, 255, 0.18)',
+              boxShadow:
+                '0 32px 84px rgb(0 0 0 / 0.62), 0 12px 28px rgb(0 0 0 / 0.36), 0 0 0 1px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.16), inset 0 0 0 0.5px rgb(255 255 255 / 0.06)',
               color: cardInk,
             }}
           >
@@ -1162,6 +1166,9 @@ function EmptySpaceCanvas() {
                       style={{
                         backgroundColor: selected ? selectedRowBg : 'transparent',
                         color: selected ? '#ffffff' : cardInk,
+                        boxShadow: selected
+                          ? 'inset 0 0.5px 0 rgb(255 255 255 / 0.16), 0 1px 3px rgb(0 0 0 / 0.24)'
+                          : 'none',
                       }}
                     >
                       {renderItemGlyph(item, settings.customSiteSearches)}
