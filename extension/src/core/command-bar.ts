@@ -762,8 +762,8 @@ export function matchSiteSearchPrefix(
 }
 
 /**
- * Partially typed prefix (`g`, `gh`, `y`, `wik`, ...) that Tab may complete into a chip.
- * An exact prefix wins; otherwise the first table entry that starts with the input.
+ * Partially typed prefix or site name (`g`, `gh`, `y`, `amaz`, `github`, ...) that Tab may
+ * complete into a site-search chip. Exact prefix wins, then prefix start, then label start.
  */
 export function suggestSiteSearch(
   input: string,
@@ -773,7 +773,11 @@ export function suggestSiteSearch(
   if (!input || /\s/.test(input)) return undefined;
   const typed = input.toLowerCase();
   const all = getAllSiteSearches(custom, disabledIds);
-  return all.find((s) => s.prefix === typed) ?? all.find((s) => s.prefix.startsWith(typed));
+  return (
+    all.find((s) => s.prefix === typed) ??
+    all.find((s) => s.prefix.startsWith(typed)) ??
+    (typed.length >= 2 ? all.find((s) => s.label.toLowerCase().startsWith(typed)) : undefined)
+  );
 }
 
 // ---------------------------------------------------------------------------------------------

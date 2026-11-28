@@ -2,6 +2,7 @@ import {
   Archive,
   ArrowRight,
   Bookmark,
+  CircleHelp,
   Clock,
   Globe,
   ImagePlus,
@@ -158,6 +159,7 @@ function EmptySpaceCanvas() {
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
   const [wallpaperVersion, setWallpaperVersion] = useState(0);
   const [wallpaperMenuOpen, setWallpaperMenuOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches,
   );
@@ -831,7 +833,10 @@ function EmptySpaceCanvas() {
       return;
     }
     if (e.key === 'Escape') {
-      if (query || activeChip) {
+      if (helpOpen) {
+        e.preventDefault();
+        setHelpOpen(false);
+      } else if (query || activeChip) {
         e.preventDefault();
         setQuery('');
         setActiveSiteSearchId(undefined);
@@ -917,12 +922,12 @@ function EmptySpaceCanvas() {
       )}
 
       {barVisible && initialLoaded && (
-        <div className="relative z-10 flex w-full max-w-[560px] flex-col">
+        <div className="relative z-10 flex w-full max-w-[600px] flex-col">
           {/* Centered Arc-style Floating Command Bar (uniform neutral dark charcoal + Space highlight) */}
           <section
             ref={cardRef}
             aria-label={t('commandBar.inputLabel')}
-            className="flex flex-col overflow-hidden rounded-[14px]"
+            className="flex flex-col overflow-hidden rounded-[16px]"
             style={{
               colorScheme: 'dark',
               backgroundColor: cardBg,
@@ -983,18 +988,26 @@ function EmptySpaceCanvas() {
               {suggestion && (
                 <button
                   type="button"
+                  data-testid="command-bar-tab-hint"
                   onClick={() => {
                     setActiveSiteSearchId(suggestion.id);
                     setQuery('');
                     inputRef.current?.focus();
                   }}
-                  className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    color: 'rgba(255, 255, 255, 0.78)',
-                  }}
+                  className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[12px] font-medium transition-colors hover:bg-white/10"
+                  style={{ color: cardMuted }}
                 >
-                  {t('commandBar.tabHint', { site: suggestion.label })}
+                  <span>{t('commandBar.tabHintLabel', { site: suggestion.label })}</span>
+                  <kbd
+                    className="rounded-[5px] border px-1.5 py-0.5 font-sans text-[11px] font-medium"
+                    style={{
+                      borderColor: 'rgba(255, 255, 255, 0.16)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      color: 'rgba(255, 255, 255, 0.78)',
+                    }}
+                  >
+                    Tab
+                  </kbd>
                 </button>
               )}
 
@@ -1014,11 +1027,73 @@ function EmptySpaceCanvas() {
                   <X size={14} />
                 </button>
               )}
+
+              <button
+                type="button"
+                data-testid="command-bar-help-btn"
+                aria-label={t('commandBar.helpTitle')}
+                aria-expanded={helpOpen}
+                title={t('commandBar.helpTitle')}
+                onClick={() => setHelpOpen((prev) => !prev)}
+                className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-full transition-colors hover:bg-white/10"
+                style={{
+                  color: helpOpen ? 'rgba(255, 255, 255, 0.92)' : cardMuted,
+                  backgroundColor: helpOpen ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                }}
+              >
+                <CircleHelp size={15} />
+              </button>
             </div>
+
+            {helpOpen && (
+              <div
+                data-testid="command-bar-help-panel"
+                className="flex flex-col gap-1.5 px-4 py-2.5 text-[11.5px]"
+                style={{
+                  borderBottom: `1px solid ${cardRule}`,
+                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  color: 'rgba(255, 255, 255, 0.78)',
+                }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span>{t('commandBar.helpNavigate')}</span>
+                  <span className="font-mono text-[11px]" style={{ color: cardMuted }}>
+                    ↑ ↓ / ^P ^N
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span>{t('commandBar.helpSiteSearch')}</span>
+                  <kbd
+                    className="rounded border px-1.5 py-0.5 font-sans text-[10.5px]"
+                    style={{
+                      borderColor: 'rgba(255, 255, 255, 0.16)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    Tab
+                  </kbd>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span>
+                    {t('commandBar.helpWebSearch')} (
+                    {SEARCH_ENGINE_URLS[settings.searchEngine].label})
+                  </span>
+                  <span className="font-mono text-[11px]" style={{ color: cardMuted }}>
+                    {/Macintosh|Mac OS X|MacIntel/i.test(navigator.userAgent) ? '⌘↵' : 'Ctrl+↵'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span>{t('commandBar.helpClose')}</span>
+                  <span className="font-mono text-[11px]" style={{ color: cardMuted }}>
+                    Esc
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Fused Live Results */}
             <div
-              className="arcline-scroll flex max-h-[354px] flex-col gap-0.5 p-2"
+              className="arcline-scroll flex max-h-[380px] flex-col gap-0.5 p-2"
               onPointerMove={(e) => {
                 const prev = lastPointerPosRef.current;
                 if (!prev) {
@@ -1057,14 +1132,14 @@ function EmptySpaceCanvas() {
                         }
                       }}
                       onClick={() => void executeItem(item)}
-                      className="flex w-full cursor-pointer items-center gap-2.5 rounded-[9px] px-3 py-2 text-left transition-colors"
+                      className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-left transition-colors"
                       style={{
                         backgroundColor: selected ? selectedRowBg : 'transparent',
                         color: selected ? '#ffffff' : cardInk,
                       }}
                     >
                       {renderItemGlyph(item, settings.customSiteSearches)}
-                      <div className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                      <div className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
                         {displayItemTitle(item)}
                       </div>
                       {item.kind === 'favorite' && item.alias && (

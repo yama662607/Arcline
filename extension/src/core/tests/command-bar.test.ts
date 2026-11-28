@@ -265,7 +265,9 @@ describe('site searches', () => {
     expect(suggestSiteSearch('z')).toBeUndefined();
     expect(suggestSiteSearch('gh ')).toBeUndefined();
     expect(suggestSiteSearch('')).toBeUndefined();
-    expect(suggestSiteSearch('github')).toBeUndefined();
+    expect(suggestSiteSearch('github')?.id).toBe('github');
+    expect(suggestSiteSearch('amaz')?.id).toBe('amazon');
+    expect(suggestSiteSearch('not-a-site')).toBeUndefined();
   });
 
   it('exposes the partial state in the result', () => {
